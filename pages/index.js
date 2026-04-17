@@ -150,6 +150,7 @@ function Field({ label, name, value, onChange, textarea, required, placeholder, 
 
 function ResultCard({ result }) {
   const rekColor = REKOMENDASI_COLOR[result.rekomendasi] || '#374151';
+  const isPrescreen = result._source === 'prescreen';
   return (
     <div style={{ marginTop: 32, border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
       <div style={{ background: rekColor, padding: '20px 24px', color: '#fff' }}>
@@ -159,6 +160,11 @@ function ResultCard({ result }) {
             <div style={{ fontSize: 40, fontWeight: 800, lineHeight: 1.1 }}>{result.skor_total}</div>
           </div>
           <div style={{ textAlign: 'right' }}>
+            {isPrescreen && (
+              <div style={{ fontSize: 11, background: 'rgba(0,0,0,0.25)', borderRadius: 4, padding: '2px 8px', marginBottom: 4, display: 'inline-block' }}>
+                Auto-rejected (pre-screening)
+              </div>
+            )}
             <div style={{ fontSize: 13, opacity: 0.85 }}>Rekomendasi</div>
             <div style={{ fontSize: 26, fontWeight: 700 }}>{result.rekomendasi}</div>
           </div>
@@ -193,6 +199,15 @@ function ResultCard({ result }) {
             </ul>
           </div>
         </div>
+
+        {isPrescreen && result._prescreen?.reasons?.length > 0 && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '12px 16px', marginBottom: 20 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#991b1b', marginBottom: 6 }}>Detail Pre-Screening:</div>
+            <ul style={{ margin: 0, padding: '0 0 0 16px', fontSize: 12, color: '#7f1d1d', lineHeight: 1.8 }}>
+              {result._prescreen.reasons.map((r, i) => <li key={i}>{r}</li>)}
+            </ul>
+          </div>
+        )}
 
         <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 8, padding: '12px 16px' }}>
           <span style={{ fontSize: 12, fontWeight: 600, color: '#92400e' }}>Catatan HR: </span>

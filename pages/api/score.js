@@ -25,7 +25,9 @@ export default async function handler(req, res) {
 
   try {
     const result = await scoreCandidate(req.body);
-    return res.status(200).json(result);
+    // Surface whether the result came from pre-screening or AI
+    const source = result._prescreen && !result._prescreen.passed ? 'prescreen' : 'ai';
+    return res.status(200).json({ ...result, _source: source });
   } catch (err) {
     console.error('Scoring error:', err);
     return res.status(500).json({ error: 'Gagal menilai kandidat. Coba lagi.' });
