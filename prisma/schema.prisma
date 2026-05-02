@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Candidate {
+  id                 String   @id @default(cuid())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Identitas & data CV
+  nama               String
+  usia               Int?
+  jenisKelamin       String?
+  kota               String?
+  telepon            String?
+  email              String?
+  pendidikan         String?
+  posisiDilamar      String?
+
+  // Data penilaian
+  pengalamanTahun    Float?
+  pengalamanCleaning Boolean  @default(false)
+  punyaKendaraan     Boolean  @default(false)
+  riwayatResignCepat Boolean  @default(false)
+  pernahResignMendadak Boolean @default(false)
+  motivasiJelas      Boolean  @default(true)
+
+  // Skor 6 dimensi (1-10)
+  skorAttitude       Float
+  skorKesiapanFisik  Float
+  skorPengalaman     Float
+  skorDisiplin       Float
+  skorKomitmen       Float
+  skorKomunikasi     Float
+
+  // Hasil akhir
+  skorAkhir          Float
+  bonus              Float    @default(0)
+  penalti            Float    @default(0)
+  rekomendasi        String   // Lanjut / Dipertimbangkan / Ditolak
+  reasoning          String?  // AI explanation (JSON string)
+
+  // CV storage
+  cvFileName         String?
+  cvMimeType         String?
+  cvRawText          String?  // text extracted
+
+  // Pipeline status
+  status             String   @default("Applied") // Applied, Screening, Interview, Offer, Hired, Rejected
+  statusUpdatedAt    DateTime @default(now())
+
+  timeline           TimelineEvent[]
+  notes              Note[]
+
+  @@index([status])
+  @@index([skorAkhir])
+  @@index([createdAt])
+}
+
+model TimelineEvent {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  eventType   String    // status_change, note_added, scored, uploaded
+  fromStatus  String?
+  toStatus    String?
+  description String
+
+  @@index([candidateId])
+}
+
+model Note {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  author      String    @default("HR")
+  body        String
+
+  @@index([candidateId])
+}
