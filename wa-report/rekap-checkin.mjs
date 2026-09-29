@@ -1,12 +1,25 @@
 #!/usr/bin/env node
 // Rekap Check In / Check Out harian dari ekspor chat grup WhatsApp -> Excel.
 // Pakai: node rekap-checkin.mjs <chat.txt> [hasil.xlsx] [--batas-in=08:30] [--batas-out=17:00]
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync } from "node:fs";
+import { join, dirname } from "node:path";
 import { buildXlsx, STYLE } from "./xlsx.mjs";
 
 const args = process.argv.slice(2);
 const opt = Object.fromEntries(args.filter((a) => a.startsWith("--")).map((a) => a.slice(2).split("=")));
-const [input, output = "rekap-checkin.xlsx"] = args.filter((a) => !a.startsWith("--"));
+let [input, output] = args.filter((a) => !a.startsWith("--"));
+// Bila <chat.txt> berupa folder: pakai file .txt terbaru di folder itu, hasil bernama rekap-TAHUN-BULAN-TANGGAL.xlsx di folder "rekap" sebelahnya.
+if (input && statSync(input, { throwIfNoEntry: false })?.isDirectory()) {
+  const files = readdirSync(input).filter((f) => f.toLowerCase().endsWith(".txt")).map((f) => join(input, f));
+  if (!files.length) { console.error(`Tidak ada file .txt di folder ${input}`); process.exit(1); }
+  const newest = files.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)[0];
+  const outDir = join(dirname(input.replace(/[\\/]+$/, "")), "rekap");
+  mkdirSync(outDir, { recursive: true });
+  output ??= join(outDir, `rekap-${new Date().toLocaleDateString("sv-SE")}.xlsx`);
+  console.log(`Memakai file terbaru: ${newest}`);
+  input = newest;
+}
+output ??= "rekap-checkin.xlsx";
 if (!input) { console.error("Pakai: node rekap-checkin.mjs <chat.txt> [hasil.xlsx] [--batas-in=08:30] [--batas-out=17:00]"); process.exit(1); }
 
 // Nama unit yang ditulis berbeda -> nama baku.

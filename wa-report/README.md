@@ -24,3 +24,10 @@ Mengubah ekspor chat grup WhatsApp menjadi Excel: siapa (unit) sudah Check In / 
 - Nama unit yang ditulis berbeda diseragamkan lewat `ALIAS` di `rekap-checkin.mjs`.
 - Hari pertama sebuah ekspor bisa tampak "Tidak lapor" bila Anda baru masuk grup di tengah hari itu.
 - File chat dan hasil Excel berisi data nasabah dan tidak ikut di-commit (lihat `.gitignore`).
+
+## Otomatis harian (Windows)
+Ekspor chat dari HP tetap manual (WhatsApp tidak menyediakan cara resmi gratis), tetapi rekapnya berjalan sendiri.
+1. Buat folder `D:\wilayah\chat-masuk`. Simpan ekspor chat `.txt` di sana; file terbaru yang dipakai.
+2. Sesuaikan dua jalur di `rekap-otomatis.bat` (`FOLDER_CHAT` dan `REPO`).
+3. Buka **Task Scheduler > Create Basic Task**, pilih Daily jam 18.30, action **Start a program**, isi jalur `rekap-otomatis.bat`.
+4. Hasil: `D:\wilayah\rekap\rekap-TAHUN-BULAN-TANGGAL.xlsx`. Kesalahan tercatat di `D:\wilayah\rekap\log.txt`.
