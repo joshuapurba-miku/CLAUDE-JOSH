@@ -87,11 +87,110 @@ for (const u of units) {
 const detail = [[H("Tanggal"), H("Jam"), H("Jenis"), H("Unit"), H("Pelapor"), H("Isi pesan")]];
 for (const r of reports) detail.push([fmtDay(r.date), r.time, r.type === "IN" ? "Check In" : "Check Out", r.unit, r.sender, r.body]);
 
+// 4. Nominal (Rp juta) per kategori dari isi laporan, sebelum bagian "Prognosa".
+const LABELS = [
+  ["BWU Reguler", /^BWU\s*reguler/i], ["BWU Pandu", /^BWU\s*pandu/i], ["BWU Prima", /^BWU\s*prima/i], ["BWU", /^BWU\b/i],
+  ["BCM", /^BCM\b/i], ["KUR", /^KUR\b/i], ["KKLK", /^KKLK\b/i], ["KPP", /^KPP\b/i],
+  ["Pra NPL", /^pra\s*npl\b/i], ["NPL", /^NPL\b/i], ["HB", /^HB\b/i],
+  ["Pelunasan Deb Bisnis", /^pelunasan\s*deb\s*bisnis/i], ["Pelunasan Deb LaR", /^pelunasan\s*deb\s*lar/i],
+  ["Downsizing Deb Bisnis", /^downsizing/i], ["Pelunasan", /^pelunasan\b/i],
+];
+const AMOUNT = /(?:rp\.?\s*)?(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(jt|juta|miliar|m)\b/i;
+const AMOUNT_NO_UNIT = /rp\.?\s*(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)/i;
+const toNumber = (s) => (/^\d{1,3}([.,]\d{3})+$/.test(s) ? parseFloat(s.replace(/[.,]/g, "")) : parseFloat(s.replace(",", ".")));
+const toJuta = (s, unit) => toNumber(s) * (/^(m|miliar)$/i.test(unit || "") ? 1000 : 1);
+const HEADER = /^(penyelesaian|prognosa|aktivasi|closing|qris|wondr)/i;
+const MONTHS = ["januari", "februari", "maret", "april", "mei", "juni", "juli", "agustus", "september", "oktober", "november", "desember"];
+const reportDate = (lines) => {
+  const t = lines.slice(1, 6).join(" ");
+  let m = /(\d{1,2})\s+(januari|februari|maret|april|mei|juni|juli|agustus|september|oktober|november|desember)\s+(\d{4})/i.exec(t);
+  if (m) return `${m[1].padStart(2, "0")}/${String(MONTHS.indexOf(m[2].toLowerCase()) + 1).padStart(2, "0")}/${m[3]}`;
+  m = /(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(t);
+  return m ? `${m[1].padStart(2, "0")}/${m[2].padStart(2, "0")}/${m[3]}` : "";
+};
+
+const nominal = []; // { report, kategori, nominal, debitur, ket }
+const unread = []; // baris berisi angka yang tidak dikenali, untuk dicek manual
+for (const r of reports) {
+  const lines = r.body.split("\n").map((l) => l.replace(/[*\u2060\u200e\u200f]/g, "").trim()).filter(Boolean);
+  r.tglLaporan = reportDate(lines);
+  let cur = null;
+  for (const raw of lines.slice(2)) {
+    const line = raw.replace(/^[^A-Za-z]+/, "");
+    if (/prognosa/i.test(line)) break;
+    const hit = LABELS.find(([, re]) => re.test(line));
+    if (hit) {
+      cur = null;
+      const rest = line.replace(hit[1], "").replace(/^\s*[:;]?\s*/, "");
+      const head = rest.split("(")[0];
+      const a = AMOUNT.exec(head), b = !a && AMOUNT_NO_UNIT.exec(head);
+      if (!a && !b) { if (/\d/.test(head)) unread.push([r, line]); continue; }
+      const value = a ? toJuta(a[1], a[2]) : toNumber(b[1]);
+      if (!value) continue;
+      const deb = /\(\s*(\d+)\s*deb/i.exec(rest);
+      const ket = rest.replace(/^[^)]*\)?/, "").replace(/^[\s/]+/, "");
+      cur = { report: r, kategori: hit[0], nominal: value, debitur: deb ? +deb[1] : "", ket };
+      nominal.push(cur);
+    } else if (cur && !HEADER.test(line) && /[\/\d]/.test(line)) {
+      cur.ket = cur.ket ? `${cur.ket} ; ${line}` : line; // rincian debitur di baris bawahnya
+    } else {
+      if (HEADER.test(line)) cur = null;
+      if (AMOUNT.test(line) && !HEADER.test(line)) unread.push([r, line]);
+    }
+  }
+}
+// Jika satu unit mengirim Check In/Out lebih dari sekali dalam sehari, hanya yang terakhir dihitung di Total.
+const latest = new Map();
+for (const r of reports) {
+  const k = `${r.unit}|${r.date}|${r.type}`;
+  if (!latest.has(k) || r.time >= latest.get(k).time) latest.set(k, r);
+}
+const used = (r) => latest.get(`${r.unit}|${r.date}|${r.type}`) === r;
+
+const CATS = ["BCM", "BWU", "KUR", "KKLK", "KPP", "Pra NPL", "NPL", "HB", "Pelunasan", "Downsizing Deb Bisnis"];
+const catTotals = (rows) => { // BWU dan Pelunasan: pakai baris induk bila ada, kalau tidak jumlah rinciannya (tanpa hitung ganda)
+  const by = {};
+  for (const x of rows) by[x.kategori] = (by[x.kategori] || 0) + x.nominal;
+  const t = { ...by };
+  t.BWU = by.BWU || (by["BWU Reguler"] || 0) + (by["BWU Pandu"] || 0) + (by["BWU Prima"] || 0);
+  t.Pelunasan = (by["Pelunasan Deb Bisnis"] || 0) + (by["Pelunasan Deb LaR"] || 0) || by.Pelunasan || 0;
+  return t;
+};
+const byReport = new Map();
+for (const x of nominal) if (used(x.report)) byReport.set(x.report, [...(byReport.get(x.report) || []), x]);
+
+const nominalRows = [[H("Tanggal"), H("Tgl di laporan"), H("Jenis"), H("Jam"), H("Unit"), H("Kategori"), H("Nominal (Rp juta)"), H("Debitur"), H("Rincian"), H("Pelapor"), H("Dihitung di Total")]];
+for (const x of nominal) nominalRows.push([fmtDay(x.report.date), x.report.tglLaporan, x.report.type === "IN" ? "Check In" : "Check Out", x.report.time, x.report.unit, x.kategori, x.nominal, x.debitur, x.ket, x.report.sender, used(x.report) ? "Ya" : { v: "Tidak (ada laporan lebih baru)", s: STYLE.WARN }]);
+
+const pivotSheet = (name, type, rowKeys, rowOf, label) => {
+  const rows = [[H(label), ...CATS.map(H)]], sum = Object.fromEntries(CATS.map((c) => [c, 0]));
+  for (const key of rowKeys) {
+    const t = {};
+    for (const [rep, list] of byReport) if (rep.type === type && rowOf(rep) === key) for (const [c, v] of Object.entries(catTotals(list))) t[c] = (t[c] || 0) + v;
+    rows.push([label === "Tanggal" ? fmtDay(key) : key, ...CATS.map((c) => { sum[c] += t[c] || 0; return t[c] || ""; })]);
+  }
+  rows.push([{ v: "TOTAL", s: STYLE.HEADER }, ...CATS.map((c) => ({ v: sum[c], s: STYLE.HEADER }))]);
+  return { name, rows, widths: [26, ...CATS.map(() => 14)] };
+};
+const unreadRows = [[H("Tanggal"), H("Jenis"), H("Unit"), H("Baris yang tidak terbaca (cek manual)")]];
+for (const [r, line] of unread) unreadRows.push([fmtDay(r.date), r.type === "IN" ? "Check In" : "Check Out", r.unit, line]);
+const nominalSheets = [
+  { name: "Nominal", rows: nominalRows, widths: [12, 13, 11, 8, 26, 22, 17, 9, 60, 24, 24] },
+  pivotSheet("Total Check Out", "OUT", units, (r) => r.unit, "Unit"),
+  pivotSheet("Total Check In", "IN", units, (r) => r.unit, "Unit"),
+  pivotSheet("Per Tanggal (Out)", "OUT", days, (r) => r.date, "Tanggal"),
+  { name: "Perlu Dicek", rows: unreadRows, widths: [12, 11, 26, 100] },
+];
+
 writeFileSync(output, buildXlsx([
   { name: "Matriks", rows: matriks, widths: [26, ...days.map(() => 7), 9, 20] },
   { name: "Rekap Harian", rows: harian, widths: [12, 26, 10, 10, 16, 20, 26] },
+  ...nominalSheets,
   { name: "Detail Pesan", rows: detail, widths: [12, 8, 11, 26, 26, 90] },
 ]));
 const lengkap = harian.slice(1).filter((r) => r[4].v === "Lengkap").length;
 console.log(`${reports.length} pesan Check In/Out | ${units.length} unit | ${days.length} hari (${fmtDay(days[0])}-${fmtDay(days.at(-1))})`);
 console.log(`Lengkap ${lengkap} dari ${harian.length - 1} unit-hari. Hasil: ${output}`);
+const grand = (type) => { const t = {}; for (const [rep, list] of byReport) if (rep.type === type) for (const [c, v] of Object.entries(catTotals(list))) t[c] = (t[c] || 0) + v; return CATS.filter((c) => t[c]).map((c) => `${c} ${t[c].toLocaleString("id-ID")}`).join(", "); };
+console.log(`${unread.length} baris berangka tidak terbaca (sheet "Perlu Dicek")`);
+console.log(`${nominal.length} baris nominal (Rp juta). Total Check Out: ${grand("OUT")}`);
