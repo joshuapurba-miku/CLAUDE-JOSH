@@ -1,0 +1,4 @@
+wa-report/data/
+*.xlsx
+Chat_WhatsApp*.txt
+node_modules/
