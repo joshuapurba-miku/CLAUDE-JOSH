@@ -19,6 +19,9 @@ Mengubah ekspor chat grup WhatsApp menjadi Excel: siapa (unit) sudah Check In / 
 - **Nominal**: satu baris per item yang ada nominalnya (BCM, BWU, KUR, KKLK, KPP, Pra NPL, NPL, HB, Pelunasan, Downsizing), dengan nominal dalam Rp juta (angka, bisa langsung di-SUM atau di-pivot), jumlah debitur, dan rincian nama debitur.
 - **Total Check Out** / **Total Check In**: total per unit per kategori, dengan baris TOTAL di bawah.
 - **Per Tanggal (Out)**: total per hari per kategori dari Check Out.
+- **Rencana vs Realisasi**: setiap item di Check In dicocokkan dengan Check Out (unit + kategori + nama debitur). Status: *Terealisasi hari itu*, *Tertunda, terealisasi kemudian* (mengikuti Check In berikutnya atau Check Out hari lain), *Tidak terealisasi*, atau *Realisasi tanpa rencana*.
+- **Ringkasan Rencana**: jumlah item per unit menurut status.
+- **Prognosa**: posisi, selisih, dan komitmen per unit (Rp juta) dari bagian "Prognosa Kinerja Bisnis Harian", diambil dari Check Out (Check In hanya bila tidak ada Check Out). Angka yang sama persis dengan laporan sebelumnya diberi catatan.
 - **Perlu Dicek**: baris berangka yang tidak berhasil dibaca, supaya tidak ada nominal yang lolos diam-diam.
 - **Detail Pesan**: semua pesan Check In/Out beserta isinya.
 
@@ -38,6 +41,7 @@ Ekspor chat dari HP tetap manual (WhatsApp tidak menyediakan cara resmi gratis),
 
 ## Tentang nominal
 - Nominal hanya diambil dari bagian realisasi (sebelum "Prognosa Kinerja Bisnis Harian"). Angka prognosa/BD adalah akumulasi bulanan dan tidak dijumlahkan.
-- Check In dan Check Out sering memuat transaksi yang sama. Jangan menjumlahkan keduanya; pakai **Total Check Out** sebagai realisasi.
+- Check In adalah rencana hari itu, Check Out adalah realisasi. Total realisasi = **Total Check Out**. Total Check In hanya untuk melihat rencana.
+- Pencocokan rencana ke realisasi memakai nama debitur (bukan nominal). Bila laporan tidak menyebut nama (hanya "KUR Rp 500 jt"), dicocokkan lewat nominal yang sama di hari yang sama; untuk hari berbeda perlu nama.
 - BWU dan Pelunasan dihitung sekali: baris induk bila ada, kalau tidak jumlah rinciannya.
 - Bila satu unit mengirim Check Out lebih dari sekali dalam sehari, hanya yang terakhir dihitung (kolom "Dihitung di Total").

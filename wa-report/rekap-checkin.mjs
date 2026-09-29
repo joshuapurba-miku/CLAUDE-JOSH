@@ -4,6 +4,7 @@
 import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { buildXlsx, STYLE } from "./xlsx.mjs";
+import { rencanaSheets, prognosaSheet } from "./rencana.mjs";
 
 const args = process.argv.slice(2);
 const opt = Object.fromEntries(args.filter((a) => a.startsWith("--")).map((a) => a.slice(2).split("=")));
@@ -48,6 +49,7 @@ for (const { date, time, text } of msgs) {
   const unit = ALIAS[raw.toLowerCase()] || raw;
   reports.push({ date, time, sender, unit, type: kind[1].toLowerCase() === "in" ? "IN" : "OUT", body });
 }
+reports.forEach((r, i) => (r.id = i));
 if (!reports.length) { console.error("Tidak ada pesan Check In/Out ditemukan."); process.exit(1); }
 
 // 3. Rekap per unit per hari kerja (hari yang ada laporan sama sekali).
@@ -174,6 +176,7 @@ const pivotSheet = (name, type, rowKeys, rowOf, label) => {
 };
 const unreadRows = [[H("Tanggal"), H("Jenis"), H("Unit"), H("Baris yang tidak terbaca (cek manual)")]];
 for (const [r, line] of unread) unreadRows.push([fmtDay(r.date), r.type === "IN" ? "Check In" : "Check Out", r.unit, line]);
+const amountOf = (text) => { const a = AMOUNT.exec(text), b = !a && AMOUNT_NO_UNIT.exec(text); return a ? toJuta(a[1], a[2]) : b ? toNumber(b[1]) : null; };
 const nominalSheets = [
   { name: "Nominal", rows: nominalRows, widths: [12, 13, 11, 8, 26, 22, 17, 9, 60, 24, 24] },
   pivotSheet("Total Check Out", "OUT", units, (r) => r.unit, "Unit"),
@@ -186,6 +189,8 @@ writeFileSync(output, buildXlsx([
   { name: "Matriks", rows: matriks, widths: [26, ...days.map(() => 7), 9, 20] },
   { name: "Rekap Harian", rows: harian, widths: [12, 26, 10, 10, 16, 20, 26] },
   ...nominalSheets,
+  ...rencanaSheets(nominal, reports, used, amountOf, units),
+  prognosaSheet(reports, used),
   { name: "Detail Pesan", rows: detail, widths: [12, 8, 11, 26, 26, 90] },
 ]));
 const lengkap = harian.slice(1).filter((r) => r[4].v === "Lengkap").length;
