@@ -1,0 +1,63 @@
+# ============================================================
+#  KONFIGURASI SISTEM PENGOLAHAN DATA
+#  File ini adalah "OTAK" sistem. Ubah di sini untuk menyesuaikan
+#  dengan data asli Anda TANPA perlu mengubah script Python.
+# ============================================================
+
+# --- 1. LOKASI FOLDER ---
+# Untuk pemakaian di komputer Windows kantor, ganti 'inbox' ke path
+# folder data Anda, contoh: "D:/Wilayah/DATA/TARIK DATA/28092026"
+# (gunakan garis miring '/' , bukan '\')
+folders:
+  inbox: "data/inbox"        # tempat file Excel sumber
+  processed: "data/processed" # arsip file yang sudah diolah
+  output: "data/output"       # hasil rekap.xlsx & laporan.pptx
+
+# --- 2. PEMBACAAN FILE EXCEL ---
+excel:
+  # Baris ke berapa header/judul kolom berada (1 = baris pertama).
+  header_row: 1
+  # Nama sheet yang dibaca. Kosongkan ("") untuk pakai sheet pertama.
+  sheet_name: ""
+  # Pola nama file yang diproses (semua file .xlsx dan .xls)
+  file_patterns: ["*.xlsx", "*.xls"]
+
+# --- 3. PEMETAAN KOLOM ---
+# Petakan nama kolom di file Excel Anda -> nama baku yang dipakai sistem.
+# Sisi KIRI = nama baku sistem (jangan diubah).
+# Sisi KANAN = nama kolom PERSIS seperti di file Excel Anda.
+# Jika ada nama kolom yang berbeda-beda antar file, tulis beberapa
+# kemungkinan dipisah '|' , contoh: "Tanggal|Tgl|Date"
+columns:
+  tanggal:    "Tanggal|Tgl|Date"
+  wilayah:    "Wilayah|Region|Area"
+  cabang:     "Cabang|Branch|Unit"
+  keterangan: "Keterangan|Uraian|Deskripsi|Description"
+  debit:      "Debit|Pengeluaran|Keluar"
+  kredit:     "Kredit|Pemasukan|Masuk"
+  saldo:      "Saldo|Balance"
+
+# --- 4. DIMENSI PENGELOMPOKAN ---
+# Kolom yang dipakai untuk mengelompokkan rekap (untuk tabel & grafik PPT).
+group_by: "wilayah"     # bisa: wilayah / cabang / kategori
+
+# --- 5. ATURAN KATEGORI OTOMATIS ---
+# Sistem membaca isi kolom 'keterangan'. Jika mengandung salah satu
+# kata kunci di bawah, transaksi diberi kategori tersebut.
+# Yang tidak cocok diberi kategori "Lainnya".
+kategori:
+  Gaji:          ["gaji", "payroll", "upah", "thr"]
+  Operasional:   ["listrik", "air", "internet", "sewa", "atk", "bbm", "transport"]
+  Pembayaran Klien: ["invoice", "tagihan", "pembayaran", "transfer masuk", "setoran"]
+  Pajak:         ["pajak", "pph", "ppn", "bpjs"]
+  Biaya Bank:    ["admin", "biaya", "bunga", "pajak bunga"]
+
+# --- 6. LAPORAN PPT ---
+ppt:
+  judul: "Laporan Pengolahan Data"
+  subjudul: "Rekapitulasi Transaksi"
+  perusahaan: "PT Nama Perusahaan Anda"
+  # Path template PPT berlogo (opsional). Kosongkan untuk template polos.
+  template: ""
+  # Nama mata uang untuk format angka
+  mata_uang: "Rp"

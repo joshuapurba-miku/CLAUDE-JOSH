@@ -1,0 +1,17 @@
+# Data asli & hasil olahan JANGAN ikut ke repositori (bisa berisi info sensitif)
+data/inbox/*
+data/processed/*
+data/output/*
+!data/inbox/.gitkeep
+!data/processed/.gitkeep
+!data/output/.gitkeep
+
+# File sementara Excel
+~$*.xlsx
+~$*.xls
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
