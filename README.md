@@ -1,31 +1,44 @@
-# Sistem Pengolahan Data → Excel & PowerPoint
+# Sistem Pengolahan Data → Dashboard, Excel & PowerPoint
 
-Sistem otomatis: taruh file Excel di satu folder, jalankan, keluar
-**rekap Excel** + **laporan PowerPoint** lengkap dengan grafik.
+Sistem otomatis: taruh file Excel di satu folder, lalu pilih hasilnya —
+**dashboard interaktif**, **rekap Excel**, atau **laporan PowerPoint**.
 
 ```
-  data/inbox/          →   scripts/process.py   →   data/output/rekap.xlsx
-  (file Excel mentah)      scripts/to_pptx.py   →   data/output/laporan.pptx
+                              ┌─→  DASHBOARD interaktif (scripts/dashboard.py)
+  data/inbox/  ──→  olah ──→  ├─→  rekap Excel        (scripts/process.py → rekap.xlsx)
+  (Excel mentah)              └─→  laporan PowerPoint (scripts/to_pptx.py → laporan.pptx)
 ```
+
+Semua berbagi satu mesin pengolah (`scripts/olah.py`), jadi angkanya konsisten.
 
 ---
 
-## Cara pakai sehari-hari (3 langkah)
+## Cara pakai sehari-hari
 
-1. **Taruh file Excel** sumber ke folder `data/inbox/`
-2. Jalankan pengolah:
-   ```
-   python scripts/process.py
-   ```
-3. Jalankan pembuat PPT:
-   ```
-   python scripts/to_pptx.py
-   ```
+**Langkah 1 — selalu:** taruh file Excel sumber ke folder `data/inbox/`
 
-Hasil ada di folder `data/output/` : `rekap.xlsx` dan `laporan.pptx`.
+Lalu pilih hasil yang diinginkan:
 
-> Ingin file sumber otomatis diarsipkan setelah diolah?
-> `python scripts/process.py --arsip` (file dipindah ke `data/processed/`)
+### A. Dashboard interaktif (filter + grafik langsung)
+- **Windows:** dobel-klik `jalankan-dashboard.bat`
+- **atau terminal:** `streamlit run scripts/dashboard.py`
+
+Dashboard terbuka di browser (`localhost`). Ada filter tanggal/wilayah/cabang/
+kategori, KPI, grafik interaktif, tabel, dan tombol unduh data terfilter.
+Setelah menambah file Excel baru, klik tombol **🔄 Muat ulang data**.
+
+### B. Rekap Excel
+```
+python scripts/process.py          (tambah --arsip untuk memindah file sumber ke processed/)
+```
+Hasil: `data/output/rekap.xlsx` (Data Gabungan, Ringkasan, Per Wilayah, Per Kategori).
+
+### C. Laporan PowerPoint
+```
+python scripts/process.py
+python scripts/to_pptx.py
+```
+Hasil: `data/output/laporan.pptx` (judul, ringkasan, grafik, penutup).
 
 ---
 
@@ -91,10 +104,13 @@ CLAUDE-JOSH/
 │   ├── processed/   ← arsip file yang sudah diolah
 │   └── output/      ← hasil: rekap.xlsx + laporan.pptx
 ├── scripts/
+│   ├── olah.py        ← MESIN INTI (baca+bersih+kategori), dipakai bersama
 │   ├── make_dummy.py  ← buat data contoh
 │   ├── process.py     ← olah Excel → rekap.xlsx
-│   └── to_pptx.py     ← rekap → laporan.pptx
+│   ├── to_pptx.py     ← rekap → laporan.pptx
+│   └── dashboard.py   ← dashboard interaktif (Streamlit)
 ├── templates/         ← (opsional) template PPT berlogo
+├── jalankan-dashboard.bat  ← dobel-klik (Windows) untuk buka dashboard
 ├── config.yaml        ← PENGATURAN semua aturan
 └── requirements.txt
 ```
