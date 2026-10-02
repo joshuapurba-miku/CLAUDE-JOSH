@@ -4,3 +4,4 @@ data/*
 !data/karyawan.csv.contoh
 output/*
 !output/.gitkeep
+__pycache__/
