@@ -1,0 +1,18 @@
+{
+  "name": "rekap-gaji-wa",
+  "version": "1.0.0",
+  "description": "Rekap absensi & gaji cleaning service via WhatsApp (Fonnte)",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node src/selftest.js"
+  },
+  "dependencies": {
+    "dayjs": "^1.11.10",
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

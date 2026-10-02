@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rekap Gaji Kebersihan</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#f5f7f4; --surface:#ffffff; --surface-2:#eef1ee; --border:#dde3dd;
+  --fg:#1b2420; --muted:#5f6b64; --accent:#0f8a6a; --accent-fg:#ffffff; --accent-soft:#d9f0e8;
+  --ok:#12805c; --ok-bg:#d8f0e6; --warn:#9c6b06; --warn-bg:#faecc8;
+  --info:#1566b6; --info-bg:#d9e7fb; --bad:#be3a3a; --bad-bg:#f7dada;
+  --neutral:#6b746e; --neutral-bg:#e6eae7;
+  --shadow:0 1px 2px rgba(20,40,30,.06),0 4px 16px rgba(20,40,30,.06);
+  --radius:12px;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --sans:"Plus Jakarta Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1512; --surface:#161d19; --surface-2:#1d2621; --border:#2a342e;
+  --fg:#e8efe9; --muted:#9aa8a0; --accent:#3bbf97; --accent-fg:#06211a; --accent-soft:#163029;
+  --ok:#49c79b; --ok-bg:#12302688; --warn:#e0b354; --warn-bg:#31280f88;
+  --info:#6aa8ec; --info-bg:#13233788; --bad:#eb7a7a; --bad-bg:#32181888;
+  --neutral:#9aa8a0; --neutral-bg:#222b2688;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.3); color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0f1512; --surface:#161d19; --surface-2:#1d2621; --border:#2a342e;
+  --fg:#e8efe9; --muted:#9aa8a0; --accent:#3bbf97; --accent-fg:#06211a; --accent-soft:#163029;
+  --ok:#49c79b; --ok-bg:#12302688; --warn:#e0b354; --warn-bg:#31280f88;
+  --info:#6aa8ec; --info-bg:#13233788; --bad:#eb7a7a; --bad-bg:#32181888;
+  --neutral:#9aa8a0; --neutral-bg:#222b2688;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.3); color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-text-size-adjust:100%}
+img{max-width:100%}
+[hidden]{display:none!important}
+h1,h2,h3{margin:0;text-wrap:balance;font-weight:700;letter-spacing:-.01em}
+a{color:var(--accent)}
+.num{font-variant-numeric:tabular-nums;font-family:var(--mono)}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--surface);border-bottom:1px solid var(--border);box-shadow:var(--shadow)}
+.bar-in{max-width:1100px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.logo{width:34px;height:34px;border-radius:9px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;font-weight:800;font-size:16px;flex:none}
+.brand h1{font-size:16px;line-height:1.1}
+.brand span{display:block;font-size:11px;color:var(--muted);font-weight:500}
+.wa-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--neutral);margin-right:4px}
+.wa-dot.on{background:var(--ok)}
+.month-pick{display:flex;align-items:center;gap:6px}
+.month-pick label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.iconbtn{background:var(--surface-2);border:1px solid var(--border);color:var(--fg);border-radius:9px;width:36px;height:36px;display:grid;place-items:center;cursor:pointer;font-size:15px}
+.tabs{max-width:1100px;margin:0 auto;padding:0 10px;display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{appearance:none;background:none;border:none;color:var(--muted);font-family:inherit;font-size:13px;font-weight:600;padding:11px 13px;cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.wrap{max-width:1100px;margin:0 auto;padding-block:18px;padding-left:16px;padding-right:16px}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:16px}
+.panel h2{font-size:15px;margin-bottom:4px}
+.panel .sub{font-size:12.5px;color:var(--muted);margin-bottom:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.col{display:flex;flex-direction:column;gap:4px;min-width:0}
+.col.grow{flex:1 1 140px}
+label.fld{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow)}
+.tile .k{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.tile .v{font-size:22px;font-weight:700;margin-top:6px;font-variant-numeric:tabular-nums}
+.tile.accent{background:linear-gradient(135deg,var(--accent-soft),var(--surface))}
+input,select,textarea{font-family:inherit;font-size:14px;color:var(--fg);background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:9px 10px;width:100%}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+textarea{resize:vertical;line-height:1.5}
+button.btn{appearance:none;font-family:inherit;font-size:13.5px;font-weight:600;border-radius:9px;padding:9px 15px;cursor:pointer;border:1px solid var(--border);background:var(--surface-2);color:var(--fg)}
+button.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+button.btn.ghost{background:none}
+button.btn.sm{padding:6px 10px;font-size:12.5px}
+button.btn.danger{color:var(--bad);border-color:var(--bad)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius)}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px}
+th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:var(--surface-2);position:sticky;top:0}
+td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--surface-2)}
+tr.totalrow td{font-weight:700;background:var(--surface-2)}
+.badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px}
+.b-hadir{background:var(--ok-bg);color:var(--ok)}
+.b-dijadwalkan{background:var(--warn-bg);color:var(--warn)}
+.b-izin{background:var(--neutral-bg);color:var(--neutral)}
+.b-sakit{background:var(--info-bg);color:var(--info)}
+.b-alpha{background:var(--bad-bg);color:var(--bad)}
+.b-libur{background:var(--neutral-bg);color:var(--neutral)}
+.chat-log{display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto;padding:4px}
+.msg{padding:8px 12px;border-radius:12px;font-size:13px;max-width:92%;white-space:pre-wrap}
+.msg.in{background:var(--accent-soft);align-self:flex-end;border-bottom-right-radius:3px}
+.msg.out{background:var(--surface-2);align-self:flex-start;border-bottom-left-radius:3px;border:1px solid var(--border)}
+.msg.out.err{background:var(--bad-bg);color:var(--bad)}
+.chatbox{display:flex;gap:8px;margin-top:12px}
+.chatbox input{flex:1}
+.hint{font-size:12px;color:var(--muted);background:var(--surface-2);border-radius:9px;padding:10px 12px;margin-top:10px}
+.hint code{font-family:var(--mono);background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:1px 5px;font-size:11.5px;color:var(--fg)}
+.hint b{color:var(--fg)}
+.slip{background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius);padding:18px;max-width:420px;font-family:var(--mono);font-size:12.5px}
+.slip h3{font-family:var(--sans);font-size:15px}
+.slip .line{display:flex;justify-content:space-between;gap:12px;padding:3px 0}
+.slip .rule{border-top:1px dashed var(--border);margin:8px 0}
+.slip .tot{font-weight:700;font-size:15px}
+.muted{color:var(--muted)}.right{margin-left:auto}.small{font-size:12px}
+.empty{text-align:center;color:var(--muted);padding:26px 12px;font-size:13px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.pill-note{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;background:var(--warn-bg);color:var(--warn);padding:4px 10px;border-radius:999px;font-weight:600}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:13px;font-weight:600;box-shadow:var(--shadow);z-index:50;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+@media (max-width:560px){.brand h1{font-size:15px}table{font-size:12.5px}.slip{max-width:100%}}
+</style>
+</head>
+<body>
+<div class="bar">
+  <div class="bar-in">
+    <div class="brand">
+      <div class="logo">RG</div>
+      <div><h1>Rekap Gaji Kebersihan</h1><span id="waStatus"><span class="wa-dot"></span>memeriksa…</span></div>
+    </div>
+    <div class="month-pick"><label for="month">Periode</label><input type="month" id="month" style="width:160px"></div>
+    <button class="iconbtn" id="themeBtn" title="Ganti tema">◐</button>
+  </div>
+  <div class="tabs" id="tabs" role="tablist">
+    <button class="tab" role="tab" data-tab="dash" aria-selected="true">Ringkasan</button>
+    <button class="tab" role="tab" data-tab="chat" aria-selected="false">Absensi &amp; Chat</button>
+    <button class="tab" role="tab" data-tab="gaji" aria-selected="false">Rekap &amp; Slip</button>
+    <button class="tab" role="tab" data-tab="lokasi" aria-selected="false">Lokasi</button>
+    <button class="tab" role="tab" data-tab="karyawan" aria-selected="false">Karyawan</button>
+    <button class="tab" role="tab" data-tab="admin" aria-selected="false">Admin WA</button>
+    <button class="tab" role="tab" data-tab="data" aria-selected="false">Backup</button>
+  </div>
+</div>
+<div class="wrap" id="view"><div class="empty">Memuat data…</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $=(s,r=document)=>r.querySelector(s);
+const rupiah=n=>"Rp"+Math.round(Number(n)||0).toLocaleString("id-ID");
+const onlyDigits=s=>Number(String(s).replace(/[^\d]/g,""))||0;
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const BULAN=["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+function pad(n){return(n<10?"0":"")+n;}
+function todayStr(){const d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
+function thisMonth(){const d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1);}
+function fmtDay(ds){const[y,m,d]=ds.split("-");return d+" "+BULAN[+m-1].slice(0,3);}
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),1900);}
+function copy(text){const done=()=>toast("Tersalin ke clipboard");
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(done).catch(()=>fb());else fb();
+  function fb(){const ta=document.createElement("textarea");ta.value=text;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();try{document.execCommand("copy");done();}catch(e){toast("Gagal menyalin");}document.body.removeChild(ta);}}
+
+let state={locations:[],employees:[],admins:[],attendance:{}};
+let payroll=[];
+let ym=thisMonth();
+let activeTab="dash";
+let editLoc=null,editEmp=null,waEnabled=false;
+
+async function api(path,method,body){
+  const opts={method:method||"GET"};
+  if(body!==undefined){opts.headers={"Content-Type":"application/json"};opts.body=JSON.stringify(body);}
+  const r=await fetch("/api"+path,opts);
+  if(!r.ok){let e={};try{e=await r.json();}catch(_){}throw new Error(e.error||("HTTP "+r.status));}
+  return r.json();
+}
+async function refresh(){
+  try{
+    state=await api("/state");
+    payroll=await api("/payroll?month="+ym);
+    const h=await api("/health");waEnabled=h.waEnabled;
+  }catch(e){toast("Gagal terhubung ke server");}
+  updateWaStatus();render();
+}
+function updateWaStatus(){
+  const el=$("#waStatus");
+  el.innerHTML=`<span class="wa-dot ${waEnabled?"on":""}"></span>${waEnabled?"WhatsApp aktif":"WA mode uji"}`;
+}
+const locById=id=>state.locations.find(l=>l.id===id);
+const empById=id=>state.employees.find(e=>e.id===id);
+const calcOf=id=>payroll.find(p=>p.emp.id===id)||{emp:empById(id),perLoc:[],pokok:0,makan:0,lemburRp:0,tunjangan:0,potongan:0,total:0,hariHadir:0};
+function monthRecords(){
+  return Object.entries(state.attendance).filter(([k])=>k.split("|")[1].startsWith(ym))
+    .map(([k,v])=>{const[empId,date]=k.split("|");return{key:k,empId,date,...v};});
+}
+function periodeLabel(){const[y,m]=ym.split("-");return BULAN[+m-1]+" "+y;}
+
+/* ---------- views ---------- */
+function render(){
+  $("#month").value=ym;
+  document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected",t.dataset.tab===activeTab));
+  const v=$("#view");
+  v.innerHTML=({dash:viewDash,chat:viewChat,gaji:viewGaji,lokasi:viewLokasi,karyawan:viewKaryawan,admin:viewAdmin,data:viewData}[activeTab])();
+  if(activeTab==="chat")renderChatLog();
+}
+function sampleBanner(){return state.isSample?`<span class="pill-note">⚠ Data contoh — ganti dengan data asli Anda</span>`:"";}
+
+function viewDash(){
+  const recs=monthRecords();
+  const totalGaji=payroll.reduce((s,r)=>s+r.total,0);
+  const hadir=recs.filter(r=>r.status==="hadir").length;
+  const alpha=recs.filter(r=>r.status==="alpha").length;
+  const perLoc={};
+  payroll.forEach(r=>r.perLoc.forEach(p=>{perLoc[p.loc.id]=perLoc[p.loc.id]||{nama:p.loc.nama,hari:0,total:0};perLoc[p.loc.id].hari+=p.hari;perLoc[p.loc.id].total+=p.pokok+p.makan+p.lemburRp;}));
+  const locRows=Object.values(perLoc).sort((a,b)=>b.total-a.total);
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+    <h2 style="font-size:18px">Ringkasan ${periodeLabel()}</h2>${sampleBanner()}
+  </div>
+  <div class="tiles" style="margin-bottom:16px">
+    <div class="tile accent"><div class="k">Estimasi total gaji</div><div class="v">${rupiah(totalGaji)}</div></div>
+    <div class="tile"><div class="k">Karyawan</div><div class="v">${state.employees.length}</div></div>
+    <div class="tile"><div class="k">Lokasi</div><div class="v">${state.locations.length}</div></div>
+    <div class="tile"><div class="k">Total hari hadir</div><div class="v">${hadir}</div></div>
+    <div class="tile"><div class="k">Alpha bulan ini</div><div class="v" style="color:${alpha?'var(--bad)':'inherit'}">${alpha}</div></div>
+  </div>
+  <div class="panel">
+    <h2>Beban gaji per lokasi</h2><p class="sub">Dari absensi "hadir" pada ${periodeLabel()}.</p>
+    ${locRows.length?`<div class="tablewrap"><table><thead><tr><th>Lokasi</th><th class="r">Hari hadir</th><th class="r">Beban gaji</th></tr></thead><tbody>
+      ${locRows.map(r=>`<tr><td>${esc(r.nama)}</td><td class="r num">${r.hari}</td><td class="r num">${rupiah(r.total)}</td></tr>`).join("")}
+      <tr class="totalrow"><td>Total</td><td class="r num">${locRows.reduce((s,r)=>s+r.hari,0)}</td><td class="r num">${rupiah(locRows.reduce((s,r)=>s+r.total,0))}</td></tr>
+    </tbody></table></div>`:`<div class="empty">Belum ada absensi "hadir" bulan ini.</div>`}
+  </div>`;
+}
+
+function viewChat(){
+  const recs=monthRecords().sort((a,b)=>b.date.localeCompare(a.date)||(empById(a.empId)?.nama||"").localeCompare(empById(b.empId)?.nama||""));
+  const statuses=["hadir","dijadwalkan","izin","sakit","alpha","libur"];
+  return `
+  <div class="panel">
+    <h2>Lapor absensi & perubahan jadwal</h2>
+    <p class="sub">Ketik seperti chat WhatsApp. ${waEnabled?"Admin juga bisa chat langsung ke nomor WhatsApp bisnis Anda.":"Aktifkan token Fonnte agar admin bisa lapor lewat WhatsApp asli."}</p>
+    <div class="chat-log" id="chatLog"></div>
+    <div class="chatbox"><input id="chatInput" placeholder="cth: Budi hadir Mall Senayan shift pagi" autocomplete="off"><button class="btn primary" data-act="send">Kirim</button></div>
+    <div class="hint"><b>Contoh:</b><br>
+      <code>Budi hadir</code> · <code>Ani hadir Apartemen Sudirman shift malam</code><br>
+      <code>Joko pindah ke Mall Senayan besok</code> · <code>Siti sakit 5 okt</code><br>
+      <code>Agus lembur 2 jam</code> · <code>slip Budi</code> · <code>rekap</code> · <code>bantuan</code></div>
+  </div>
+  <div class="panel">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+      <h2 style="margin-bottom:0">Catatan absensi ${periodeLabel()}</h2>
+      <button class="btn sm right" data-act="mark-today">+ Semua hadir hari ini</button>
+      <button class="btn sm" data-act="add-manual">+ Tambah manual</button>
+    </div>
+    <p class="sub">Hanya <span class="badge b-hadir">hadir</span> yang dihitung sebagai gaji.</p>
+    ${recs.length?`<div class="tablewrap"><table><thead><tr><th>Tgl</th><th>Karyawan</th><th>Status</th><th>Lokasi</th><th>Shift</th><th class="r">Lembur</th><th></th></tr></thead><tbody>
+      ${recs.map(r=>{const emp=empById(r.empId);if(!emp)return"";const loc=locById(r.locId)||{shifts:[]};
+        return `<tr data-key="${r.key}">
+        <td class="num">${fmtDay(r.date)}</td><td>${esc(emp.nama)}</td>
+        <td><select data-f="status" style="width:auto;min-width:114px">${statuses.map(s=>`<option${s===r.status?" selected":""}>${s}</option>`).join("")}</select></td>
+        <td><select data-f="locId" style="width:auto;min-width:150px">${state.locations.map(l=>`<option value="${l.id}"${l.id===r.locId?" selected":""}>${esc(l.nama)}</option>`).join("")}</select></td>
+        <td><select data-f="shift" style="width:auto;min-width:88px">${(loc.shifts||[]).map(s=>`<option${s.nama===r.shift?" selected":""}>${esc(s.nama)}</option>`).join("")||"<option></option>"}</select></td>
+        <td class="r"><input data-f="lembur" type="number" min="0" step="0.5" value="${r.lembur||0}" style="width:62px;text-align:right"></td>
+        <td><button class="btn sm danger" data-act="del-rec">Hapus</button></td></tr>`;}).join("")}
+    </tbody></table></div>`:`<div class="empty">Belum ada catatan.</div>`}
+  </div>`;
+}
+
+function viewGaji(){
+  const rows=payroll;
+  const tot=rows.reduce((a,r)=>({pokok:a.pokok+r.pokok,makan:a.makan+r.makan,lembur:a.lembur+r.lemburRp,tunj:a.tunj+r.tunjangan,pot:a.pot+r.potongan,total:a.total+r.total,hari:a.hari+r.hariHadir}),{pokok:0,makan:0,lembur:0,tunj:0,pot:0,total:0,hari:0});
+  return `
+  <div class="panel">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <h2 style="margin-bottom:0">Rekap gaji ${periodeLabel()}</h2>
+      <button class="btn sm right" data-act="copy-rekap">Salin rekap</button>
+    </div>
+    <p class="sub">Dihitung dari hari hadir per lokasi + lembur + tunjangan − potongan.</p>
+    ${rows.length?`<div class="tablewrap"><table><thead><tr><th>Karyawan</th><th class="r">Hari</th><th class="r">Pokok</th><th class="r">U.makan</th><th class="r">Lembur</th><th class="r">Tunjangan</th><th class="r">Potongan</th><th class="r">Total</th><th></th></tr></thead><tbody>
+      ${rows.map(r=>`<tr>
+        <td>${esc(r.emp.nama)}</td><td class="r num">${r.hariHadir}</td>
+        <td class="r num">${rupiah(r.pokok)}</td><td class="r num">${rupiah(r.makan)}</td>
+        <td class="r num">${rupiah(r.lemburRp)}</td><td class="r num">${rupiah(r.tunjangan)}</td>
+        <td class="r num" style="color:${r.potongan?'var(--bad)':'inherit'}">${r.potongan?"−"+rupiah(r.potongan):"—"}</td>
+        <td class="r num"><b>${rupiah(r.total)}</b></td>
+        <td><button class="btn sm" data-act="slip" data-emp="${r.emp.id}">Slip</button></td></tr>`).join("")}
+      <tr class="totalrow"><td>Total</td><td class="r num">${tot.hari}</td><td class="r num">${rupiah(tot.pokok)}</td><td class="r num">${rupiah(tot.makan)}</td><td class="r num">${rupiah(tot.lembur)}</td><td class="r num">${rupiah(tot.tunj)}</td><td class="r num">${tot.pot?"−"+rupiah(tot.pot):"—"}</td><td class="r num">${rupiah(tot.total)}</td><td></td></tr>
+    </tbody></table></div>`:`<div class="empty">Belum ada karyawan.</div>`}
+  </div>
+  <div id="slipArea"></div>`;
+}
+function renderSlip(empId){
+  const c=calcOf(empId);
+  $("#slipArea").innerHTML=`<div class="panel">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <h2 style="margin-bottom:0">Slip — ${esc(c.emp.nama)}</h2>
+      <button class="btn sm right" data-act="copy-slip" data-emp="${empId}">📋 Salin</button>
+      <button class="btn primary sm" data-act="send-slip" data-emp="${empId}">📲 Kirim ke WhatsApp</button>
+    </div>
+    ${c.emp.phone?"":'<p class="sub" style="color:var(--warn)">Nomor WhatsApp karyawan belum diisi (tab Karyawan) — tombol kirim akan gagal.</p>'}
+    <div class="slip">
+      <h3>SLIP GAJI</h3>
+      <div class="line"><span class="muted">Periode</span><span>${periodeLabel()}</span></div>
+      <div class="line"><span class="muted">Nama</span><span>${esc(c.emp.nama)}</span></div>
+      <div class="line"><span class="muted">Hari hadir</span><span>${c.hariHadir} hari</span></div>
+      <div class="rule"></div>
+      ${c.perLoc.length?c.perLoc.map(p=>`<div style="font-weight:600">${esc(p.loc.nama)}</div>
+        <div class="line"><span class="muted">${p.hari} × ${rupiah(p.loc.tarifHarian)}</span><span>${rupiah(p.pokok)}</span></div>
+        ${p.makan?`<div class="line"><span class="muted">Uang makan</span><span>${rupiah(p.makan)}</span></div>`:""}
+        ${p.lemburRp?`<div class="line"><span class="muted">Lembur ${p.lembur} jam</span><span>${rupiah(p.lemburRp)}</span></div>`:""}`).join('<div class="rule"></div>'):'<div class="muted">Tidak ada kehadiran.</div>'}
+      <div class="rule"></div>
+      <div class="line"><span class="muted">Gaji pokok</span><span>${rupiah(c.pokok)}</span></div>
+      <div class="line"><span class="muted">Uang makan</span><span>${rupiah(c.makan)}</span></div>
+      ${c.lemburRp?`<div class="line"><span class="muted">Lembur</span><span>${rupiah(c.lemburRp)}</span></div>`:""}
+      ${c.tunjangan?`<div class="line"><span class="muted">Tunjangan</span><span>${rupiah(c.tunjangan)}</span></div>`:""}
+      ${c.potongan?`<div class="line"><span class="muted">Potongan</span><span style="color:var(--bad)">−${rupiah(c.potongan)}</span></div>`:""}
+      <div class="rule"></div>
+      <div class="line tot"><span>TOTAL</span><span>${rupiah(c.total)}</span></div>
+    </div></div>`;
+  $("#slipArea").scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
+function shiftInputs(s){return `<div class="row shift-item" style="gap:8px">
+  <div class="col grow"><input data-s="nama" placeholder="Nama shift" value="${s?esc(s.nama):""}"></div>
+  <div class="col"><input data-s="masuk" type="time" value="${s?s.masuk:"07:00"}" style="width:120px"></div>
+  <div class="col"><input data-s="pulang" type="time" value="${s?s.pulang:"15:00"}" style="width:120px"></div>
+  <button class="btn sm ghost danger" data-act="rm-shift" type="button">✕</button></div>`;}
+function viewLokasi(){const e=editLoc;return `
+  <div class="panel">
+    <h2>${e?"Edit lokasi":"Tambah lokasi"}</h2><p class="sub">Tiap lokasi punya tarif & shift sendiri.</p>
+    <div class="row">
+      <div class="col grow"><label class="fld">Nama lokasi</label><input id="l_nama" value="${e?esc(e.nama):""}" placeholder="Mall Senayan"></div>
+      <div class="col"><label class="fld">Tarif harian</label><input id="l_tarif" inputmode="numeric" value="${e?e.tarifHarian.toLocaleString("id-ID"):""}" placeholder="125.000"></div>
+      <div class="col"><label class="fld">Uang makan/hari</label><input id="l_makan" inputmode="numeric" value="${e?e.uangMakan.toLocaleString("id-ID"):""}" placeholder="20.000"></div>
+      <div class="col"><label class="fld">Lembur/jam</label><input id="l_lembur" inputmode="numeric" value="${e?e.tarifLembur.toLocaleString("id-ID"):""}" placeholder="18.000"></div>
+    </div>
+    <div style="margin-top:12px"><label class="fld">Shift (nama · masuk · pulang)</label>
+      <div id="shiftList" style="display:flex;flex-direction:column;gap:8px;margin-top:6px">${(e?e.shifts:[{nama:"Pagi",masuk:"07:00",pulang:"15:00"}]).map(shiftInputs).join("")}</div>
+      <button class="btn sm ghost" data-act="add-shift" style="margin-top:8px">+ Tambah shift</button></div>
+    <div class="actions" style="margin-top:14px"><button class="btn primary" data-act="save-loc">${e?"Simpan":"Tambah lokasi"}</button>${e?'<button class="btn ghost" data-act="cancel-loc">Batal</button>':""}</div>
+  </div>
+  <div class="panel"><h2>Daftar lokasi (${state.locations.length})</h2>
+    ${state.locations.length?`<div class="tablewrap"><table><thead><tr><th>Lokasi</th><th class="r">Tarif</th><th class="r">U.makan</th><th class="r">Lembur</th><th>Shift</th><th></th></tr></thead><tbody>
+      ${state.locations.map(l=>`<tr><td><b>${esc(l.nama)}</b></td><td class="r num">${rupiah(l.tarifHarian)}</td><td class="r num">${rupiah(l.uangMakan)}</td><td class="r num">${rupiah(l.tarifLembur)}</td><td class="small">${(l.shifts||[]).map(s=>esc(s.nama)+" ("+s.masuk+"–"+s.pulang+")").join(", ")||"—"}</td>
+      <td><div class="actions"><button class="btn sm" data-act="edit-loc" data-id="${l.id}">Edit</button><button class="btn sm danger" data-act="del-loc" data-id="${l.id}">Hapus</button></div></td></tr>`).join("")}
+    </tbody></table></div>`:'<div class="empty">Belum ada lokasi.</div>'}</div>`;}
+
+function viewKaryawan(){const e=editEmp;return `
+  <div class="panel">
+    <h2>${e?"Edit karyawan":"Tambah karyawan"}</h2><p class="sub">Lokasi utama = default saat lapor tanpa sebut lokasi. Nomor WA untuk kirim slip.</p>
+    <div class="row">
+      <div class="col grow"><label class="fld">Nama</label><input id="e_nama" value="${e?esc(e.nama):""}" placeholder="Budi Santoso"></div>
+      <div class="col grow"><label class="fld">Lokasi utama</label><select id="e_loc">${state.locations.map(l=>`<option value="${l.id}"${e&&e.locId===l.id?" selected":""}>${esc(l.nama)}</option>`).join("")||'<option value="">(buat lokasi dulu)</option>'}</select></div>
+      <div class="col grow"><label class="fld">No. WhatsApp</label><input id="e_phone" value="${e?esc(e.phone||""):""}" placeholder="08xxxxxxxxxx"></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div class="col"><label class="fld">Tunjangan tetap/bln</label><input id="e_tunj" inputmode="numeric" value="${e&&e.tunjangan?e.tunjangan.toLocaleString("id-ID"):""}" placeholder="0"></div>
+      <div class="col"><label class="fld">Potongan tetap/bln</label><input id="e_pot" inputmode="numeric" value="${e&&e.potongan?e.potongan.toLocaleString("id-ID"):""}" placeholder="0"></div>
+    </div>
+    <div class="actions" style="margin-top:14px"><button class="btn primary" data-act="save-emp">${e?"Simpan":"Tambah karyawan"}</button>${e?'<button class="btn ghost" data-act="cancel-emp">Batal</button>':""}</div>
+  </div>
+  <div class="panel"><h2>Daftar karyawan (${state.employees.length})</h2>
+    ${state.employees.length?`<div class="tablewrap"><table><thead><tr><th>Nama</th><th>Lokasi utama</th><th>No. WA</th><th class="r">Tunjangan</th><th class="r">Potongan</th><th></th></tr></thead><tbody>
+      ${state.employees.map(em=>`<tr><td><b>${esc(em.nama)}</b></td><td>${esc((locById(em.locId)||{}).nama||"—")}</td><td class="small">${esc(em.phone||"—")}</td><td class="r num">${em.tunjangan?rupiah(em.tunjangan):"—"}</td><td class="r num">${em.potongan?rupiah(em.potongan):"—"}</td>
+      <td><div class="actions"><button class="btn sm" data-act="edit-emp" data-id="${em.id}">Edit</button><button class="btn sm danger" data-act="del-emp" data-id="${em.id}">Hapus</button></div></td></tr>`).join("")}
+    </tbody></table></div>`:'<div class="empty">Belum ada karyawan.</div>'}</div>`;}
+
+function viewAdmin(){return `
+  <div class="panel">
+    <h2>Admin WhatsApp</h2><p class="sub">Hanya nomor di daftar ini yang boleh melapor absensi lewat WhatsApp. ${state.admins&&state.admins.length?"":"⚠ Daftar kosong = semua nomor diizinkan (kurang aman)."}</p>
+    <div class="row">
+      <div class="col grow"><label class="fld">Nama admin</label><input id="a_nama" placeholder="cth: Supervisor Lapangan"></div>
+      <div class="col grow"><label class="fld">No. WhatsApp</label><input id="a_phone" placeholder="08xxxxxxxxxx"></div>
+      <button class="btn primary" data-act="add-admin">Tambah admin</button>
+    </div>
+  </div>
+  <div class="panel"><h2>Daftar admin (${(state.admins||[]).length})</h2>
+    ${(state.admins||[]).length?`<div class="tablewrap"><table><thead><tr><th>Nama</th><th>No. WhatsApp</th><th></th></tr></thead><tbody>
+      ${state.admins.map(a=>`<tr><td>${esc(a.nama||"—")}</td><td class="num">${esc(a.phone)}</td><td><button class="btn sm danger" data-act="del-admin" data-phone="${esc(a.phone)}">Hapus</button></td></tr>`).join("")}
+    </tbody></table></div>`:'<div class="empty">Belum ada admin terdaftar.</div>'}</div>`;}
+
+function viewData(){return `
+  <div class="panel"><h2>Backup & pulihkan</h2>
+    <p class="sub">Data tersimpan di server (file data.json). Salin backup berkala untuk jaga-jaga.</p>
+    <div class="actions"><button class="btn primary" data-act="backup">📋 Salin data backup</button><button class="btn" data-act="show-restore">Pulihkan dari teks</button></div>
+    <div id="restoreArea" hidden style="margin-top:12px"><label class="fld">Tempel teks backup</label>
+      <textarea id="restoreTxt" rows="5" style="margin-top:6px"></textarea>
+      <div class="actions" style="margin-top:8px"><button class="btn primary" data-act="restore">Pulihkan</button></div></div>
+  </div>
+  <div class="panel"><h2>Reset</h2><p class="sub">${state.isSample?"Saat ini masih memakai <b>data contoh</b>.":"Menghapus semua data."}</p>
+    <div class="actions"><button class="btn danger" data-act="clear">Mulai kosong</button><button class="btn ghost" data-act="reseed">Muat data contoh</button></div></div>`;}
+
+/* ---------- chat ---------- */
+const chatLog=[];
+function renderChatLog(){const box=$("#chatLog");if(!box)return;
+  box.innerHTML=chatLog.length?chatLog.map(m=>m.dir==="in"?`<div class="msg in">${esc(m.text)}</div>`:`<div class="msg out ${m.err?"err":""}">${esc(m.text)}</div>`).join(""):`<div class="msg out" style="align-self:center;background:none;border:none;color:var(--muted)">Coba ketik: <b>Budi hadir</b></div>`;
+  box.scrollTop=box.scrollHeight;}
+async function sendChat(){const inp=$("#chatInput");if(!inp)return;const text=inp.value.trim();if(!text)return;
+  chatLog.push({dir:"in",text});inp.value="";
+  try{const res=await api("/command","POST",{text});chatLog.push({dir:"out",text:res.reply||(res.ok?"OK":"Gagal"),err:!res.ok});
+    await softRefresh();}catch(e){chatLog.push({dir:"out",text:"Gagal terhubung ke server",err:true});render();}
+  const ni=$("#chatInput");if(ni)ni.focus();renderChatLog();}
+async function softRefresh(){try{state=await api("/state");payroll=await api("/payroll?month="+ym);}catch(e){}render();}
+
+/* ---------- events ---------- */
+$("#month").addEventListener("change",e=>{ym=e.target.value||ym;refresh();});
+$("#tabs").addEventListener("click",e=>{const t=e.target.closest(".tab");if(!t)return;activeTab=t.dataset.tab;editLoc=editEmp=null;render();});
+$("#themeBtn").addEventListener("click",()=>{const cur=document.documentElement.getAttribute("data-theme");
+  const next=cur==="dark"?"light":(cur==="light"?null:(matchMedia("(prefers-color-scheme: dark)").matches?"light":"dark"));
+  if(next)document.documentElement.setAttribute("data-theme",next);else document.documentElement.removeAttribute("data-theme");
+  try{localStorage.setItem("rekap_theme",next||"");}catch(e){}});
+try{const th=localStorage.getItem("rekap_theme");if(th)document.documentElement.setAttribute("data-theme",th);}catch(e){}
+
+function readShifts(){return [...document.querySelectorAll("#shiftList .shift-item")].map(it=>({nama:$('[data-s="nama"]',it).value.trim()||"Shift",masuk:$('[data-s="masuk"]',it).value||"07:00",pulang:$('[data-s="pulang"]',it).value||"15:00"}));}
+
+$("#view").addEventListener("click",async e=>{
+  const b=e.target.closest("[data-act]");if(!b)return;const act=b.dataset.act;
+  try{
+  if(act==="send")return sendChat();
+  if(act==="add-shift"){$("#shiftList").insertAdjacentHTML("beforeend",shiftInputs(null));return;}
+  if(act==="rm-shift"){b.closest(".shift-item").remove();return;}
+  if(act==="del-rec"){await api("/attendance?key="+encodeURIComponent(b.closest("tr").dataset.key),"DELETE");return softRefresh();}
+  if(act==="add-manual"){if(!state.employees.length)return toast("Tambahkan karyawan dulu");const emp=state.employees[0];const loc=locById(emp.locId)||state.locations[0];if(!loc)return toast("Buat lokasi dulu");
+    await api("/attendance","PUT",{empId:emp.id,date:todayStr(),rec:{status:"hadir",locId:loc.id,shift:loc.shifts[0]?.nama||"",masuk:loc.shifts[0]?.masuk||"",pulang:loc.shifts[0]?.pulang||"",lembur:0}});return softRefresh();}
+  if(act==="mark-today"){const r=await api("/attendance/mark-today","POST",{});toast(r.n?r.n+" ditandai hadir":"Semua sudah hadir");return softRefresh();}
+  if(act==="slip")return renderSlip(b.dataset.emp);
+  if(act==="copy-slip"){const r=await api("/slip?month="+ym+"&empId="+b.dataset.emp);return copy(r.text);}
+  if(act==="send-slip"){try{const r=await api("/slip/send","POST",{empId:b.dataset.emp,month:ym});toast(r.mock?"Terkirim (mode uji — cek log server)":"Slip terkirim ke WhatsApp");}catch(err){toast(err.message);}return;}
+  if(act==="copy-rekap"){let L=["*REKAP GAJI "+periodeLabel()+"*",""];payroll.forEach(r=>L.push(r.emp.nama+" | "+r.hariHadir+" hari | "+rupiah(r.total)));L.push("");L.push("*TOTAL: "+rupiah(payroll.reduce((s,r)=>s+r.total,0))+"*");return copy(L.join("\n"));}
+  if(act==="save-loc"){const nama=$("#l_nama").value.trim();if(!nama)return toast("Nama lokasi wajib");const data={nama,tarifHarian:onlyDigits($("#l_tarif").value),uangMakan:onlyDigits($("#l_makan").value),tarifLembur:onlyDigits($("#l_lembur").value),shifts:readShifts()};
+    if(editLoc){await api("/locations/"+editLoc.id,"PUT",data);editLoc=null;toast("Lokasi diperbarui");}else{await api("/locations","POST",data);toast("Lokasi ditambahkan");}return softRefresh();}
+  if(act==="cancel-loc"){editLoc=null;return render();}
+  if(act==="edit-loc"){editLoc=locById(b.dataset.id);render();window.scrollTo(0,0);return;}
+  if(act==="del-loc"){try{await api("/locations/"+b.dataset.id,"DELETE");toast("Lokasi dihapus");}catch(err){toast(err.message);}return softRefresh();}
+  if(act==="save-emp"){const nama=$("#e_nama").value.trim();if(!nama)return toast("Nama wajib");const locId=$("#e_loc").value;if(!locId)return toast("Buat lokasi dulu");
+    const data={nama,locId,phone:$("#e_phone").value.trim(),tunjangan:onlyDigits($("#e_tunj").value),potongan:onlyDigits($("#e_pot").value)};
+    if(editEmp){await api("/employees/"+editEmp.id,"PUT",data);editEmp=null;toast("Karyawan diperbarui");}else{await api("/employees","POST",data);toast("Karyawan ditambahkan");}return softRefresh();}
+  if(act==="cancel-emp"){editEmp=null;return render();}
+  if(act==="edit-emp"){editEmp=empById(b.dataset.id);render();window.scrollTo(0,0);return;}
+  if(act==="del-emp"){await api("/employees/"+b.dataset.id,"DELETE");toast("Karyawan dihapus");return softRefresh();}
+  if(act==="add-admin"){const phone=$("#a_phone").value.trim();if(!phone)return toast("Nomor wajib");await api("/admins","POST",{nama:$("#a_nama").value.trim(),phone});toast("Admin ditambahkan");return softRefresh();}
+  if(act==="del-admin"){await api("/admins/"+encodeURIComponent(b.dataset.phone),"DELETE");toast("Admin dihapus");return softRefresh();}
+  if(act==="backup")return copy(JSON.stringify({locations:state.locations,employees:state.employees,admins:state.admins,attendance:state.attendance},null,2));
+  if(act==="show-restore"){$("#restoreArea").hidden=!$("#restoreArea").hidden;return;}
+  if(act==="restore"){try{const obj=JSON.parse($("#restoreTxt").value);if(!obj.locations||!obj.employees)throw 0;await api("/restore","POST",obj);toast("Data dipulihkan");refresh();}catch(e){toast("Teks backup tidak valid");}return;}
+  if(act==="clear"){await api("/clear","POST",{});toast("Semua data dihapus");return refresh();}
+  if(act==="reseed"){await api("/reseed","POST",{});toast("Data contoh dimuat");return refresh();}
+  }catch(err){toast("Error: "+err.message);}
+});
+$("#view").addEventListener("change",async e=>{const f=e.target.closest("[data-f]");if(!f)return;const tr=f.closest("tr");if(!tr||!tr.dataset.key)return;
+  const rec={...state.attendance[tr.dataset.key]};if(!rec)return;const field=f.dataset.f;
+  if(field==="lembur")rec.lembur=Number(f.value)||0;
+  else if(field==="locId"){rec.locId=f.value;const loc=locById(f.value);if(loc&&loc.shifts[0]){rec.shift=loc.shifts[0].nama;rec.masuk=loc.shifts[0].masuk;rec.pulang=loc.shifts[0].pulang;}}
+  else rec[field]=f.value;
+  const[empId,date]=tr.dataset.key.split("|");
+  await api("/attendance","PUT",{empId,date,rec});
+  if(field==="locId"||field==="status")softRefresh();else{state.attendance[tr.dataset.key]=rec;payroll=await api("/payroll?month="+ym);}});
+$("#view").addEventListener("keydown",e=>{if(e.target.id==="chatInput"&&e.key==="Enter"){e.preventDefault();sendChat();}});
+
+refresh();
+</script>
+</body>
+</html>

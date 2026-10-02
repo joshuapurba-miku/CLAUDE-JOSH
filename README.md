@@ -1,10 +1,27 @@
 # Rekap Gaji Kebersihan
 
-Aplikasi web satu file untuk bisnis cleaning service multi-lokasi:
+Sistem rekap absensi berbasis chat + perhitungan gaji otomatis untuk bisnis
+cleaning service yang karyawannya bekerja di banyak lokasi dengan tarif, shift,
+dan jam kerja berbeda.
 
-- **Lokasi** — tarif harian, uang makan, lembur, dan shift yang berbeda tiap lokasi.
-- **Karyawan** — lokasi utama, tunjangan, dan potongan tetap.
-- **Absensi berbasis chat** — admin mengetik seperti pesan WhatsApp (mis. `Budi hadir Mall Senayan shift pagi`, `Joko pindah ke Apartemen Sudirman besok`, `Siti sakit 5 okt`), sistem membaca & mencatat otomatis.
-- **Rekap gaji & slip otomatis** — gaji dihitung per hari sesuai lokasi kerja (tarif beda per lokasi), lengkap dengan lembur, tunjangan, dan potongan. Slip bisa disalin langsung ke WhatsApp.
+Tersedia dua versi:
 
-Buka `index.html` di browser (HP atau laptop). Data tersimpan di perangkat; gunakan tab **Backup** untuk menyalin/memulihkan data.
+## 1. Aplikasi web (tanpa setup) — `index.html`
+Buka `index.html` di browser (HP/laptop). Cocok untuk langsung mencoba.
+- Setup lokasi (tarif harian, uang makan, lembur, shift) & karyawan
+- Catat absensi lewat chat sederhana (mis. `Budi hadir Mall Senayan shift pagi`)
+- Rekap gaji otomatis per lokasi + slip yang bisa disalin ke WhatsApp
+- Data tersimpan di perangkat; ada menu Backup
+
+## 2. Versi WhatsApp — folder `server/`
+Admin melapor absensi langsung lewat **WhatsApp** (via penyedia Fonnte), sistem
+membaca & membalas otomatis, lalu slip dikirim otomatis ke karyawan.
+Butuh Node.js, akun Fonnte, dan hosting. Panduan lengkap: [`server/README.md`](server/README.md).
+
+```
+Admin chat WA ─▶ Fonnte ─▶ webhook server ─▶ catat absensi ─▶ balasan & slip otomatis
+```
+
+Keduanya memakai logika perhitungan gaji yang sama: gaji dihitung **per hari
+sesuai lokasi tempat karyawan bekerja**, ditambah lembur & tunjangan, dikurangi
+potongan.
