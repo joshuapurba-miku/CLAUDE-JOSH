@@ -1,0 +1,106 @@
+{
+  "_catatan": "Semua aturan bisnis ada di file ini. Ubah di sini, jangan di script. Nilai Rupiah default 0 = isi sesuai kebijakan perusahaan.",
+  "shifts": [
+    {
+      "nama": "Pagi 06-14",
+      "masuk": "06:00",
+      "pulang": "14:00"
+    },
+    {
+      "nama": "Pagi 07-15",
+      "masuk": "07:00",
+      "pulang": "15:00"
+    },
+    {
+      "nama": "Kantor 08:30-17:30",
+      "masuk": "08:30",
+      "pulang": "17:30",
+      "cabang": [
+        "HEAD OFFICE INTERNAL",
+        "Home Cleaning"
+      ]
+    },
+    {
+      "nama": "Lapangan 09-16",
+      "masuk": "09:00",
+      "pulang": "16:00"
+    },
+    {
+      "nama": "Lapangan 09-18",
+      "masuk": "09:00",
+      "pulang": "18:00"
+    },
+    {
+      "nama": "Siang 10-18",
+      "masuk": "10:00",
+      "pulang": "18:00"
+    },
+    {
+      "nama": "Siang 14-22",
+      "masuk": "14:00",
+      "pulang": "22:00"
+    },
+    {
+      "nama": "Sore 15-23",
+      "masuk": "15:00",
+      "pulang": "23:00"
+    },
+    {
+      "nama": "Sabtu DAFI 06-11",
+      "masuk": "06:00",
+      "pulang": "11:00",
+      "cabang": [
+        "Tim Lapangan DAFI SCHOOL"
+      ],
+      "hari": [
+        "Sabtu"
+      ]
+    },
+    {
+      "nama": "Sabtu DAFI 10-15",
+      "masuk": "10:00",
+      "pulang": "15:00",
+      "cabang": [
+        "Tim Lapangan DAFI SCHOOL"
+      ],
+      "hari": [
+        "Sabtu"
+      ]
+    }
+  ],
+  "alias_jadwal": {
+    "_catatan": "Jadwal HRIS yang tidak masuk akal (>12 jam / pulang < masuk) dipetakan ke shift sebenarnya.",
+    "08:30-22:00": "Kantor 08:30-17:30",
+    "15:00-11:00": "Sore 15-23"
+  },
+  "toleransi_telat_menit": 0,
+  "toleransi_pulang_cepat_menit": 10,
+  "ganti_shift_selisih_menit": 90,
+  "review_jika_biaya_di_atas_menit": 120,
+  "min_menit_kerja_valid": 120,
+  "lembur": {
+    "min_menit": 60,
+    "pembulatan_menit": 30,
+    "cabang_berhak_lembur": [
+      "Tim Lapangan DAFI SCHOOL",
+      "Tim Lapangan FIT INFINITY",
+      "Tim Lapangan RSMH",
+      "Tim Lapangan Play Padel",
+      "Tim Lapangan Gotong-Gotong",
+      "Tim Lapangan Cv Bintang Harapan",
+      "Home Cleaning"
+    ]
+  },
+  "penggajian": {
+    "pembagi_hari_kerja": 26,
+    "potongan_absen_per_hari": "gaji_pokok / pembagi_hari_kerja",
+    "potongan_telat_per_menit": 0,
+    "potongan_pulang_cepat_per_menit": 0,
+    "upah_lembur_per_jam": 0,
+    "bonus_double_shift_per_shift": 0
+  },
+  "cabang_shift_tetap": [
+    "HEAD OFFICE INTERNAL",
+    "Home Cleaning"
+  ]
+}

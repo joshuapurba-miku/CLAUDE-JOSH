@@ -1,0 +1,6 @@
+data/*
+!data/.gitkeep
+!data/izin_cuti.csv.contoh
+!data/karyawan.csv.contoh
+output/*
+!output/.gitkeep
