@@ -1,0 +1,698 @@
+<title>Rekap Absensi Gaji</title>
+<style>
+/* Layout: satu kolom kerja, tiga tab (Hitung, Tarif Gaji, Aturan). Tabel lebar scroll di dalam wadahnya. */
+:root {
+  --bg: #f3f5f7;
+  --surface: #ffffff;
+  --surface-2: #eaeef2;
+  --ink: #17212b;
+  --ink-2: #5a6775;
+  --line: #d5dce3;
+  --accent: #0e7a4f;
+  --accent-ink: #ffffff;
+  --accent-soft: #dff1e8;
+  --warn: #9a5b00;
+  --warn-soft: #fbefd5;
+  --bad: #b3261e;
+  --bad-soft: #fbe3e1;
+  --font-body: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11171d; --surface: #19212a; --surface-2: #222c37; --ink: #e6ebf0; --ink-2: #9aa7b4;
+    --line: #2e3a47; --accent: #4cc38a; --accent-ink: #0b1a13; --accent-soft: #17382a;
+    --warn: #f0b95a; --warn-soft: #3a2c10; --bad: #ff8a80; --bad-soft: #3d1b19; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11171d; --surface: #19212a; --surface-2: #222c37; --ink: #e6ebf0; --ink-2: #9aa7b4;
+  --line: #2e3a47; --accent: #4cc38a; --accent-ink: #0b1a13; --accent-soft: #17382a;
+  --warn: #f0b95a; --warn-soft: #3a2c10; --bad: #ff8a80; --bad-soft: #3d1b19; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.5; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 48px; }
+h1 { font-size: 22px; line-height: 1.2; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-size: 16px; margin: 0 0 4px; text-wrap: balance; }
+p { margin: 0; }
+.sub { color: var(--ink-2); font-size: 13px; }
+header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.saved { font-size: 12px; color: var(--ink-2); min-height: 18px; }
+nav.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 20px; overflow-x: auto; }
+nav.tabs button { background: none; border: 0; padding: 10px 14px; font: inherit; font-weight: 600; color: var(--ink-2); cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; }
+nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 6px; padding: 9px 16px; font-weight: 600; cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.btn.small { padding: 5px 10px; font-size: 12.5px; }
+.btn:disabled { opacity: .5; cursor: default; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.drop { border: 2px dashed var(--line); border-radius: 10px; padding: 28px 16px; text-align: center; background: var(--surface); display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; text-align: left; }
+.steps div { min-width: 0; }
+.steps b { display: block; margin-bottom: 2px; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px 28px; }
+.stat { min-width: 0; }
+.stat .v { font-family: var(--font-num); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat .l { font-size: 12px; color: var(--ink-2); }
+.banner { border-radius: 8px; padding: 10px 14px; font-size: 13px; }
+.banner.warn { background: var(--warn-soft); color: var(--warn); }
+.banner.bad { background: var(--bad-soft); color: var(--bad); }
+.banner.ok { background: var(--accent-soft); color: var(--accent); }
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: middle; }
+th { background: var(--surface-2); font-size: 12px; font-weight: 600; color: var(--ink-2); position: sticky; top: 0; }
+td.n, th.n { text-align: right; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+tr.emp { cursor: pointer; }
+tr.emp:hover td { background: var(--surface-2); }
+tr.tot td { font-weight: 700; background: var(--surface-2); }
+td.wrap { white-space: normal; min-width: 220px; }
+.pill { display: inline-block; font-size: 11.5px; padding: 1px 8px; border-radius: 99px; background: var(--surface-2); color: var(--ink-2); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.ok { background: var(--accent-soft); color: var(--accent); }
+.neg { color: var(--bad); }
+.detail td { background: var(--bg); }
+.detail .scroll { margin: 4px 0; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field label { font-size: 12px; color: var(--ink-2); font-weight: 600; }
+input[type=text], input[type=number], input[type=date], select, textarea { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; width: 100%; }
+td input, td select { min-width: 90px; }
+textarea { resize: vertical; min-height: 70px; font-family: var(--font-num); font-size: 12.5px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.filters .row { flex: 1 1 auto; }
+details > summary { cursor: pointer; font-weight: 600; }
+.hint { font-size: 12.5px; color: var(--ink-2); }
+.empty { padding: 20px; text-align: center; color: var(--ink-2); }
+@media (max-width: 520px) { h1 { font-size: 19px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Rekap Absensi &amp; Gaji</h1>
+      <p class="sub">Upload export HRIS bulanan. Telat, lembur, potongan, dan gaji per karyawan dihitung langsung di halaman ini.</p>
+    </div>
+    <div class="saved" id="saved" aria-live="polite"></div>
+  </header>
+
+  <nav class="tabs" role="tablist" id="tabs">
+    <button role="tab" aria-selected="true" data-tab="hitung">Hitung</button>
+    <button role="tab" aria-selected="false" data-tab="gaji">Tarif Gaji</button>
+    <button role="tab" aria-selected="false" data-tab="aturan">Aturan</button>
+  </nav>
+
+  <section id="tab-hitung"></section>
+  <section id="tab-gaji" hidden></section>
+  <section id="tab-aturan" hidden></section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- konfigurasi bawaan ----------
+  const SEED_TARIF = [
+    ["Tim Lapangan DAFI SCHOOL", "PIC"], ["Tim Lapangan DAFI SCHOOL", "CSO"],
+    ["Tim Lapangan FIT INFINITY", "PIC"], ["Tim Lapangan FIT INFINITY", "CSO"],
+    ["Tim Lapangan RSMH", "PIC"], ["Tim Lapangan RSMH", "CSO"],
+    ["Tim Lapangan Play Padel", "CSO"],
+    ["Tim Lapangan Gotong-Gotong", "PIC"], ["Tim Lapangan Gotong-Gotong", "CSO"],
+    ["Tim Lapangan Cv Bintang Harapan", "MANPOWER"],
+    ["Home Cleaning", "CSO"],
+    ["HEAD OFFICE INTERNAL", "CS & Admin Operasional"], ["HEAD OFFICE INTERNAL", "Finance"],
+    ["HEAD OFFICE INTERNAL", "HUMAN RESOURCE DEPARTMENT"], ["HEAD OFFICE INTERNAL", "Legal & Compliance"],
+    ["HEAD OFFICE INTERNAL", "CONTENT CREATOR INT"]
+  ];
+  function defaultCfg() {
+    return {
+      shifts: [
+        { nama: "Pagi 06-14", masuk: "06:00", pulang: "14:00", cabang: "", hari: "" },
+        { nama: "Pagi 07-15", masuk: "07:00", pulang: "15:00", cabang: "", hari: "" },
+        { nama: "Kantor 08:30-17:30", masuk: "08:30", pulang: "17:30", cabang: "HEAD OFFICE INTERNAL, Home Cleaning", hari: "" },
+        { nama: "Lapangan 09-16", masuk: "09:00", pulang: "16:00", cabang: "", hari: "" },
+        { nama: "Lapangan 09-18", masuk: "09:00", pulang: "18:00", cabang: "", hari: "" },
+        { nama: "Siang 10-18", masuk: "10:00", pulang: "18:00", cabang: "", hari: "" },
+        { nama: "Siang 14-22", masuk: "14:00", pulang: "22:00", cabang: "", hari: "" },
+        { nama: "Sore 15-23", masuk: "15:00", pulang: "23:00", cabang: "", hari: "" },
+        { nama: "Sabtu DAFI 06-11", masuk: "06:00", pulang: "11:00", cabang: "Tim Lapangan DAFI SCHOOL", hari: "Sabtu" },
+        { nama: "Sabtu DAFI 10-15", masuk: "10:00", pulang: "15:00", cabang: "Tim Lapangan DAFI SCHOOL", hari: "Sabtu" }
+      ],
+      alias: "08:30-22:00 = Kantor 08:30-17:30\n15:00-11:00 = Sore 15-23",
+      tetap: "HEAD OFFICE INTERNAL\nHome Cleaning",
+      tolTelat: 0, tolPulang: 10, gantiShift: 90, reviewBiaya: 120, minKerja: 120,
+      lemburMin: 60, lemburBulat: 30,
+      pembagi: 26, telatAmbang: 10, telatNominal: 20000, pulangPerMenit: 0, bonusDouble: 0,
+      tarif: SEED_TARIF.map(([c, p]) => ({ cabang: c, posisi: p, gaji: 0, tunj: 0, makan: 0 })),
+      lembur: [],
+      izin: []
+    };
+  }
+
+  // ---------- state & penyimpanan ----------
+  let cfg = defaultCfg();
+  let hasil = null;       // hasil hitung terakhir
+  let rawRows = null;     // baris export (disimpan agar bisa dihitung ulang)
+  let fileName = "";
+  let dbApi = null;
+  let saveTimer = null;
+  const $ = (s, r) => (r || document).querySelector(s);
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const rp = (n) => (n || n === 0) ? "Rp" + Math.round(n).toLocaleString("id-ID") : "—";
+  const num = (n) => Math.round(n).toLocaleString("id-ID");
+
+  function mergeCfg(saved) {
+    const d = defaultCfg();
+    if (!saved || typeof saved !== "object") return d;
+    return Object.assign(d, saved);
+  }
+  function setSaved(t) { $("#saved").textContent = t; }
+  function scheduleSave() {
+    setSaved("Menyimpan…");
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      const json = JSON.stringify(cfg);
+      let ok = false;
+      try { localStorage.setItem("rekap-absensi-cfg", json); ok = true; } catch (e) { /* abaikan */ }
+      if (dbApi) {
+        try { await dbApi.doc("settings/main").set({ json }); ok = true; } catch (e) { /* abaikan */ }
+      }
+      setSaved(ok ? "Pengaturan tersimpan" : "Pengaturan tidak bisa disimpan di tampilan ini");
+    }, 500);
+  }
+  async function loadCfg() {
+    try { const j = localStorage.getItem("rekap-absensi-cfg"); if (j) cfg = mergeCfg(JSON.parse(j)); } catch (e) { /* abaikan */ }
+    try {
+      dbApi = await window.claude.use("db");
+      if (dbApi) {
+        const snap = await dbApi.doc("settings/main").get();
+        const d = snap && (snap.exists === true || (typeof snap.exists === "function" && snap.exists())) ? (typeof snap.data === "function" ? snap.data() : snap.data) : null;
+        if (d && d.json) { cfg = mergeCfg(JSON.parse(d.json)); renderAll(); }
+      }
+    } catch (e) { dbApi = null; }
+  }
+
+  // ---------- util waktu ----------
+  const BULAN = { jan: 1, feb: 2, mar: 3, apr: 4, mei: 5, may: 5, jun: 6, jul: 7, agu: 8, aug: 8, agt: 8, sep: 9, okt: 10, oct: 10, nov: 11, des: 12, dec: 12 };
+  function parseTgl(v) {
+    if (v instanceof Date) return v.toISOString().slice(0, 10);
+    const p = String(v).trim().split(/\s+/);
+    const m = BULAN[(p[1] || "").slice(0, 3).toLowerCase()];
+    if (p.length < 3 || !m) return null;
+    return p[2] + "-" + String(m).padStart(2, "0") + "-" + String(p[0]).padStart(2, "0");
+  }
+  function toTimeStr(v) {
+    if (typeof v === "number" && v >= 0 && v < 1) {
+      const s = Math.round(v * 86400);
+      const f = (x) => String(x).padStart(2, "0");
+      return f(Math.floor(s / 3600)) + ":" + f(Math.floor(s % 3600 / 60)) + ":" + f(s % 60);
+    }
+    return String(v == null ? "" : v).trim();
+  }
+  function valid(s) { s = String(s == null ? "" : s).trim(); return !(s === "" || s === "X" || s === "Off" || s === "-" || s === "undefined"); }
+  function menit(s) {
+    s = String(s == null ? "" : s).trim();
+    if (s.length < 5 || s[2] !== ":") return null;
+    return +s.slice(0, 2) * 60 + +s.slice(3, 5) + (s.length >= 8 ? +s.slice(6, 8) / 60 : 0);
+  }
+  const hhmm = (x) => String(Math.floor(x / 60)).padStart(2, "0") + ":" + String(Math.floor(x % 60)).padStart(2, "0");
+  const list = (s) => String(s || "").split(/[,\n]/).map((x) => x.trim()).filter(Boolean);
+
+  // ---------- baca export ----------
+  const WAJIB = ["Date", "Day", "Employee Name", "NIP", "Branch", "Post", "Schedule In", "Schedule Out", "Check In At", "Check Out At", "Attendance Code"];
+  function normalisasi(json) {
+    if (!json.length) throw new Error("Sheet kosong.");
+    const kurang = WAJIB.filter((k) => !(k in json[0]));
+    if (kurang.length) throw new Error("Kolom tidak ditemukan: " + kurang.join(", ") + ". Format export HRIS berubah?");
+    return json.map((r) => ({
+      iso: parseTgl(r["Date"]), hari: String(r["Day"]).trim(), nama: String(r["Employee Name"]).trim(),
+      nip: String(r["NIP"] == null ? "" : r["NIP"]).trim(), cabang: String(r["Branch"]).trim(), posisi: String(r["Post"]).trim(),
+      si: toTimeStr(r["Schedule In"]), so: toTimeStr(r["Schedule Out"]),
+      ci: toTimeStr(r["Check In At"]), co: toTimeStr(r["Check Out At"]),
+      code: String(r["Attendance Code"]).trim(), lateHris: r["Late (Minutes)"],
+      brS: toTimeStr(r["Break Start"]), brF: toTimeStr(r["Break Finish"]),
+      dbl: toTimeStr(r["Double Shift Check In At"])
+    })).filter((r) => r.iso && r.nama);
+  }
+
+  // ---------- shift ----------
+  function prepShifts() {
+    return cfg.shifts.filter((s) => s.nama && menit(s.masuk + ":00") != null).map((s) => ({
+      nama: s.nama, masuk: menit(s.masuk), pulang: menit(s.pulang),
+      cabang: list(s.cabang), hari: list(s.hari)
+    }));
+  }
+  function aliasMap() {
+    const m = {};
+    String(cfg.alias || "").split("\n").forEach((l) => { const i = l.indexOf("="); if (i > 0) m[l.slice(0, i).trim()] = l.slice(i + 1).trim(); });
+    return m;
+  }
+  function shiftTerjadwal(r, shifts, alias) {
+    if (!(valid(r.si) && valid(r.so))) return null;
+    const key = r.si + "-" + r.so;
+    if (alias[key]) { const s = shifts.find((x) => x.nama === alias[key]); if (s) return s; }
+    const a = menit(r.si), b = menit(r.so);
+    if (a == null || b == null || b <= a || b - a > 720) return null;
+    return { nama: "Jadwal " + key, masuk: a, pulang: b, cabang: [], hari: [] };
+  }
+  function biaya(sh, ci, co) {
+    let c = Math.abs(ci - sh.masuk);
+    if (co != null && co > ci) c += 0.5 * Math.abs(co - sh.pulang);
+    return c;
+  }
+  function tentukanShift(r, shifts, alias, tetap) {
+    const ci = menit(r.ci), co = menit(r.co);
+    const jad = shiftTerjadwal(r, shifts, alias);
+    if (jad && tetap.includes(r.cabang)) return { sh: jad, status: "sesuai jadwal (shift tetap)", bi: Math.abs(ci - jad.masuk) };
+    const cands = shifts.filter((s) => (!s.cabang.length || s.cabang.includes(r.cabang)) && (!s.hari.length || s.hari.includes(r.hari)));
+    if (jad && !cands.some((c) => c.nama === jad.nama)) cands.push(jad);
+    if (!cands.length) return { sh: jad, status: "sesuai jadwal", bi: 0 };
+    let best = cands[0], bb = biaya(best, ci, co);
+    cands.forEach((c) => { const b = biaya(c, ci, co); if (b < bb) { best = c; bb = b; } });
+    if (!jad) return { sh: best, status: "shift ditebak (jadwal HRIS tidak valid)", bi: bb };
+    const bj = biaya(jad, ci, co);
+    if (bj - bb >= cfg.gantiShift && best.nama !== jad.nama) return { sh: best, status: "shift berubah (otomatis)", bi: bb };
+    return { sh: jad, status: "sesuai jadwal", bi: bj };
+  }
+  function tarifLembur(cabang, iso, nip) {
+    for (const a of cfg.lembur) {
+      if (!a.mulai) continue;
+      if (a.cabang !== "*" && a.cabang !== cabang) continue;
+      if (a.nip && a.nip.trim() && a.nip.trim() !== nip) continue;
+      const akhir = a.selesai || a.mulai;
+      if (a.mulai <= iso && iso <= akhir) return +a.tarif || 0;
+    }
+    return null;
+  }
+
+  // ---------- hitung per hari ----------
+  function hitungHari(r, shifts, alias, tetap) {
+    const o = {
+      Tanggal: r.iso, Hari: r.hari, Nama: r.nama, NIP: r.nip, Cabang: r.cabang, Posisi: r.posisi,
+      "Jadwal HRIS": valid(r.si) ? r.si + "-" + r.so : "", "Shift Aktual": "", "Status Shift": "",
+      "Check In": "", "Check Out": "", Status: r.code, "Telat (mnt)": 0, "Pulang Cepat (mnt)": 0,
+      "Lembur (mnt)": 0, "Lembur Dibayar (jam)": 0, "Upah Lembur (Rp)": 0, "Potongan Telat (Rp)": 0,
+      "Jam Kerja": 0, "Double Shift": "", "Telat HRIS (mnt)": 0, Catatan: [], _review: []
+    };
+    if (r.code !== "Present" || !valid(r.ci)) { if (r.code === "Present") o.Status = "Absent"; return o; }
+    const ci = menit(r.ci), co = menit(r.co);
+    o["Check In"] = r.ci; o["Check Out"] = valid(r.co) ? r.co : "";
+    if (valid(r.lateHris) && !isNaN(+r.lateHris)) o["Telat HRIS (mnt)"] = +r.lateHris;
+    if (r.ci.slice(6, 8) === "00") o.Catatan.push("check-in input manual");
+
+    const t = tentukanShift(r, shifts, alias, tetap);
+    const sh = t.sh;
+    if (!sh) { o._review.push("jadwal dan shift tidak ditemukan, cek pengaturan shift"); return o; }
+    o["Shift Aktual"] = hhmm(sh.masuk) + "-" + hhmm(sh.pulang);
+    o["Status Shift"] = t.status;
+    if (t.bi > cfg.reviewBiaya) o._review.push("jam absen tidak cocok dengan shift mana pun (selisih " + Math.round(t.bi) + " mnt)");
+
+    o["Telat (mnt)"] = Math.max(0, Math.trunc(ci - sh.masuk) - cfg.tolTelat);
+    if (o["Telat (mnt)"] > cfg.telatAmbang) o["Potongan Telat (Rp)"] = cfg.telatNominal;
+
+    if (co == null || co <= ci) {
+      o._review.push("check-out kosong/tidak valid (cek lupa absen pulang)");
+    } else {
+      let kerja = co - ci;
+      const ks = menit(r.brS), kf = menit(r.brF);
+      if (ks != null && kf != null && kf > ks) kerja -= kf - ks;
+      o["Jam Kerja"] = Math.round(kerja / 60 * 100) / 100;
+      if (kerja < cfg.minKerja) {
+        o._review.push("durasi kerja hanya " + Math.round(kerja) + " mnt (check-out salah?)");
+      } else {
+        o["Pulang Cepat (mnt)"] = Math.max(0, Math.trunc(sh.pulang - co) - cfg.tolPulang);
+        const lembur = Math.trunc(co - sh.pulang);
+        o["Lembur (mnt)"] = Math.max(0, lembur);
+        if (lembur >= cfg.lemburMin) {
+          const tarif = tarifLembur(r.cabang, r.iso, r.nip);
+          if (tarif != null) {
+            const p = cfg.lemburBulat || 30;
+            o["Lembur Dibayar (jam)"] = Math.floor(lembur / p) * p / 60;
+            o["Upah Lembur (Rp)"] = Math.round(o["Lembur Dibayar (jam)"] * tarif);
+            o.Catatan.push("lembur dibayar (aturan manual)");
+          } else o.Catatan.push("lembur terdeteksi, tidak ada aturan lembur → tidak dibayar");
+        }
+        if (lembur >= 240) o._review.push("lembur ≥ 4 jam, pastikan jam pulang benar");
+      }
+    }
+    if (valid(r.dbl)) { o["Double Shift"] = "ya"; o.Catatan.push("double shift (shift tambahan)"); }
+    if (t.status.startsWith("shift berubah")) o.Catatan.push("shift berubah dari " + o["Jadwal HRIS"]);
+    return o;
+  }
+
+  // ---------- hitung bulanan ----------
+  function hitung(rows) {
+    const shifts = prepShifts(), alias = aliasMap(), tetap = list(cfg.tetap);
+    const det = rows.map((r) => hitungHari(r, shifts, alias, tetap));
+    det.sort((a, b) => a.Nama.localeCompare(b.Nama) || a.Tanggal.localeCompare(b.Tanggal));
+
+    const grup = new Map();
+    det.forEach((d) => { const k = d.Nama + "||" + d.NIP; if (!grup.has(k)) grup.set(k, []); grup.get(k).push(d); });
+
+    const rekap = [];
+    grup.forEach((g) => {
+      const f = g[0];
+      const hadir = g.filter((d) => d.Status === "Present");
+      const absen = g.filter((d) => d.Status === "Absent");
+      const izin = cfg.izin.filter((z) => z.tanggal && ((z.nip && z.nip.trim() === f.NIP) || (z.nama && z.nama.trim().toLowerCase() === f.Nama.toLowerCase())));
+      const tgIzin = new Map(izin.map((z) => [z.tanggal, z.dibayar === "ya"]));
+      const absenIzin = absen.filter((d) => tgIzin.has(d.Tanggal));
+      const izinBayar = absenIzin.filter((d) => tgIzin.get(d.Tanggal)).length;
+      const telat = hadir.filter((d) => d["Telat (mnt)"] > 0), pc = hadir.filter((d) => d["Pulang Cepat (mnt)"] > 0);
+      const sum = (arr, k) => arr.reduce((s, d) => s + (+d[k] || 0), 0);
+      const t = cfg.tarif.find((x) => x.cabang === f.Cabang && x.posisi === f.Posisi);
+      const r = {
+        Nama: f.Nama, NIP: f.NIP, Cabang: f.Cabang, Posisi: f.Posisi,
+        Terjadwal: hadir.length + absen.length, Libur: g.filter((d) => d.Status === "Off").length,
+        Hadir: hadir.length, Absen: absen.length, Izin: absenIzin.length, AbsenDipotong: absen.length - izinBayar,
+        TelatKali: telat.length, TelatMnt: sum(telat, "Telat (mnt)"),
+        TelatPot: sum(hadir, "Potongan Telat (Rp)"), TelatKenaKali: hadir.filter((d) => d["Potongan Telat (Rp)"] > 0).length,
+        PcKali: pc.length, PcMnt: sum(pc, "Pulang Cepat (mnt)"),
+        LemburJam: sum(hadir, "Lembur Dibayar (jam)"), LemburUpah: sum(hadir, "Upah Lembur (Rp)"),
+        LemburTakDibayarJam: hadir.filter((d) => d["Lembur Dibayar (jam)"] === 0 && d["Lembur (mnt)"] >= cfg.lemburMin).reduce((s, d) => s + d["Lembur (mnt)"], 0) / 60,
+        Double: hadir.filter((d) => d["Double Shift"] === "ya").length,
+        ShiftBerubah: hadir.filter((d) => d["Status Shift"].startsWith("shift berubah")).length,
+        TelatHris: sum(hadir, "Telat HRIS (mnt)"),
+        adaTarif: !!(t && +t.gaji > 0), gaji: t ? +t.gaji || 0 : 0, tunj: t ? +t.tunj || 0 : 0, makan: t ? +t.makan || 0 : 0,
+        detail: g
+      };
+      r.PotAbsen = r.gaji / (cfg.pembagi || 26) * r.AbsenDipotong;
+      r.PotPc = r.PcMnt * cfg.pulangPerMenit;
+      r.UangMakan = r.makan * r.Hadir;
+      r.BonusDouble = r.Double * cfg.bonusDouble;
+      r.GajiBersih = r.adaTarif ? r.gaji + r.tunj + r.UangMakan + r.LemburUpah + r.BonusDouble - r.PotAbsen - r.TelatPot - r.PotPc : null;
+      rekap.push(r);
+    });
+
+    const review = [];
+    det.forEach((d) => d._review.forEach((a) => review.push({ Tanggal: d.Tanggal, Nama: d.Nama, NIP: d.NIP, Cabang: d.Cabang, "Jadwal HRIS": d["Jadwal HRIS"], "Check In": d["Check In"], "Check Out": d["Check Out"], Alasan: a })));
+    rekap.forEach((r) => { if (r.Terjadwal && r.Hadir === 0) review.push({ Tanggal: "", Nama: r.Nama, NIP: r.NIP, Cabang: r.Cabang, "Jadwal HRIS": "", "Check In": "", "Check Out": "", Alasan: "Tidak pernah absen sebulan penuh (" + r.Absen + " hari Absent): resign, belum pakai aplikasi, atau izin?" }); });
+    const nipNama = new Map();
+    rows.forEach((r) => { if (!nipNama.has(r.nip)) nipNama.set(r.nip, new Set()); nipNama.get(r.nip).add(r.nama); });
+    nipNama.forEach((v, nip) => {
+      if (nip && nip !== "0" && v.size > 1) review.push({ Tanggal: "", Nama: [...v].join(", "), NIP: nip, Cabang: "", "Jadwal HRIS": "", "Check In": "", "Check Out": "", Alasan: "NIP dipakai lebih dari satu orang, rapikan di HRIS" });
+      if (!nip || nip === "0") v.forEach((n) => review.push({ Tanggal: "", Nama: n, NIP: nip, Cabang: "", "Jadwal HRIS": "", "Check In": "", "Check Out": "", Alasan: "NIP kosong/0, lengkapi di HRIS" }));
+    });
+
+    const tglList = det.map((d) => d.Tanggal).sort();
+    return { det, rekap, review, periode: tglList[0].slice(0, 7), dari: tglList[0], sampai: tglList[tglList.length - 1] };
+  }
+
+  // ---------- render: umum ----------
+  function branchList() {
+    const s = new Set(cfg.tarif.map((t) => t.cabang));
+    if (rawRows) rawRows.forEach((r) => s.add(r.cabang));
+    return [...s].filter(Boolean).sort();
+  }
+  function postList() {
+    const s = new Set(cfg.tarif.map((t) => t.posisi));
+    if (rawRows) rawRows.forEach((r) => s.add(r.posisi));
+    return [...s].filter(Boolean).sort();
+  }
+  function dl(id, arr) { return '<datalist id="' + id + '">' + arr.map((x) => '<option value="' + esc(x) + '">').join("") + "</datalist>"; }
+  function bulanLabel(p) {
+    const [y, m] = p.split("-");
+    return ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"][+m - 1] + " " + y;
+  }
+
+  // ---------- render: tab Hitung ----------
+  let filterCabang = "", filterCari = "", terbuka = new Set();
+  function renderHitung() {
+    const el = $("#tab-hitung");
+    if (!hasil) {
+      el.innerHTML = '<div class="drop" id="drop"><div><h2>Upload export absensi bulan ini</h2><p class="sub">File .xlsx dari HRIS, langsung seperti hasil download. Tidak ada yang dikirim ke mana pun, dihitung di browser Anda.</p></div>' +
+        '<button class="btn" id="pick">Pilih file .xlsx</button><input type="file" id="file" accept=".xlsx,.xls" hidden><p class="sub">atau tarik file ke kotak ini</p><div id="err"></div>' +
+        '<div class="steps"><div><b>1. Isi Tarif Gaji</b><span class="sub">Gaji pokok per cabang dan posisi (PIC, CSO, dst). Sekali isi, tersimpan.</span></div>' +
+        '<div><b>2. Isi Aturan</b><span class="sub">Lembur per cabang dan tanggal, izin/cuti, potongan telat.</span></div>' +
+        '<div><b>3. Upload export</b><span class="sub">Rekap, potongan, dan gaji bersih muncul di halaman ini.</span></div></div></div>';
+      bindDrop();
+      return;
+    }
+    const rk = hasil.rekap.filter((r) => (!filterCabang || r.Cabang === filterCabang) && (!filterCari || (r.Nama + " " + r.NIP).toLowerCase().includes(filterCari.toLowerCase())));
+    const tot = (k) => rk.reduce((s, r) => s + (+r[k] || 0), 0);
+    const tanpaTarif = hasil.rekap.filter((r) => !r.adaTarif && r.Hadir > 0);
+    const cabangs = [...new Set(hasil.rekap.map((r) => r.Cabang))].sort();
+    const dipotongHris = tot("TelatHris");
+
+    let h = '<div class="stack">';
+    h += '<div class="panel"><div class="row" style="justify-content:space-between"><div><h2>' + bulanLabel(hasil.periode) + '</h2><p class="sub">' + esc(fileName) + " · " + hasil.dari + " s/d " + hasil.sampai + " · " + hasil.rekap.length + ' karyawan</p></div>' +
+      '<div class="row"><button class="btn ghost small" id="ganti">Ganti file</button><button class="btn small" id="unduh">Unduh Excel</button></div></div>' +
+      '<div class="stats" style="margin-top:14px">' +
+      stat(num(tot("Hadir")), "hari hadir") + stat(num(tot("Absen")), "hari absen") +
+      stat(num(tot("TelatKali")) + " kali", "telat (" + num(tot("TelatMnt")) + " mnt; HRIS: " + num(dipotongHris) + " mnt)") +
+      stat(rp(tot("TelatPot")), "potongan telat") + stat(rp(tot("LemburUpah")), "upah lembur") +
+      stat(rp(rk.reduce((s, r) => s + (r.GajiBersih || 0), 0)), "gaji bersih (yang tarifnya terisi)") + "</div></div>";
+    if (tanpaTarif.length) h += '<div class="banner warn"><b>' + tanpaTarif.length + ' karyawan belum punya tarif gaji</b> (cabang + posisi belum diisi atau gaji 0): ' + esc([...new Set(tanpaTarif.map((r) => r.Cabang + " / " + r.Posisi))].join("; ")) + '. Isi di tab Tarif Gaji, hasil langsung diperbarui.</div>';
+    const nLembur = hasil.rekap.reduce((s, r) => s + r.LemburTakDibayarJam, 0);
+    if (nLembur >= 1) h += '<div class="banner ok">Ada ' + nLembur.toFixed(1).replace(".", ",") + ' jam lembur terdeteksi yang belum dibayar karena tidak ada aturan lembur. Jika perlu dibayar, tambahkan di tab Aturan (per cabang dan tanggal).</div>';
+
+    h += '<div class="filters"><div class="row"><select id="fcab" aria-label="Filter cabang"><option value="">Semua cabang</option>' + cabangs.map((c) => '<option' + (c === filterCabang ? " selected" : "") + ' value="' + esc(c) + '">' + esc(c) + "</option>").join("") + '</select>' +
+      '<input type="text" id="fcari" placeholder="Cari nama / NIP" value="' + esc(filterCari) + '" aria-label="Cari karyawan" style="max-width:220px"></div><span class="hint">Klik baris karyawan untuk melihat detail harian.</span></div>';
+
+    h += '<div class="scroll"><table><thead><tr><th>Karyawan</th><th>Cabang / Posisi</th><th class="n">Hadir</th><th class="n">Absen</th><th class="n">Telat</th><th class="n">Pot. telat</th><th class="n">Pot. absen</th><th class="n">Pulang cepat</th><th class="n">Lembur</th><th class="n">Gaji pokok</th><th class="n">Gaji bersih</th></tr></thead><tbody>';
+    if (!rk.length) h += '<tr><td colspan="11" class="empty">Tidak ada karyawan yang cocok.</td></tr>';
+    rk.forEach((r) => {
+      const key = r.Nama + "||" + r.NIP, open = terbuka.has(key);
+      h += '<tr class="emp" data-k="' + esc(key) + '" tabindex="0" aria-expanded="' + open + '"><td><b>' + esc(r.Nama) + '</b><br><span class="sub">' + esc(r.NIP || "NIP kosong") + "</span></td>" +
+        '<td class="wrap">' + esc(r.Cabang) + '<br><span class="sub">' + esc(r.Posisi) + "</span></td>" +
+        '<td class="n">' + r.Hadir + '</td><td class="n">' + (r.Absen ? '<span class="neg">' + r.Absen + "</span>" : 0) + (r.Izin ? '<br><span class="sub">izin ' + r.Izin + "</span>" : "") + "</td>" +
+        '<td class="n">' + r.TelatKali + "×<br><span class='sub'>" + r.TelatMnt + " mnt</span></td>" +
+        '<td class="n">' + (r.TelatPot ? rp(r.TelatPot) : "—") + '</td><td class="n">' + (r.adaTarif ? (r.PotAbsen ? rp(r.PotAbsen) : "—") : "—") + "</td>" +
+        '<td class="n">' + r.PcKali + "×<br><span class='sub'>" + r.PcMnt + " mnt</span></td>" +
+        '<td class="n">' + (r.LemburJam ? r.LemburJam.toFixed(1) + " jam<br><span class='sub'>" + rp(r.LemburUpah) + "</span>" : "—") + "</td>" +
+        '<td class="n">' + (r.adaTarif ? rp(r.gaji) : '<span class="pill warn">belum diisi</span>') + '</td><td class="n"><b>' + (r.GajiBersih == null ? "—" : rp(r.GajiBersih)) + "</b></td></tr>";
+      if (open) h += '<tr class="detail"><td colspan="11">' + detailTabel(r) + "</td></tr>";
+    });
+    h += '<tr class="tot"><td colspan="2">Total' + (filterCabang || filterCari ? " (terfilter)" : "") + '</td><td class="n">' + num(tot("Hadir")) + '</td><td class="n">' + num(tot("Absen")) + '</td><td class="n">' + num(tot("TelatKali")) + "×</td><td class=\"n\">" + rp(tot("TelatPot")) + '</td><td class="n">' + rp(tot("PotAbsen")) + '</td><td class="n">' + num(tot("PcKali")) + '×</td><td class="n">' + rp(tot("LemburUpah")) + '</td><td class="n">' + rp(rk.reduce((s, r) => s + (r.adaTarif ? r.gaji : 0), 0)) + '</td><td class="n">' + rp(rk.reduce((s, r) => s + (r.GajiBersih || 0), 0)) + "</td></tr>";
+    h += "</tbody></table></div>";
+
+    h += '<details class="panel"' + (hasil.review.length ? " open" : "") + "><summary>Perlu dicek manual (" + hasil.review.length + ')</summary><p class="hint" style="margin:6px 0 10px">Kasus yang tidak bisa diputuskan otomatis. Hanya bagian ini yang perlu Anda periksa.</p>';
+    if (hasil.review.length) {
+      h += '<div class="scroll"><table><thead><tr><th>Tanggal</th><th>Nama</th><th>Cabang</th><th>Check in</th><th>Check out</th><th>Alasan</th></tr></thead><tbody>' +
+        hasil.review.map((v) => "<tr><td>" + esc(v.Tanggal) + "</td><td>" + esc(v.Nama) + "</td><td>" + esc(v.Cabang) + "</td><td>" + esc(v["Check In"]) + "</td><td>" + esc(v["Check Out"]) + '</td><td class="wrap">' + esc(v.Alasan) + "</td></tr>").join("") + "</tbody></table></div>";
+    } else h += '<p class="empty">Tidak ada.</p>';
+    h += "</details></div>";
+    el.innerHTML = h;
+    bindHitung();
+  }
+  function stat(v, l) { return '<div class="stat"><div class="v">' + v + '</div><div class="l">' + l + "</div></div>"; }
+  function detailTabel(r) {
+    let h = '<div class="scroll"><table><thead><tr><th>Tanggal</th><th>Hari</th><th>Status</th><th>Jadwal HRIS</th><th>Shift aktual</th><th>Masuk</th><th>Pulang</th><th class="n">Telat</th><th class="n">Pot. telat</th><th class="n">Pulang cepat</th><th class="n">Lembur</th><th>Catatan</th></tr></thead><tbody>';
+    r.detail.forEach((d) => {
+      const st = d.Status === "Present" ? "ok" : d.Status === "Absent" ? "bad" : "";
+      h += "<tr><td>" + d.Tanggal + "</td><td>" + esc(d.Hari) + '</td><td><span class="pill ' + st + '">' + (d.Status === "Present" ? "Hadir" : d.Status === "Absent" ? "Absen" : "Libur") + "</span></td><td>" + esc(d["Jadwal HRIS"]) + "</td><td>" + esc(d["Shift Aktual"]) + (d["Status Shift"].startsWith("shift berubah") ? ' <span class="pill warn">berubah</span>' : "") + "</td><td>" + esc(d["Check In"]) + "</td><td>" + esc(d["Check Out"]) +
+        '</td><td class="n">' + (d["Telat (mnt)"] || "") + '</td><td class="n">' + (d["Potongan Telat (Rp)"] ? rp(d["Potongan Telat (Rp)"]) : "") + '</td><td class="n">' + (d["Pulang Cepat (mnt)"] || "") + '</td><td class="n">' + (d["Lembur (mnt)"] ? d["Lembur (mnt)"] + " mnt" + (d["Upah Lembur (Rp)"] ? " · " + rp(d["Upah Lembur (Rp)"]) : "") : "") + '</td><td class="wrap">' + esc(d.Catatan.concat(d._review).join("; ")) + "</td></tr>";
+    });
+    return h + "</tbody></table></div>";
+  }
+  function bindDrop() {
+    const drop = $("#drop"), file = $("#file");
+    if (!drop) return;
+    $("#pick").onclick = () => file.click();
+    file.onchange = () => file.files[0] && muat(file.files[0]);
+    ["dragenter", "dragover"].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.add("over"); }));
+    ["dragleave", "drop"].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.remove("over"); }));
+    drop.addEventListener("drop", (ev) => { const f = ev.dataTransfer.files[0]; if (f) muat(f); });
+  }
+  function bindHitung() {
+    $("#ganti").onclick = () => { hasil = null; rawRows = null; terbuka.clear(); renderHitung(); };
+    $("#unduh").onclick = unduh;
+    $("#fcab").onchange = (e) => { filterCabang = e.target.value; renderHitung(); };
+    const cari = $("#fcari");
+    cari.oninput = (e) => { filterCari = e.target.value; clearTimeout(cari._t); cari._t = setTimeout(() => { renderHitung(); const n = $("#fcari"); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); };
+    document.querySelectorAll("tr.emp").forEach((tr) => {
+      const toggle = () => { const k = tr.dataset.k; terbuka.has(k) ? terbuka.delete(k) : terbuka.add(k); renderHitung(); };
+      tr.onclick = toggle;
+      tr.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } };
+    });
+  }
+
+  async function muat(f) {
+    const err = $("#err");
+    try {
+      if (typeof XLSX === "undefined") throw new Error("Pustaka pembaca Excel belum termuat. Muat ulang halaman.");
+      const buf = await f.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array", cellDates: false });
+      const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "", raw: true });
+      rawRows = normalisasi(json);
+      fileName = f.name;
+      tambahKombinasiBaru();
+      hasil = hitung(rawRows);
+      terbuka.clear(); filterCabang = ""; filterCari = "";
+      renderAll();
+    } catch (e) {
+      if (err) err.innerHTML = '<div class="banner bad">' + esc(e.message || e) + "</div>";
+    }
+  }
+  function tambahKombinasiBaru() {
+    let baru = 0;
+    rawRows.forEach((r) => {
+      if (!cfg.tarif.some((t) => t.cabang === r.cabang && t.posisi === r.posisi)) { cfg.tarif.push({ cabang: r.cabang, posisi: r.posisi, gaji: 0, tunj: 0, makan: 0 }); baru++; }
+    });
+    if (baru) scheduleSave();
+  }
+
+  function hitungUlang() { if (rawRows) hasil = hitung(rawRows); }
+
+  async function unduh() {
+    try {
+      const dl = await window.claude.use("downloads");
+      if (!dl) throw new Error("Unduh tidak tersedia di tampilan ini.");
+      const wb = XLSX.utils.book_new();
+      const rekap = hasil.rekap.map((r) => ({
+        Nama: r.Nama, NIP: r.NIP, Cabang: r.Cabang, Posisi: r.Posisi, "Hari Terjadwal": r.Terjadwal, Hadir: r.Hadir, Absen: r.Absen, "Izin/Sakit/Cuti": r.Izin, "Absen Dipotong": r.AbsenDipotong,
+        "Telat (kali)": r.TelatKali, "Telat (mnt)": r.TelatMnt, "Telat Kena Potongan (kali)": r.TelatKenaKali, "Potongan Telat (Rp)": r.TelatPot,
+        "Pulang Cepat (kali)": r.PcKali, "Pulang Cepat (mnt)": r.PcMnt, "Lembur Dibayar (jam)": r.LemburJam, "Upah Lembur (Rp)": r.LemburUpah,
+        "Double Shift": r.Double, "Shift Berubah (kali)": r.ShiftBerubah, "Telat Menurut HRIS (mnt)": r.TelatHris,
+        "Gaji Pokok": r.adaTarif ? r.gaji : "", "Tunjangan Tetap": r.adaTarif ? r.tunj : "", "Uang Makan": r.adaTarif ? r.UangMakan : "",
+        "Potongan Absen (Rp)": r.adaTarif ? Math.round(r.PotAbsen) : "", "Potongan Pulang Cepat (Rp)": r.PotPc, "Bonus Double Shift (Rp)": r.BonusDouble,
+        "Gaji Bersih": r.GajiBersih == null ? "Tarif belum diisi" : Math.round(r.GajiBersih)
+      }));
+      const det = hasil.det.map((d) => { const o = Object.assign({}, d); o.Catatan = d.Catatan.concat(d._review).join("; "); delete o._review; return o; });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rekap), "Rekap Penggajian");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(det), "Detail Harian");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hasil.review.length ? hasil.review : [{ Info: "Tidak ada" }]), "Perlu Review");
+      const data = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+      await dl.save({ filename: "Rekap_Absensi_" + hasil.periode + ".xlsx", data });
+    } catch (e) {
+      if (e && e.code === "declined") return;
+      setSaved("Unduhan gagal: " + (e.message || e.code || e));
+    }
+  }
+
+  // ---------- render: tab Tarif Gaji ----------
+  function renderGaji() {
+    const el = $("#tab-gaji");
+    let h = '<div class="stack"><div class="panel"><h2>Tarif gaji per cabang dan posisi</h2><p class="sub">Gaji tiap cabang berbeda, dan PIC berbeda dengan CSO. Isi satu baris untuk tiap kombinasi cabang + posisi. Setelah upload, kombinasi baru dari file ditambahkan otomatis dengan nilai kosong.</p></div>';
+    h += dl("dl-cab", branchList()) + dl("dl-pos", postList());
+    h += '<div class="scroll"><table><thead><tr><th>Cabang</th><th>Posisi</th><th>Gaji pokok (Rp / bulan)</th><th>Tunjangan tetap (Rp)</th><th>Uang makan (Rp / hari hadir)</th><th></th></tr></thead><tbody>';
+    cfg.tarif.forEach((t, i) => {
+      h += "<tr><td><input type='text' list='dl-cab' data-p='tarif' data-i='" + i + "' data-f='cabang' value='" + esc(t.cabang) + "' aria-label='Cabang'></td>" +
+        "<td><input type='text' list='dl-pos' data-p='tarif' data-i='" + i + "' data-f='posisi' value='" + esc(t.posisi) + "' aria-label='Posisi'></td>" +
+        "<td><input type='number' min='0' step='1000' inputmode='numeric' data-p='tarif' data-i='" + i + "' data-f='gaji' value='" + (t.gaji || "") + "' placeholder='0' aria-label='Gaji pokok'></td>" +
+        "<td><input type='number' min='0' step='1000' inputmode='numeric' data-p='tarif' data-i='" + i + "' data-f='tunj' value='" + (t.tunj || "") + "' placeholder='0' aria-label='Tunjangan'></td>" +
+        "<td><input type='number' min='0' step='1000' inputmode='numeric' data-p='tarif' data-i='" + i + "' data-f='makan' value='" + (t.makan || "") + "' placeholder='0' aria-label='Uang makan'></td>" +
+        "<td><button class='btn ghost small' data-del='tarif' data-i='" + i + "'>Hapus</button></td></tr>";
+    });
+    h += '</tbody></table></div><div><button class="btn ghost" data-add="tarif">Tambah baris</button></div>';
+    h += '<p class="hint">Potongan absen per hari = gaji pokok ÷ ' + cfg.pembagi + ' (pembagi hari kerja, bisa diubah di tab Aturan). Gaji bersih = gaji pokok + tunjangan + uang makan + lembur − potongan absen − potongan telat − potongan pulang cepat.</p></div>';
+    el.innerHTML = h;
+    bindEdits(el);
+  }
+
+  // ---------- render: tab Aturan ----------
+  function renderAturan() {
+    const el = $("#tab-aturan");
+    const f = (label, key, extra) => '<div class="field"><label for="c-' + key + '">' + label + '</label><input type="number" id="c-' + key + '" data-cfg="' + key + '" value="' + cfg[key] + '" min="0" ' + (extra || "") + "></div>";
+    let h = '<div class="stack">';
+    h += '<div class="panel stack"><div><h2>Potongan dan perhitungan</h2><p class="sub">Telat lebih dari ambang dipotong sebesar nominal tetap per kejadian. Telat sampai ambang tidak dipotong.</p></div><div class="grid">' +
+      f("Ambang telat (menit)", "telatAmbang") + f("Potongan per kejadian telat (Rp)", "telatNominal", 'step="1000"') +
+      f("Potongan pulang cepat (Rp / menit)", "pulangPerMenit") + f("Bonus double shift (Rp / shift)", "bonusDouble", 'step="1000"') +
+      f("Pembagi hari kerja (potongan absen)", "pembagi") + f("Toleransi telat (menit)", "tolTelat") + f("Toleransi pulang cepat (menit)", "tolPulang") +
+      f("Lembur minimal (menit)", "lemburMin") + f("Pembulatan lembur (menit)", "lemburBulat") + "</div></div>";
+
+    h += '<div class="panel stack"><div><h2>Lembur</h2><p class="sub">Lembur hanya dibayar bila ada baris di sini yang cocok dengan cabang dan tanggalnya. Isi cabang dengan * untuk semua cabang. Tanggal selesai kosong berarti satu hari. NIP kosong berarti semua karyawan di cabang itu.</p></div>' + dl("dl-cab", branchList());
+    h += '<div class="scroll"><table><thead><tr><th>Cabang</th><th>Tanggal mulai</th><th>Tanggal selesai</th><th>Tarif / jam (Rp)</th><th>NIP (opsional)</th><th>Keterangan</th><th></th></tr></thead><tbody>';
+    if (!cfg.lembur.length) h += '<tr><td colspan="7" class="empty">Belum ada aturan lembur. Semua lembur ditampilkan sebagai info dan tidak dibayar.</td></tr>';
+    cfg.lembur.forEach((a, i) => {
+      h += "<tr><td><input type='text' list='dl-cab' data-p='lembur' data-i='" + i + "' data-f='cabang' value='" + esc(a.cabang) + "' aria-label='Cabang'></td>" +
+        "<td><input type='date' data-p='lembur' data-i='" + i + "' data-f='mulai' value='" + esc(a.mulai) + "' aria-label='Tanggal mulai'></td>" +
+        "<td><input type='date' data-p='lembur' data-i='" + i + "' data-f='selesai' value='" + esc(a.selesai) + "' aria-label='Tanggal selesai'></td>" +
+        "<td><input type='number' min='0' step='1000' data-p='lembur' data-i='" + i + "' data-f='tarif' value='" + (a.tarif || "") + "' aria-label='Tarif per jam'></td>" +
+        "<td><input type='text' data-p='lembur' data-i='" + i + "' data-f='nip' value='" + esc(a.nip) + "' aria-label='NIP'></td>" +
+        "<td><input type='text' data-p='lembur' data-i='" + i + "' data-f='ket' value='" + esc(a.ket) + "' aria-label='Keterangan'></td>" +
+        "<td><button class='btn ghost small' data-del='lembur' data-i='" + i + "'>Hapus</button></td></tr>";
+    });
+    h += '</tbody></table></div><div><button class="btn ghost" data-add="lembur">Tambah aturan lembur</button></div></div>';
+
+    h += '<div class="panel stack"><div><h2>Izin, sakit, cuti</h2><p class="sub">Hari yang di HRIS tercatat Absent bisa diubah di sini. Jika dibayar = ya, tidak ada potongan absen. Cocokkan lewat NIP atau nama.</p></div><div class="scroll"><table><thead><tr><th>Nama</th><th>NIP</th><th>Tanggal</th><th>Jenis</th><th>Dibayar</th><th></th></tr></thead><tbody>';
+    if (!cfg.izin.length) h += '<tr><td colspan="6" class="empty">Belum ada data izin.</td></tr>';
+    cfg.izin.forEach((z, i) => {
+      h += "<tr><td><input type='text' data-p='izin' data-i='" + i + "' data-f='nama' value='" + esc(z.nama) + "' aria-label='Nama'></td>" +
+        "<td><input type='text' data-p='izin' data-i='" + i + "' data-f='nip' value='" + esc(z.nip) + "' aria-label='NIP'></td>" +
+        "<td><input type='date' data-p='izin' data-i='" + i + "' data-f='tanggal' value='" + esc(z.tanggal) + "' aria-label='Tanggal'></td>" +
+        "<td><select data-p='izin' data-i='" + i + "' data-f='jenis' aria-label='Jenis'>" + ["Sakit", "Izin", "Cuti"].map((j) => "<option" + (z.jenis === j ? " selected" : "") + ">" + j + "</option>").join("") + "</select></td>" +
+        "<td><select data-p='izin' data-i='" + i + "' data-f='dibayar' aria-label='Dibayar'><option value='ya'" + (z.dibayar === "ya" ? " selected" : "") + ">Ya</option><option value='tidak'" + (z.dibayar !== "ya" ? " selected" : "") + ">Tidak</option></select></td>" +
+        "<td><button class='btn ghost small' data-del='izin' data-i='" + i + "'>Hapus</button></td></tr>";
+    });
+    h += '</tbody></table></div><div><button class="btn ghost" data-add="izin">Tambah izin</button></div></div>';
+
+    h += '<details class="panel"><summary>Daftar shift dan penebakan shift</summary><div class="stack" style="margin-top:12px"><p class="sub">Jadwal di HRIS sering tidak sama dengan shift yang dijalankan. Sistem memilih shift dari daftar ini yang paling cocok dengan jam check-in/out. Tambahkan shift baru jika ada pola jam baru. Kolom cabang dan hari boleh kosong (berlaku untuk semua), pisahkan dengan koma.</p>';
+    h += '<div class="scroll"><table><thead><tr><th>Nama shift</th><th>Masuk</th><th>Pulang</th><th>Hanya cabang</th><th>Hanya hari</th><th></th></tr></thead><tbody>';
+    cfg.shifts.forEach((s, i) => {
+      h += "<tr><td><input type='text' data-p='shifts' data-i='" + i + "' data-f='nama' value='" + esc(s.nama) + "' aria-label='Nama shift'></td>" +
+        "<td><input type='text' data-p='shifts' data-i='" + i + "' data-f='masuk' value='" + esc(s.masuk) + "' placeholder='06:00' aria-label='Masuk'></td>" +
+        "<td><input type='text' data-p='shifts' data-i='" + i + "' data-f='pulang' value='" + esc(s.pulang) + "' placeholder='14:00' aria-label='Pulang'></td>" +
+        "<td><input type='text' data-p='shifts' data-i='" + i + "' data-f='cabang' value='" + esc(s.cabang) + "' aria-label='Cabang'></td>" +
+        "<td><input type='text' data-p='shifts' data-i='" + i + "' data-f='hari' value='" + esc(s.hari) + "' placeholder='Sabtu' aria-label='Hari'></td>" +
+        "<td><button class='btn ghost small' data-del='shifts' data-i='" + i + "'>Hapus</button></td></tr>";
+    });
+    h += '</tbody></table></div><div><button class="btn ghost" data-add="shifts">Tambah shift</button></div>' +
+      '<div class="grid"><div class="field"><label for="c-alias">Jadwal HRIS yang salah setting (jadwal = nama shift)</label><textarea id="c-alias" data-cfg="alias">' + esc(cfg.alias) + '</textarea></div>' +
+      '<div class="field"><label for="c-tetap">Cabang dengan shift tetap (tidak ditebak), satu per baris</label><textarea id="c-tetap" data-cfg="tetap">' + esc(cfg.tetap) + "</textarea></div></div>" +
+      '<div class="grid">' + f("Ganti shift jika lebih cocok (selisih menit)", "gantiShift") + f("Tandai review jika selisih melebihi (menit)", "reviewBiaya") + f("Durasi kerja minimal valid (menit)", "minKerja") + "</div></div></details>";
+    h += '<div><button class="btn ghost small" data-reset="1">Kembalikan semua pengaturan ke bawaan</button></div></div>';
+    el.innerHTML = h;
+    bindEdits(el);
+  }
+
+  // ---------- edit pengaturan ----------
+  const NEW_ROW = {
+    tarif: () => ({ cabang: "", posisi: "", gaji: 0, tunj: 0, makan: 0 }),
+    lembur: () => ({ cabang: "", mulai: "", selesai: "", tarif: 0, nip: "", ket: "" }),
+    izin: () => ({ nama: "", nip: "", tanggal: "", jenis: "Sakit", dibayar: "ya" }),
+    shifts: () => ({ nama: "", masuk: "", pulang: "", cabang: "", hari: "" })
+  };
+  function afterEdit(rerenderTab) {
+    scheduleSave();
+    hitungUlang();
+    renderHitung();
+    if (rerenderTab) renderAll(true);
+  }
+  function bindEdits(root) {
+    root.querySelectorAll("[data-p]").forEach((inp) => {
+      inp.addEventListener("change", () => {
+        const row = cfg[inp.dataset.p][+inp.dataset.i];
+        let v = inp.value;
+        if (inp.type === "number") v = +v || 0;
+        row[inp.dataset.f] = v;
+        afterEdit(false);
+      });
+    });
+    root.querySelectorAll("[data-cfg]").forEach((inp) => {
+      inp.addEventListener("change", () => {
+        cfg[inp.dataset.cfg] = inp.type === "number" ? (+inp.value || 0) : inp.value;
+        afterEdit(false);
+      });
+    });
+    root.querySelectorAll("[data-add]").forEach((b) => b.addEventListener("click", () => { cfg[b.dataset.add].push(NEW_ROW[b.dataset.add]()); afterEdit(true); }));
+    root.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => { cfg[b.dataset.del].splice(+b.dataset.i, 1); afterEdit(true); }));
+    root.querySelectorAll("[data-reset]").forEach((b) => b.addEventListener("click", () => {
+      if (b.dataset.armed) { cfg = defaultCfg(); afterEdit(true); } else { b.dataset.armed = "1"; b.textContent = "Klik lagi untuk menghapus semua pengaturan"; }
+    }));
+  }
+
+  // ---------- tab & mulai ----------
+  function renderAll(keepFocusTab) {
+    renderGaji(); renderAturan();
+    if (!keepFocusTab) renderHitung();
+  }
+  document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("#tabs button").forEach((x) => x.setAttribute("aria-selected", x === b ? "true" : "false"));
+    ["hitung", "gaji", "aturan"].forEach((t) => { $("#tab-" + t).hidden = t !== b.dataset.tab; });
+  }));
+
+  renderAll();
+  loadCfg();
+})();
+</script>
