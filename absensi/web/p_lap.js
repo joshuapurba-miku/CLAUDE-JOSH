@@ -162,13 +162,11 @@
         L.pegawai.map((p) => [p["No. Slip"], p.Nama, p.Lokasi, `${p.Hadir}/${p.Terjadwal}`, p["Telat Dipotong"], rpT(p["Pendapatan Bruto"]), rpT(p.Potongan), p["Gaji Diterima"] === "" ? "tarif kosong" : rpT(p["Gaji Diterima"])])
           .concat([["", "Total", "", "", "", rpT(sumBy(rk, (r) => r.Pendapatan)), rpT(sumBy(rk, (r) => r.Potongan)), rpT(sumBy(rk, (r) => r.GajiBersih || 0))]]), { total: 1 });
       // tanda tangan
-      if (y > BOTTOM - 40) baru();
+      if (y > BOTTOM - 48) baru();
       y += 6; doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(...INK);
-      doc.text("Disiapkan oleh,", 50, y, { align: "center" }); doc.text(cfg.kota + ", " + tglPanjang(new Date()), 160, y, { align: "center" });
-      doc.text("Disetujui oleh,", 160, y + 5, { align: "center" });
-      doc.setFont("helvetica", "bold");
-      doc.text("(........................)", 50, y + 30, { align: "center" }); doc.text(L.ap ? L.ap.oleh : (cfg.ttdNama || "(........................)"), 160, y + 30, { align: "center" });
-      doc.setFont("helvetica", "normal"); doc.text(cfg.ttdJabatan || "", 160, y + 35, { align: "center" });
+      doc.text("Disiapkan oleh,", 50, y, { align: "center" }); doc.text("Disetujui oleh,", 160, y, { align: "center" });
+      doc.setFont("helvetica", "bold"); doc.text("(........................)", 50, y + 33, { align: "center" });
+      ttdPDF(doc, 160, y + 5, null);
       // nomor halaman
       const n = doc.getNumberOfPages();
       for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...MUTED); doc.text(`Rahasia · hanya untuk manajemen · halaman ${i} dari ${n}`, X0, 290); doc.text(`Sumber: Kolabo ${hasil.dari} s/d ${hasil.sampai}`, X1, 290, { align: "right" }); }

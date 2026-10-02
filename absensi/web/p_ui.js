@@ -43,7 +43,7 @@
     root.querySelectorAll("input, select, textarea, button").forEach((x) => { if (!x.closest("[data-free]")) x.disabled = true; });
   }
   function recompute(keepInput) {
-    if (rawRows) { hasil = hitung(rawRows); simpanRiwayat(); }
+    if (rawRows) { hasil = hitung(rawRows); simpanRiwayat(); cekBukti(); }
     renderBar(); updateTabCounts();
     if (currentTab === "input" && keepInput) renderInputSummary();
     else if (DATA_TABS[currentTab]) DATA_TABS[currentTab]();
@@ -103,7 +103,7 @@
       let baru = 0;
       rawRows.forEach((r) => { if (!tarifRow(r.cabang, r.posisi)) { cfg.tarif.push(Object.assign({ cabang: r.cabang, posisi: r.posisi }, TARIF_KOSONG)); baru++; } });
       if (baru) scheduleSave();
-      hasil = hitung(rawRows); simpanRiwayat();
+      hasil = hitung(rawRows); simpanRiwayat(); cekBukti();
       rekapCabang = ""; inputKey = ""; filterCari = slipCari = ""; slipCabang = ""; terbuka.clear();
       renderBar(); updateTabCounts(); showTab("dash");
     } catch (e) {

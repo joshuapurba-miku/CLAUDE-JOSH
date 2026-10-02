@@ -17,7 +17,71 @@
     const baris = [...hasil.rekap].sort((a, b) => a.key.localeCompare(b.key)).map((r) => [r.key, Math.round(r.Pendapatan), Math.round(r.Potongan), Math.round(r.GajiBersih || 0)].join("|"));
     return (await sha256(hasil.periode + "\n" + baris.join("\n"))).slice(0, 32);
   }
-  const teksTTD = (o) => [o.periode, o.sidik, o.keputusan, o.catatan || "", o.oleh, o.jabatan || "", o.kode, o.waktu].join("\n");
+  const teksTTD = (o) => [o.periode, o.sidik, o.keputusan, o.catatan || "", o.oleh, o.jabatan || "", o.kode, o.waktu, o.ttdHash || ""].join("\n");
+  // hasil verifikasi persetujuan per periode: { ok, kodeSlip: {key: kode} }
+  const verif = {};
+  function ttdValid() { const v = hasil && verif[hasil.periode]; return v && v.ok ? cfg.approval[hasil.periode].bukti.ttdImg || "" : ""; }
+  function kodeSlip(r) { const v = hasil && verif[hasil.periode]; return v && v.ok ? (v.kodeSlip[r.key] || "") : ""; }
+  async function periksaBukti(ap) {
+    const o = ap && ap.bukti;
+    if (!o) return false;
+    const reg = (cfg.approvers || []).find((a) => a.kode === o.kode);
+    if (!reg) return false;
+    const key = await crypto.subtle.importKey("jwk", reg.pub, ALG, false, ["verify"]);
+    if (!(await crypto.subtle.verify(SIG, key, unb64(o.ttd), new TextEncoder().encode(teksTTD(o))))) return false;
+    if (o.ttdImg && (await sha256(o.ttdImg)) !== o.ttdHash) return false;
+    return o.periode === hasil.periode && o.sidik === (await sidikData()) && o.keputusan === "setuju";
+  }
+  async function cekBukti() {
+    if (!hasil || !window.crypto || !crypto.subtle) return;
+    const p = hasil.periode, ap = cfg.approval[p];
+    let hasilCek = { ok: false, kodeSlip: {} };
+    try {
+      if (await periksaBukti(ap)) {
+        hasilCek.ok = true;
+        for (const r of hasil.rekap) hasilCek.kodeSlip[r.key] = (await sha256([ap.bukti.ttd, r.NoSlip, r.key, Math.round(r.GajiBersih || 0)].join("|"))).slice(0, 10).toUpperCase().replace(/(.{5})(?=.)/, "$1-");
+      }
+    } catch (e) { hasilCek.ok = false; }
+    const lama = verif[p];
+    verif[p] = hasilCek;
+    if (!lama || lama.ok !== hasilCek.ok) { if (DATA_TABS[currentTab]) DATA_TABS[currentTab](); }
+  }
+  function olahTTD(file) {
+    return new Promise((ok, gagal) => {
+      const rd = new FileReader();
+      rd.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const sc = Math.min(1, 600 / img.width, 300 / img.height), cv = document.createElement("canvas");
+          cv.width = Math.round(img.width * sc); cv.height = Math.round(img.height * sc);
+          const cx = cv.getContext("2d"); cx.drawImage(img, 0, 0, cv.width, cv.height);
+          const d = cx.getImageData(0, 0, cv.width, cv.height), px = d.data;
+          let x0 = cv.width, y0 = cv.height, x1 = 0, y1 = 0;
+          for (let i = 0; i < px.length; i += 4) {
+            const g = (px[i] * 0.3 + px[i + 1] * 0.59 + px[i + 2] * 0.11) * (px[i + 3] / 255) + 255 * (1 - px[i + 3] / 255);
+            let a = Math.max(0, Math.min(1, (205 - g) / 95)); if (a < 0.06) a = 0;
+            px[i] = px[i + 1] = px[i + 2] = 0; px[i + 3] = Math.round(a * 255);
+            if (a > 0.12) { const p = i / 4, x = p % cv.width, y = Math.floor(p / cv.width); if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+          }
+          if (x1 <= x0) { gagal(new Error("Tanda tangan tidak terdeteksi. Gunakan foto tinta gelap di kertas putih.")); return; }
+          cx.putImageData(d, 0, 0);
+          const out = document.createElement("canvas"); out.width = x1 - x0 + 12; out.height = y1 - y0 + 12;
+          out.getContext("2d").drawImage(cv, x0 - 6, y0 - 6, out.width, out.height, 0, 0, out.width, out.height);
+          ok(out.toDataURL("image/png"));
+        };
+        img.onerror = () => gagal(new Error("File gambar tidak bisa dibaca."));
+        img.src = rd.result;
+      };
+      rd.readAsDataURL(file);
+    });
+  }
+  async function cekPIN(pin) {
+    if (!pin) throw new Error("Isi PIN direktur dulu.");
+    const h = await sha256("rekap-gaji|" + pin);
+    if (!cfg.apPinHash) { cfg.apPinHash = h; return "baru"; }
+    if (h !== cfg.apPinHash) throw new Error("PIN direktur salah.");
+    return "cocok";
+  }
 
   async function buatKunciApprover(nama, jabatan) {
     const kp = await crypto.subtle.generateKey(ALG, true, ["sign", "verify"]);
@@ -47,6 +111,7 @@
     const k = kunciLokal();
     if (!k) { setSaved("Buat kunci approver dulu di Aturan."); return; }
     const o = { jenis: "hasil-persetujuan", periode: hasil.periode, sidik: await sidikData(), keputusan, catatan, oleh: k.nama, jabatan: k.jabatan, kode: k.kode, waktu: new Date().toISOString() };
+    if (keputusan === "setuju" && k.ttdImg) { o.ttdImg = k.ttdImg; o.ttdHash = await sha256(k.ttdImg); }
     const key = await crypto.subtle.importKey("jwk", k.priv, ALG, false, ["sign"]);
     o.ttd = b64(await crypto.subtle.sign(SIG, key, new TextEncoder().encode(teksTTD(o))));
     await saveFile(`${keputusan === "setuju" ? "Persetujuan" : "Penolakan"}_${hasil.periode}_${k.nama.replace(/[^\w]+/g, "_")}.json`, JSON.stringify(o, null, 1), "application/json");
@@ -63,21 +128,22 @@
       if (!(await crypto.subtle.verify(SIG, key, unb64(o.ttd), new TextEncoder().encode(teksTTD(o))))) throw new Error("Tanda tangan digital TIDAK valid. File mungkin diubah.");
       if (o.periode !== hasil.periode) throw new Error(`File ini untuk periode ${bulanLabel(o.periode)}, bukan ${bulanLabel(hasil.periode)}.`);
       if (o.sidik !== (await sidikData())) throw new Error("Data gaji sudah berubah sejak paket dikirim. Kirim paket baru ke approver.");
+      if (o.ttdImg && (await sha256(o.ttdImg)) !== o.ttdHash) throw new Error("Gambar tanda tangan tidak cocok dengan tanda tangan digital.");
       const tgl = tglPanjang(new Date(o.waktu));
       if (o.keputusan === "setuju") {
-        cfg.approval[hasil.periode] = { oleh: o.oleh, jabatan: o.jabatan, tanggal: tgl, kode: o.kode, digital: true, catatan: o.catatan || "" };
+        cfg.approval[hasil.periode] = { oleh: o.oleh, jabatan: o.jabatan, tanggal: tgl, kode: o.kode, digital: true, catatan: o.catatan || "", bukti: o };
         delete cfg.penolakan[hasil.periode];
       } else {
         cfg.penolakan[hasil.periode] = { oleh: o.oleh, tanggal: tgl, catatan: o.catatan || "" };
       }
-      scheduleSave(); renderAll(); showTab("slip");
+      scheduleSave(); await cekBukti(); renderAll(); showTab("slip");
       msg(o.keputusan === "setuju" ? `Persetujuan ${o.oleh} terverifikasi. Periode dikunci.` : `${o.oleh} menolak: ${o.catatan || "tanpa catatan"}`, o.keputusan === "setuju");
     } catch (e) { msg(e.message || String(e), false); }
   }
 
   function panelPersetujuan(siap) {
     const ap = cfg.approval[hasil.periode], tolak = cfg.penolakan[hasil.periode], k = kunciLokal();
-    if (ap) return `<div class="panel row between"><div><h3>Disetujui${ap.digital ? " · tanda tangan digital terverifikasi" : ""}</h3><p class="sub">Gaji ${bulanLabel(hasil.periode)} disetujui oleh <b>${esc(ap.oleh)}</b>${ap.jabatan ? ` (${esc(ap.jabatan)})` : ""} pada ${esc(ap.tanggal)}${ap.kode ? ` · kode kunci ${esc(ap.kode)}` : ""}.${ap.catatan ? ` Catatan: ${esc(ap.catatan)}` : ""} Data dikunci; slip tidak lagi bertanda DRAFT.</p></div>${reviewMode ? "" : '<button class="btn ghost" id="ap-buka">Batalkan persetujuan</button>'}</div>`;
+    if (ap) return `<div class="panel row between"><div><h3>Disetujui${ttdValid() || (verif[hasil.periode] && verif[hasil.periode].ok) ? " · tanda tangan digital terverifikasi" : ap.digital ? ' · <span class="pill bad">tanda tangan digital tidak valid</span>' : " · tanpa tanda tangan digital (tanda tangan tidak dicetak)"}</h3><p class="sub">Gaji ${bulanLabel(hasil.periode)} disetujui oleh <b>${esc(ap.oleh)}</b>${ap.jabatan ? ` (${esc(ap.jabatan)})` : ""} pada ${esc(ap.tanggal)}${ap.kode ? ` · kode kunci ${esc(ap.kode)}` : ""}.${ap.catatan ? ` Catatan: ${esc(ap.catatan)}` : ""} Data dikunci; slip tidak lagi bertanda DRAFT.</p></div>${reviewMode ? "" : '<button class="btn ghost" id="ap-buka">Batalkan persetujuan</button>'}</div>`;
     if (reviewMode) {
       const cek = reviewMode.cocok ? '<span class="pill ok">data utuh</span>' : '<span class="pill bad">data tidak cocok dengan paket</span>';
       return `<div class="panel stack"><div><h3>Keputusan approver ${cek}</h3><p class="sub">Tinjau Dashboard, Rekap Absensi, dan slip. Keputusan Anda ditandatangani secara digital dengan kunci di laptop ini, lalu diunduh sebagai file untuk dikirim ke penyiap gaji.</p></div>
@@ -113,13 +179,18 @@
     return `<div class="panel stack" data-free><div><h2>Persetujuan (approver terpisah)</h2><p class="sub">Approver (misal direktur) memakai laptopnya sendiri. Persetujuannya ditandatangani digital, sehingga tidak bisa dibuat-buat oleh penyiap gaji, dan otomatis batal jika data gaji berubah.</p></div>
       <div class="cols2"><div class="stack" style="gap:10px"><h3>Laptop ini sebagai approver</h3>
         ${k ? `<p class="sub">Kunci milik <b>${esc(k.nama)}</b>${k.jabatan ? " · " + esc(k.jabatan) : ""}<br>Kode kunci: <b style="font-family:var(--font-num)">${esc(k.kode)}</b></p>
+          <div class="row" style="align-items:center">${k.ttdImg ? `<img src="${k.ttdImg}" alt="Tanda tangan" style="height:60px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px">` : '<span class="sub">Belum ada gambar tanda tangan.</span>'}
+            <button class="btn ghost" id="ak-ttd">${k.ttdImg ? "Ganti tanda tangan" : "Unggah tanda tangan"}</button><input type="file" id="ak-ttdfile" accept="image/*" hidden></div>
+          <p class="hint">Tanda tangan hanya disimpan di laptop ini dan dikirim di dalam file persetujuan yang ditandatangani digital. Tidak tersimpan di file HTML tim, jadi tidak bisa dipakai orang lain.</p>
           <div class="row"><button class="btn ghost" id="ak-kartu">Unduh kartu approver</button><button class="btn ghost" id="ak-hapus">Hapus kunci</button></div>
           <p class="hint">Kirim kartu approver ke penyiap gaji. Kunci pribadi tidak ikut di kartu dan tidak ikut saat ekspor pengaturan.</p>`
         : `<div class="grid"><div class="field"><label for="ak-nama">Nama approver</label><input type="text" id="ak-nama" value="${esc(cfg.ttdNama)}"></div><div class="field"><label for="ak-jab">Jabatan</label><input type="text" id="ak-jab" value="${esc(cfg.ttdJabatan)}"></div></div>
           <div><button class="btn ghost" id="ak-buat">Buat kunci approver di laptop ini</button></div><p class="hint">Hanya dilakukan sekali oleh approver, di laptopnya sendiri.</p>`}</div>
       <div class="stack" style="gap:10px"><h3>Approver terdaftar (di laptop penyiap)</h3>
         ${daftar.length ? `<div class="scroll"><table><thead><tr><th>Nama</th><th>Jabatan</th><th>Kode kunci</th><th></th></tr></thead><tbody>${daftar.map((a, i) => `<tr><td>${esc(a.nama)}</td><td>${esc(a.jabatan || "")}</td><td style="font-family:var(--font-num)">${esc(a.kode)}</td><td><button class="btn ghost small" data-apdel="${i}">Hapus</button></td></tr>`).join("")}</tbody></table></div>` : '<p class="sub">Belum ada. Selama kosong, gaji disetujui langsung di laptop ini.</p>'}
-        <div class="row"><button class="btn ghost" id="ak-tambah">Tambah dari kartu approver (.json)</button><input type="file" id="ak-file" accept=".json,application/json" hidden></div>
+        <div class="row" style="align-items:flex-end"><div class="field"><label for="ak-pin">PIN direktur</label><input type="password" id="ak-pin" inputmode="numeric" autocomplete="off" style="width:150px" placeholder="${cfg.apPinHash ? "masukkan PIN" : "buat PIN baru"}"></div>
+          <button class="btn ghost" id="ak-tambah">Tambah dari kartu approver (.json)</button><input type="file" id="ak-file" accept=".json,application/json" hidden></div>
+        <p class="hint">${cfg.apPinHash ? "Menambah atau menghapus approver memerlukan PIN direktur." : "PIN yang diisi saat pertama menambah approver menjadi PIN direktur. Setelah itu, perubahan daftar approver memerlukan PIN ini."}</p><p class="hint neg" id="ak-msg"></p>
         <p class="hint">Cocokkan kode kunci dengan approver lewat telepon/WA saat mendaftarkan.</p></div></div></div>`;
   }
   function bindAturanPersetujuan() {
@@ -127,17 +198,24 @@
       const nama = $("#ak-nama").value.trim(); if (!nama) { $("#ak-nama").focus(); return; }
       try { await buatKunciApprover(nama, $("#ak-jab").value.trim()); renderAturan(); } catch (e) { setSaved("Kunci tidak bisa dibuat di browser ini: " + (e.message || e)); }
     };
+    if ($("#ak-ttd")) { $("#ak-ttd").onclick = () => $("#ak-ttdfile").click(); $("#ak-ttdfile").onchange = async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      try { const k = kunciLokal(); k.ttdImg = await olahTTD(f); localStorage.setItem(APPR_KEY, JSON.stringify(k)); renderAturan(); } catch (er) { setSaved(er.message || String(er)); }
+    }; }
     if ($("#ak-kartu")) $("#ak-kartu").onclick = () => { const k = kunciLokal(); saveFile(`Kartu_Approver_${k.nama.replace(/[^\w]+/g, "_")}.json`, JSON.stringify({ jenis: "kartu-approver", nama: k.nama, jabatan: k.jabatan, kode: k.kode, pub: k.pub }, null, 1), "application/json"); };
     if ($("#ak-hapus")) $("#ak-hapus").onclick = (e) => { const b = e.target; if (b.dataset.armed) { try { localStorage.removeItem(APPR_KEY); } catch (er) { /* abaikan */ } renderAturan(); } else { b.dataset.armed = "1"; b.textContent = "Klik lagi: kunci hilang permanen"; } };
-    if ($("#ak-tambah")) { $("#ak-tambah").onclick = () => $("#ak-file").click(); $("#ak-file").onchange = async (e) => {
-      const f = e.target.files[0]; if (!f) return;
+    if ($("#ak-tambah")) { $("#ak-tambah").onclick = () => { if (!$("#ak-pin").value) { $("#ak-msg").textContent = "Isi PIN direktur dulu."; $("#ak-pin").focus(); return; } $("#ak-file").click(); }; $("#ak-file").onchange = async (e) => {
+      const f = e.target.files[0]; if (!f) return; e.target.value = "";
       try {
+        await cekPIN($("#ak-pin").value);
         const o = JSON.parse(await f.text());
         if (o.jenis !== "kartu-approver" || !o.pub) throw new Error("Bukan kartu approver.");
         o.kode = await kodeKunci(o.pub);
         cfg.approvers = (cfg.approvers || []).filter((a) => a.kode !== o.kode).concat([{ nama: o.nama, jabatan: o.jabatan, kode: o.kode, pub: o.pub }]);
         scheduleSave(); renderAturan();
-      } catch (er) { setSaved("Kartu tidak bisa dibaca: " + (er.message || er)); }
+      } catch (er) { $("#ak-msg").textContent = er.message || String(er); }
     }; }
-    document.querySelectorAll("[data-apdel]").forEach((b) => b.onclick = () => { cfg.approvers.splice(+b.dataset.apdel, 1); scheduleSave(); renderAturan(); });
+    document.querySelectorAll("[data-apdel]").forEach((b) => b.onclick = async () => {
+      try { await cekPIN($("#ak-pin").value); cfg.approvers.splice(+b.dataset.apdel, 1); scheduleSave(); renderAturan(); } catch (er) { $("#ak-msg").textContent = er.message || String(er); }
+    });
   }

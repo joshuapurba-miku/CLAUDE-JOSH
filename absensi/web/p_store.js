@@ -45,7 +45,7 @@
       if (dbApi) {
         const snap = await dbApi.doc("settings/main").get();
         const d = snap && (snap.exists === true || (typeof snap.exists === "function" && snap.exists())) ? (typeof snap.data === "function" ? snap.data() : snap.data) : null;
-        if (d && d.json) { cfg = mergeCfg(JSON.parse(d.json)); if (rawRows) hasil = hitung(rawRows); renderAll(); }
+        if (d && d.json) { cfg = mergeCfg(JSON.parse(d.json)); if (rawRows) { hasil = hitung(rawRows); cekBukti(); } renderAll(); }
       }
     } catch (e) { dbApi = null; }
   }

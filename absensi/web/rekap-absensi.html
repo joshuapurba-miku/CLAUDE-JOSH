@@ -241,6 +241,10 @@ details > summary { cursor: pointer; font-weight: 600; }
 .slip .terb { font-style: italic; color: var(--p-ink-2); }
 .slip .sign { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; text-align: center; margin-top: 4px; }
 .slip .sign .sp { height: 46px; }
+.slip .sign .sp { height: 78px; }
+.slip .sign .sp.ttd { display: flex; align-items: center; justify-content: center; }
+.slip .sign .sp.ttd img { height: 76px; width: auto; max-width: 220px; }
+.slip .vcode { font-size: 10px; color: var(--p-ink-2); font-family: var(--font-num); margin-top: 3px; }
 .slip .flag { background: #fbefd5; color: #8a5200; border-radius: 4px; padding: 6px 8px; font-weight: 600; }
 .slip .acts { display: flex; justify-content: flex-end; gap: 8px; }
 .slip .acts .btn.ghost { color: var(--p-ink); border-color: var(--p-line); background: #fff; }
@@ -333,7 +337,7 @@ details > summary { cursor: pointer; font-weight: 600; }
         { min: 7, max: 8, bagi: 30000, makan: 15000, trans: 15000 },
         { min: 9, max: 24, bagi: 35000, makan: 20000, trans: 15000 }
       ],
-      invoice: {}, riwayat: {}, approval: {}, penolakan: {}, approvers: [],
+      invoice: {}, riwayat: {}, approval: {}, penolakan: {}, approvers: [], apPinHash: "",
       logo: LOGO_DEFAULT, logoW: 480, logoH: 444, slipPassword: "none"
     };
   }
@@ -391,7 +395,7 @@ details > summary { cursor: pointer; font-weight: 600; }
       if (dbApi) {
         const snap = await dbApi.doc("settings/main").get();
         const d = snap && (snap.exists === true || (typeof snap.exists === "function" && snap.exists())) ? (typeof snap.data === "function" ? snap.data() : snap.data) : null;
-        if (d && d.json) { cfg = mergeCfg(JSON.parse(d.json)); if (rawRows) hasil = hitung(rawRows); renderAll(); }
+        if (d && d.json) { cfg = mergeCfg(JSON.parse(d.json)); if (rawRows) { hasil = hitung(rawRows); cekBukti(); } renderAll(); }
       }
     } catch (e) { dbApi = null; }
   }
@@ -773,7 +777,7 @@ details > summary { cursor: pointer; font-weight: 600; }
     root.querySelectorAll("input, select, textarea, button").forEach((x) => { if (!x.closest("[data-free]")) x.disabled = true; });
   }
   function recompute(keepInput) {
-    if (rawRows) { hasil = hitung(rawRows); simpanRiwayat(); }
+    if (rawRows) { hasil = hitung(rawRows); simpanRiwayat(); cekBukti(); }
     renderBar(); updateTabCounts();
     if (currentTab === "input" && keepInput) renderInputSummary();
     else if (DATA_TABS[currentTab]) DATA_TABS[currentTab]();
@@ -833,7 +837,7 @@ details > summary { cursor: pointer; font-weight: 600; }
       let baru = 0;
       rawRows.forEach((r) => { if (!tarifRow(r.cabang, r.posisi)) { cfg.tarif.push(Object.assign({ cabang: r.cabang, posisi: r.posisi }, TARIF_KOSONG)); baru++; } });
       if (baru) scheduleSave();
-      hasil = hitung(rawRows); simpanRiwayat();
+      hasil = hitung(rawRows); simpanRiwayat(); cekBukti();
       rekapCabang = ""; inputKey = ""; filterCari = slipCari = ""; slipCabang = ""; terbuka.clear();
       renderBar(); updateTabCounts(); showTab("dash");
     } catch (e) {
@@ -1154,7 +1158,7 @@ details > summary { cursor: pointer; font-weight: 600; }
         <div class="net"><div><span>Total pendapatan</span><b>${rp(s.bruto)}</b></div><div><span>Total potongan</span><b>−${rp(s.potongan)}</b></div><div class="thp"><span>Gaji diterima (take home pay)</span><b>${s.ada ? rp(thp) : "—"}</b></div></div>
         ${s.ada ? `<div class="terb">Terbilang: ${terbilang(thp)}</div>` : ""}
         ${s.M.catatan ? `<div><b>Catatan:</b> ${esc(s.M.catatan)}</div>` : ""}
-        <div class="sign"><div>Penerima<div class="sp"></div><b>${esc(r.Nama)}</b></div><div>${esc(cfg.kota)}, ${tglPanjang(new Date())}<div class="sp"></div><b>${esc(cfg.ttdNama || "(........................)")}</b><div>${esc(cfg.ttdJabatan)}</div></div></div>
+        <div class="sign"><div>Penerima<div class="sp"></div><b>${esc(r.Nama)}</b></div>${ttdBlokHTML(r)}</div>
         ${s.ada ? `<div class="acts"><button class="btn ghost small" data-pdf="${esc(r.key)}">Unduh PDF</button></div>` : ""}
       </div></article>`;
   }
@@ -1265,12 +1269,11 @@ details > summary { cursor: pointer; font-weight: 600; }
     if (s.M.catatan) { doc.setFont("helvetica", "normal"); doc.setTextColor(...INK); const c = doc.splitTextToSize("Catatan: " + s.M.catatan, W); doc.text(c, X0, y); y += c.length * 4.5 + 2; }
     // tanda tangan
     y = Math.max(y + 6, 240);
-    if (y > 262) { doc.addPage(); y = 30; }
+    if (y > 244) { doc.addPage(); y = 30; }
     doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(...INK);
-    doc.text("Penerima", 50, y, { align: "center" }); doc.text(cfg.kota + ", " + tglPanjang(new Date()), 160, y, { align: "center" });
-    doc.setFont("helvetica", "bold");
-    doc.text(r.Nama, 50, y + 24, { align: "center" }); doc.text(cfg.ttdNama || "(........................)", 160, y + 24, { align: "center" });
-    doc.setFont("helvetica", "normal"); doc.text(cfg.ttdJabatan || "", 160, y + 29, { align: "center" });
+    doc.text("Penerima", 50, y, { align: "center" });
+    doc.setFont("helvetica", "bold"); doc.text(r.Nama, 50, y + 28, { align: "center" });
+    ttdPDF(doc, 160, y, r);
     doc.setFontSize(7.5); doc.setTextColor(...MUTED);
     const ap = cfg.approval[hasil.periode];
     doc.text(`Dihitung dari data absensi Kolabo ${hasil.dari} s/d ${hasil.sampai}. ${ap ? "Disetujui oleh " + ap.oleh + ", " + ap.tanggal + "." : "DRAFT, belum disetujui."} Dokumen rahasia, hanya untuk penerima.`, X0, 290);
@@ -1297,6 +1300,27 @@ details > summary { cursor: pointer; font-weight: 600; }
     doc.setFontSize(11);
     const ln = doc.splitTextToSize(namaPT(), maxW).slice(0, 2);
     doc.text(ln, x, ln.length > 1 ? y - 3.6 : y);
+  }
+
+  // ---------- blok tanda tangan approver ----------
+  function ttdBlokHTML(r) {
+    const ap = cfg.approval[hasil.periode], tt = ttdValid();
+    if (tt) return `<div>${esc(cfg.kota)}, ${esc(ap.tanggal)}<div class="sp ttd"><img src="${tt}" alt="Tanda tangan ${esc(ap.oleh)}"></div><b>${esc(ap.oleh)}</b><div>${esc(ap.jabatan || cfg.ttdJabatan)}</div>
+      <div class="vcode">Ditandatangani digital · kunci ${esc(ap.kode)}<br>Kode verifikasi slip ${esc(kodeSlip(r))}</div></div>`;
+    return `<div>${esc(cfg.kota)}, ${ap ? esc(ap.tanggal) : "................"}<div class="sp"></div><b>${esc(ap ? ap.oleh : cfg.ttdNama || "(........................)")}</b><div>${esc(cfg.ttdJabatan)}</div>${ap ? "" : '<div class="vcode">Belum disetujui</div>'}</div>`;
+  }
+  function ttdPDF(doc, cx, y, r) {
+    const ap = cfg.approval[hasil.periode], tt = ttdValid();
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(27, 36, 48);
+    doc.text(cfg.kota + ", " + (ap ? ap.tanggal : "................"), cx, y, { align: "center" });
+    if (tt) {
+      try { const pr = doc.getImageProperties(tt), h = 21, w = Math.min(55, h * pr.width / pr.height); doc.addImage(tt, "PNG", cx - w / 2, y + 2.5, w, w * pr.height / pr.width); } catch (e) { /* abaikan */ }
+    }
+    doc.setFont("helvetica", "bold"); doc.text(ap ? ap.oleh : (cfg.ttdNama || "(........................)"), cx, y + 28, { align: "center" });
+    doc.setFont("helvetica", "normal"); doc.text((ap && ap.jabatan) || cfg.ttdJabatan || "", cx, y + 33, { align: "center" });
+    doc.setFontSize(7); doc.setTextColor(93, 104, 116);
+    if (tt) { doc.text("Ditandatangani digital · kunci " + ap.kode, cx, y + 37.5, { align: "center" }); if (r) doc.text("Kode verifikasi slip " + kodeSlip(r), cx, y + 41, { align: "center" }); }
+    else if (!ap) doc.text("Belum disetujui", cx, y + 37.5, { align: "center" });
   }
 
 
@@ -1656,13 +1680,11 @@ details > summary { cursor: pointer; font-weight: 600; }
         L.pegawai.map((p) => [p["No. Slip"], p.Nama, p.Lokasi, `${p.Hadir}/${p.Terjadwal}`, p["Telat Dipotong"], rpT(p["Pendapatan Bruto"]), rpT(p.Potongan), p["Gaji Diterima"] === "" ? "tarif kosong" : rpT(p["Gaji Diterima"])])
           .concat([["", "Total", "", "", "", rpT(sumBy(rk, (r) => r.Pendapatan)), rpT(sumBy(rk, (r) => r.Potongan)), rpT(sumBy(rk, (r) => r.GajiBersih || 0))]]), { total: 1 });
       // tanda tangan
-      if (y > BOTTOM - 40) baru();
+      if (y > BOTTOM - 48) baru();
       y += 6; doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(...INK);
-      doc.text("Disiapkan oleh,", 50, y, { align: "center" }); doc.text(cfg.kota + ", " + tglPanjang(new Date()), 160, y, { align: "center" });
-      doc.text("Disetujui oleh,", 160, y + 5, { align: "center" });
-      doc.setFont("helvetica", "bold");
-      doc.text("(........................)", 50, y + 30, { align: "center" }); doc.text(L.ap ? L.ap.oleh : (cfg.ttdNama || "(........................)"), 160, y + 30, { align: "center" });
-      doc.setFont("helvetica", "normal"); doc.text(cfg.ttdJabatan || "", 160, y + 35, { align: "center" });
+      doc.text("Disiapkan oleh,", 50, y, { align: "center" }); doc.text("Disetujui oleh,", 160, y, { align: "center" });
+      doc.setFont("helvetica", "bold"); doc.text("(........................)", 50, y + 33, { align: "center" });
+      ttdPDF(doc, 160, y + 5, null);
       // nomor halaman
       const n = doc.getNumberOfPages();
       for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...MUTED); doc.text(`Rahasia · hanya untuk manajemen · halaman ${i} dari ${n}`, X0, 290); doc.text(`Sumber: Kolabo ${hasil.dari} s/d ${hasil.sampai}`, X1, 290, { align: "right" }); }
@@ -1689,7 +1711,71 @@ details > summary { cursor: pointer; font-weight: 600; }
     const baris = [...hasil.rekap].sort((a, b) => a.key.localeCompare(b.key)).map((r) => [r.key, Math.round(r.Pendapatan), Math.round(r.Potongan), Math.round(r.GajiBersih || 0)].join("|"));
     return (await sha256(hasil.periode + "\n" + baris.join("\n"))).slice(0, 32);
   }
-  const teksTTD = (o) => [o.periode, o.sidik, o.keputusan, o.catatan || "", o.oleh, o.jabatan || "", o.kode, o.waktu].join("\n");
+  const teksTTD = (o) => [o.periode, o.sidik, o.keputusan, o.catatan || "", o.oleh, o.jabatan || "", o.kode, o.waktu, o.ttdHash || ""].join("\n");
+  // hasil verifikasi persetujuan per periode: { ok, kodeSlip: {key: kode} }
+  const verif = {};
+  function ttdValid() { const v = hasil && verif[hasil.periode]; return v && v.ok ? cfg.approval[hasil.periode].bukti.ttdImg || "" : ""; }
+  function kodeSlip(r) { const v = hasil && verif[hasil.periode]; return v && v.ok ? (v.kodeSlip[r.key] || "") : ""; }
+  async function periksaBukti(ap) {
+    const o = ap && ap.bukti;
+    if (!o) return false;
+    const reg = (cfg.approvers || []).find((a) => a.kode === o.kode);
+    if (!reg) return false;
+    const key = await crypto.subtle.importKey("jwk", reg.pub, ALG, false, ["verify"]);
+    if (!(await crypto.subtle.verify(SIG, key, unb64(o.ttd), new TextEncoder().encode(teksTTD(o))))) return false;
+    if (o.ttdImg && (await sha256(o.ttdImg)) !== o.ttdHash) return false;
+    return o.periode === hasil.periode && o.sidik === (await sidikData()) && o.keputusan === "setuju";
+  }
+  async function cekBukti() {
+    if (!hasil || !window.crypto || !crypto.subtle) return;
+    const p = hasil.periode, ap = cfg.approval[p];
+    let hasilCek = { ok: false, kodeSlip: {} };
+    try {
+      if (await periksaBukti(ap)) {
+        hasilCek.ok = true;
+        for (const r of hasil.rekap) hasilCek.kodeSlip[r.key] = (await sha256([ap.bukti.ttd, r.NoSlip, r.key, Math.round(r.GajiBersih || 0)].join("|"))).slice(0, 10).toUpperCase().replace(/(.{5})(?=.)/, "$1-");
+      }
+    } catch (e) { hasilCek.ok = false; }
+    const lama = verif[p];
+    verif[p] = hasilCek;
+    if (!lama || lama.ok !== hasilCek.ok) { if (DATA_TABS[currentTab]) DATA_TABS[currentTab](); }
+  }
+  function olahTTD(file) {
+    return new Promise((ok, gagal) => {
+      const rd = new FileReader();
+      rd.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const sc = Math.min(1, 600 / img.width, 300 / img.height), cv = document.createElement("canvas");
+          cv.width = Math.round(img.width * sc); cv.height = Math.round(img.height * sc);
+          const cx = cv.getContext("2d"); cx.drawImage(img, 0, 0, cv.width, cv.height);
+          const d = cx.getImageData(0, 0, cv.width, cv.height), px = d.data;
+          let x0 = cv.width, y0 = cv.height, x1 = 0, y1 = 0;
+          for (let i = 0; i < px.length; i += 4) {
+            const g = (px[i] * 0.3 + px[i + 1] * 0.59 + px[i + 2] * 0.11) * (px[i + 3] / 255) + 255 * (1 - px[i + 3] / 255);
+            let a = Math.max(0, Math.min(1, (205 - g) / 95)); if (a < 0.06) a = 0;
+            px[i] = px[i + 1] = px[i + 2] = 0; px[i + 3] = Math.round(a * 255);
+            if (a > 0.12) { const p = i / 4, x = p % cv.width, y = Math.floor(p / cv.width); if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+          }
+          if (x1 <= x0) { gagal(new Error("Tanda tangan tidak terdeteksi. Gunakan foto tinta gelap di kertas putih.")); return; }
+          cx.putImageData(d, 0, 0);
+          const out = document.createElement("canvas"); out.width = x1 - x0 + 12; out.height = y1 - y0 + 12;
+          out.getContext("2d").drawImage(cv, x0 - 6, y0 - 6, out.width, out.height, 0, 0, out.width, out.height);
+          ok(out.toDataURL("image/png"));
+        };
+        img.onerror = () => gagal(new Error("File gambar tidak bisa dibaca."));
+        img.src = rd.result;
+      };
+      rd.readAsDataURL(file);
+    });
+  }
+  async function cekPIN(pin) {
+    if (!pin) throw new Error("Isi PIN direktur dulu.");
+    const h = await sha256("rekap-gaji|" + pin);
+    if (!cfg.apPinHash) { cfg.apPinHash = h; return "baru"; }
+    if (h !== cfg.apPinHash) throw new Error("PIN direktur salah.");
+    return "cocok";
+  }
 
   async function buatKunciApprover(nama, jabatan) {
     const kp = await crypto.subtle.generateKey(ALG, true, ["sign", "verify"]);
@@ -1719,6 +1805,7 @@ details > summary { cursor: pointer; font-weight: 600; }
     const k = kunciLokal();
     if (!k) { setSaved("Buat kunci approver dulu di Aturan."); return; }
     const o = { jenis: "hasil-persetujuan", periode: hasil.periode, sidik: await sidikData(), keputusan, catatan, oleh: k.nama, jabatan: k.jabatan, kode: k.kode, waktu: new Date().toISOString() };
+    if (keputusan === "setuju" && k.ttdImg) { o.ttdImg = k.ttdImg; o.ttdHash = await sha256(k.ttdImg); }
     const key = await crypto.subtle.importKey("jwk", k.priv, ALG, false, ["sign"]);
     o.ttd = b64(await crypto.subtle.sign(SIG, key, new TextEncoder().encode(teksTTD(o))));
     await saveFile(`${keputusan === "setuju" ? "Persetujuan" : "Penolakan"}_${hasil.periode}_${k.nama.replace(/[^\w]+/g, "_")}.json`, JSON.stringify(o, null, 1), "application/json");
@@ -1735,21 +1822,22 @@ details > summary { cursor: pointer; font-weight: 600; }
       if (!(await crypto.subtle.verify(SIG, key, unb64(o.ttd), new TextEncoder().encode(teksTTD(o))))) throw new Error("Tanda tangan digital TIDAK valid. File mungkin diubah.");
       if (o.periode !== hasil.periode) throw new Error(`File ini untuk periode ${bulanLabel(o.periode)}, bukan ${bulanLabel(hasil.periode)}.`);
       if (o.sidik !== (await sidikData())) throw new Error("Data gaji sudah berubah sejak paket dikirim. Kirim paket baru ke approver.");
+      if (o.ttdImg && (await sha256(o.ttdImg)) !== o.ttdHash) throw new Error("Gambar tanda tangan tidak cocok dengan tanda tangan digital.");
       const tgl = tglPanjang(new Date(o.waktu));
       if (o.keputusan === "setuju") {
-        cfg.approval[hasil.periode] = { oleh: o.oleh, jabatan: o.jabatan, tanggal: tgl, kode: o.kode, digital: true, catatan: o.catatan || "" };
+        cfg.approval[hasil.periode] = { oleh: o.oleh, jabatan: o.jabatan, tanggal: tgl, kode: o.kode, digital: true, catatan: o.catatan || "", bukti: o };
         delete cfg.penolakan[hasil.periode];
       } else {
         cfg.penolakan[hasil.periode] = { oleh: o.oleh, tanggal: tgl, catatan: o.catatan || "" };
       }
-      scheduleSave(); renderAll(); showTab("slip");
+      scheduleSave(); await cekBukti(); renderAll(); showTab("slip");
       msg(o.keputusan === "setuju" ? `Persetujuan ${o.oleh} terverifikasi. Periode dikunci.` : `${o.oleh} menolak: ${o.catatan || "tanpa catatan"}`, o.keputusan === "setuju");
     } catch (e) { msg(e.message || String(e), false); }
   }
 
   function panelPersetujuan(siap) {
     const ap = cfg.approval[hasil.periode], tolak = cfg.penolakan[hasil.periode], k = kunciLokal();
-    if (ap) return `<div class="panel row between"><div><h3>Disetujui${ap.digital ? " · tanda tangan digital terverifikasi" : ""}</h3><p class="sub">Gaji ${bulanLabel(hasil.periode)} disetujui oleh <b>${esc(ap.oleh)}</b>${ap.jabatan ? ` (${esc(ap.jabatan)})` : ""} pada ${esc(ap.tanggal)}${ap.kode ? ` · kode kunci ${esc(ap.kode)}` : ""}.${ap.catatan ? ` Catatan: ${esc(ap.catatan)}` : ""} Data dikunci; slip tidak lagi bertanda DRAFT.</p></div>${reviewMode ? "" : '<button class="btn ghost" id="ap-buka">Batalkan persetujuan</button>'}</div>`;
+    if (ap) return `<div class="panel row between"><div><h3>Disetujui${ttdValid() || (verif[hasil.periode] && verif[hasil.periode].ok) ? " · tanda tangan digital terverifikasi" : ap.digital ? ' · <span class="pill bad">tanda tangan digital tidak valid</span>' : " · tanpa tanda tangan digital (tanda tangan tidak dicetak)"}</h3><p class="sub">Gaji ${bulanLabel(hasil.periode)} disetujui oleh <b>${esc(ap.oleh)}</b>${ap.jabatan ? ` (${esc(ap.jabatan)})` : ""} pada ${esc(ap.tanggal)}${ap.kode ? ` · kode kunci ${esc(ap.kode)}` : ""}.${ap.catatan ? ` Catatan: ${esc(ap.catatan)}` : ""} Data dikunci; slip tidak lagi bertanda DRAFT.</p></div>${reviewMode ? "" : '<button class="btn ghost" id="ap-buka">Batalkan persetujuan</button>'}</div>`;
     if (reviewMode) {
       const cek = reviewMode.cocok ? '<span class="pill ok">data utuh</span>' : '<span class="pill bad">data tidak cocok dengan paket</span>';
       return `<div class="panel stack"><div><h3>Keputusan approver ${cek}</h3><p class="sub">Tinjau Dashboard, Rekap Absensi, dan slip. Keputusan Anda ditandatangani secara digital dengan kunci di laptop ini, lalu diunduh sebagai file untuk dikirim ke penyiap gaji.</p></div>
@@ -1785,13 +1873,18 @@ details > summary { cursor: pointer; font-weight: 600; }
     return `<div class="panel stack" data-free><div><h2>Persetujuan (approver terpisah)</h2><p class="sub">Approver (misal direktur) memakai laptopnya sendiri. Persetujuannya ditandatangani digital, sehingga tidak bisa dibuat-buat oleh penyiap gaji, dan otomatis batal jika data gaji berubah.</p></div>
       <div class="cols2"><div class="stack" style="gap:10px"><h3>Laptop ini sebagai approver</h3>
         ${k ? `<p class="sub">Kunci milik <b>${esc(k.nama)}</b>${k.jabatan ? " · " + esc(k.jabatan) : ""}<br>Kode kunci: <b style="font-family:var(--font-num)">${esc(k.kode)}</b></p>
+          <div class="row" style="align-items:center">${k.ttdImg ? `<img src="${k.ttdImg}" alt="Tanda tangan" style="height:60px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px">` : '<span class="sub">Belum ada gambar tanda tangan.</span>'}
+            <button class="btn ghost" id="ak-ttd">${k.ttdImg ? "Ganti tanda tangan" : "Unggah tanda tangan"}</button><input type="file" id="ak-ttdfile" accept="image/*" hidden></div>
+          <p class="hint">Tanda tangan hanya disimpan di laptop ini dan dikirim di dalam file persetujuan yang ditandatangani digital. Tidak tersimpan di file HTML tim, jadi tidak bisa dipakai orang lain.</p>
           <div class="row"><button class="btn ghost" id="ak-kartu">Unduh kartu approver</button><button class="btn ghost" id="ak-hapus">Hapus kunci</button></div>
           <p class="hint">Kirim kartu approver ke penyiap gaji. Kunci pribadi tidak ikut di kartu dan tidak ikut saat ekspor pengaturan.</p>`
         : `<div class="grid"><div class="field"><label for="ak-nama">Nama approver</label><input type="text" id="ak-nama" value="${esc(cfg.ttdNama)}"></div><div class="field"><label for="ak-jab">Jabatan</label><input type="text" id="ak-jab" value="${esc(cfg.ttdJabatan)}"></div></div>
           <div><button class="btn ghost" id="ak-buat">Buat kunci approver di laptop ini</button></div><p class="hint">Hanya dilakukan sekali oleh approver, di laptopnya sendiri.</p>`}</div>
       <div class="stack" style="gap:10px"><h3>Approver terdaftar (di laptop penyiap)</h3>
         ${daftar.length ? `<div class="scroll"><table><thead><tr><th>Nama</th><th>Jabatan</th><th>Kode kunci</th><th></th></tr></thead><tbody>${daftar.map((a, i) => `<tr><td>${esc(a.nama)}</td><td>${esc(a.jabatan || "")}</td><td style="font-family:var(--font-num)">${esc(a.kode)}</td><td><button class="btn ghost small" data-apdel="${i}">Hapus</button></td></tr>`).join("")}</tbody></table></div>` : '<p class="sub">Belum ada. Selama kosong, gaji disetujui langsung di laptop ini.</p>'}
-        <div class="row"><button class="btn ghost" id="ak-tambah">Tambah dari kartu approver (.json)</button><input type="file" id="ak-file" accept=".json,application/json" hidden></div>
+        <div class="row" style="align-items:flex-end"><div class="field"><label for="ak-pin">PIN direktur</label><input type="password" id="ak-pin" inputmode="numeric" autocomplete="off" style="width:150px" placeholder="${cfg.apPinHash ? "masukkan PIN" : "buat PIN baru"}"></div>
+          <button class="btn ghost" id="ak-tambah">Tambah dari kartu approver (.json)</button><input type="file" id="ak-file" accept=".json,application/json" hidden></div>
+        <p class="hint">${cfg.apPinHash ? "Menambah atau menghapus approver memerlukan PIN direktur." : "PIN yang diisi saat pertama menambah approver menjadi PIN direktur. Setelah itu, perubahan daftar approver memerlukan PIN ini."}</p><p class="hint neg" id="ak-msg"></p>
         <p class="hint">Cocokkan kode kunci dengan approver lewat telepon/WA saat mendaftarkan.</p></div></div></div>`;
   }
   function bindAturanPersetujuan() {
@@ -1799,19 +1892,26 @@ details > summary { cursor: pointer; font-weight: 600; }
       const nama = $("#ak-nama").value.trim(); if (!nama) { $("#ak-nama").focus(); return; }
       try { await buatKunciApprover(nama, $("#ak-jab").value.trim()); renderAturan(); } catch (e) { setSaved("Kunci tidak bisa dibuat di browser ini: " + (e.message || e)); }
     };
+    if ($("#ak-ttd")) { $("#ak-ttd").onclick = () => $("#ak-ttdfile").click(); $("#ak-ttdfile").onchange = async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      try { const k = kunciLokal(); k.ttdImg = await olahTTD(f); localStorage.setItem(APPR_KEY, JSON.stringify(k)); renderAturan(); } catch (er) { setSaved(er.message || String(er)); }
+    }; }
     if ($("#ak-kartu")) $("#ak-kartu").onclick = () => { const k = kunciLokal(); saveFile(`Kartu_Approver_${k.nama.replace(/[^\w]+/g, "_")}.json`, JSON.stringify({ jenis: "kartu-approver", nama: k.nama, jabatan: k.jabatan, kode: k.kode, pub: k.pub }, null, 1), "application/json"); };
     if ($("#ak-hapus")) $("#ak-hapus").onclick = (e) => { const b = e.target; if (b.dataset.armed) { try { localStorage.removeItem(APPR_KEY); } catch (er) { /* abaikan */ } renderAturan(); } else { b.dataset.armed = "1"; b.textContent = "Klik lagi: kunci hilang permanen"; } };
-    if ($("#ak-tambah")) { $("#ak-tambah").onclick = () => $("#ak-file").click(); $("#ak-file").onchange = async (e) => {
-      const f = e.target.files[0]; if (!f) return;
+    if ($("#ak-tambah")) { $("#ak-tambah").onclick = () => { if (!$("#ak-pin").value) { $("#ak-msg").textContent = "Isi PIN direktur dulu."; $("#ak-pin").focus(); return; } $("#ak-file").click(); }; $("#ak-file").onchange = async (e) => {
+      const f = e.target.files[0]; if (!f) return; e.target.value = "";
       try {
+        await cekPIN($("#ak-pin").value);
         const o = JSON.parse(await f.text());
         if (o.jenis !== "kartu-approver" || !o.pub) throw new Error("Bukan kartu approver.");
         o.kode = await kodeKunci(o.pub);
         cfg.approvers = (cfg.approvers || []).filter((a) => a.kode !== o.kode).concat([{ nama: o.nama, jabatan: o.jabatan, kode: o.kode, pub: o.pub }]);
         scheduleSave(); renderAturan();
-      } catch (er) { setSaved("Kartu tidak bisa dibaca: " + (er.message || er)); }
+      } catch (er) { $("#ak-msg").textContent = er.message || String(er); }
     }; }
-    document.querySelectorAll("[data-apdel]").forEach((b) => b.onclick = () => { cfg.approvers.splice(+b.dataset.apdel, 1); scheduleSave(); renderAturan(); });
+    document.querySelectorAll("[data-apdel]").forEach((b) => b.onclick = async () => {
+      try { await cekPIN($("#ak-pin").value); cfg.approvers.splice(+b.dataset.apdel, 1); scheduleSave(); renderAturan(); } catch (er) { $("#ak-msg").textContent = er.message || String(er); }
+    });
   }
 
 

@@ -37,7 +37,7 @@
         <div class="net"><div><span>Total pendapatan</span><b>${rp(s.bruto)}</b></div><div><span>Total potongan</span><b>−${rp(s.potongan)}</b></div><div class="thp"><span>Gaji diterima (take home pay)</span><b>${s.ada ? rp(thp) : "—"}</b></div></div>
         ${s.ada ? `<div class="terb">Terbilang: ${terbilang(thp)}</div>` : ""}
         ${s.M.catatan ? `<div><b>Catatan:</b> ${esc(s.M.catatan)}</div>` : ""}
-        <div class="sign"><div>Penerima<div class="sp"></div><b>${esc(r.Nama)}</b></div><div>${esc(cfg.kota)}, ${tglPanjang(new Date())}<div class="sp"></div><b>${esc(cfg.ttdNama || "(........................)")}</b><div>${esc(cfg.ttdJabatan)}</div></div></div>
+        <div class="sign"><div>Penerima<div class="sp"></div><b>${esc(r.Nama)}</b></div>${ttdBlokHTML(r)}</div>
         ${s.ada ? `<div class="acts"><button class="btn ghost small" data-pdf="${esc(r.key)}">Unduh PDF</button></div>` : ""}
       </div></article>`;
   }
@@ -148,12 +148,11 @@
     if (s.M.catatan) { doc.setFont("helvetica", "normal"); doc.setTextColor(...INK); const c = doc.splitTextToSize("Catatan: " + s.M.catatan, W); doc.text(c, X0, y); y += c.length * 4.5 + 2; }
     // tanda tangan
     y = Math.max(y + 6, 240);
-    if (y > 262) { doc.addPage(); y = 30; }
+    if (y > 244) { doc.addPage(); y = 30; }
     doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(...INK);
-    doc.text("Penerima", 50, y, { align: "center" }); doc.text(cfg.kota + ", " + tglPanjang(new Date()), 160, y, { align: "center" });
-    doc.setFont("helvetica", "bold");
-    doc.text(r.Nama, 50, y + 24, { align: "center" }); doc.text(cfg.ttdNama || "(........................)", 160, y + 24, { align: "center" });
-    doc.setFont("helvetica", "normal"); doc.text(cfg.ttdJabatan || "", 160, y + 29, { align: "center" });
+    doc.text("Penerima", 50, y, { align: "center" });
+    doc.setFont("helvetica", "bold"); doc.text(r.Nama, 50, y + 28, { align: "center" });
+    ttdPDF(doc, 160, y, r);
     doc.setFontSize(7.5); doc.setTextColor(...MUTED);
     const ap = cfg.approval[hasil.periode];
     doc.text(`Dihitung dari data absensi Kolabo ${hasil.dari} s/d ${hasil.sampai}. ${ap ? "Disetujui oleh " + ap.oleh + ", " + ap.tanggal + "." : "DRAFT, belum disetujui."} Dokumen rahasia, hanya untuk penerima.`, X0, 290);
@@ -180,4 +179,25 @@
     doc.setFontSize(11);
     const ln = doc.splitTextToSize(namaPT(), maxW).slice(0, 2);
     doc.text(ln, x, ln.length > 1 ? y - 3.6 : y);
+  }
+
+  // ---------- blok tanda tangan approver ----------
+  function ttdBlokHTML(r) {
+    const ap = cfg.approval[hasil.periode], tt = ttdValid();
+    if (tt) return `<div>${esc(cfg.kota)}, ${esc(ap.tanggal)}<div class="sp ttd"><img src="${tt}" alt="Tanda tangan ${esc(ap.oleh)}"></div><b>${esc(ap.oleh)}</b><div>${esc(ap.jabatan || cfg.ttdJabatan)}</div>
+      <div class="vcode">Ditandatangani digital · kunci ${esc(ap.kode)}<br>Kode verifikasi slip ${esc(kodeSlip(r))}</div></div>`;
+    return `<div>${esc(cfg.kota)}, ${ap ? esc(ap.tanggal) : "................"}<div class="sp"></div><b>${esc(ap ? ap.oleh : cfg.ttdNama || "(........................)")}</b><div>${esc(cfg.ttdJabatan)}</div>${ap ? "" : '<div class="vcode">Belum disetujui</div>'}</div>`;
+  }
+  function ttdPDF(doc, cx, y, r) {
+    const ap = cfg.approval[hasil.periode], tt = ttdValid();
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(27, 36, 48);
+    doc.text(cfg.kota + ", " + (ap ? ap.tanggal : "................"), cx, y, { align: "center" });
+    if (tt) {
+      try { const pr = doc.getImageProperties(tt), h = 21, w = Math.min(55, h * pr.width / pr.height); doc.addImage(tt, "PNG", cx - w / 2, y + 2.5, w, w * pr.height / pr.width); } catch (e) { /* abaikan */ }
+    }
+    doc.setFont("helvetica", "bold"); doc.text(ap ? ap.oleh : (cfg.ttdNama || "(........................)"), cx, y + 28, { align: "center" });
+    doc.setFont("helvetica", "normal"); doc.text((ap && ap.jabatan) || cfg.ttdJabatan || "", cx, y + 33, { align: "center" });
+    doc.setFontSize(7); doc.setTextColor(93, 104, 116);
+    if (tt) { doc.text("Ditandatangani digital · kunci " + ap.kode, cx, y + 37.5, { align: "center" }); if (r) doc.text("Kode verifikasi slip " + kodeSlip(r), cx, y + 41, { align: "center" }); }
+    else if (!ap) doc.text("Belum disetujui", cx, y + 37.5, { align: "center" });
   }
