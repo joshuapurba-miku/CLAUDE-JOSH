@@ -99,6 +99,8 @@ def tentukan_shift(row, cfg, shifts):
     if jad is None:
         return best, None, "shift ditebak (jadwal HRIS tidak valid)", biaya(best, ci, co)
     b_jad, b_best = biaya(jad, ci, co), biaya(best, ci, co)
+    if best["hari"] and best["nama"] != jad["nama"] and b_best < b_jad:
+        return best, jad, "shift khusus hari", b_best
     if b_jad - b_best >= cfg["ganti_shift_selisih_menit"] and best["nama"] != jad["nama"]:
         return best, jad, "shift berubah (otomatis)", b_best
     return jad, jad, "sesuai jadwal", b_jad

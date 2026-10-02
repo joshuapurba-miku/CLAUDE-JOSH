@@ -49,3 +49,8 @@ def test_aturan_lembur_per_cabang_dan_tanggal():
     assert a.aturan_lembur(rules, "Cab A", "2026-09-20", "1") == 15000
     assert a.aturan_lembur(rules, "Cab A", "2026-09-22", "1") is None
     assert a.aturan_lembur(rules, "Cab B", "2026-09-20", "1") is None
+
+
+def test_sabtu_dafi_pakai_shift_pendek():
+    sh, _, st, _ = a.tentukan_shift(row("10:00", "18:00", "09:41:48", "15:06:49", hari="Sabtu"), CFG, SH)
+    assert st == "shift khusus hari" and sh["pulang"] == 900

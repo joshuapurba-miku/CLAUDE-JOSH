@@ -1,18 +1,22 @@
 <title>Rekap Absensi Gaji</title>
 <style>
-/* Layout: satu kolom kerja, tiga tab (Hitung, Tarif Gaji, Aturan). Tabel lebar scroll di dalam wadahnya. */
+/* Layout: bilah data di atas, lima tab. Dashboard = ringkasan dulu, lalu keputusan, lalu grafik, lalu tabel. */
 :root {
   --bg: #f3f5f7;
   --surface: #ffffff;
   --surface-2: #eaeef2;
   --ink: #17212b;
   --ink-2: #5a6775;
+  --ink-3: #7d8a97;
   --line: #d5dce3;
   --accent: #0e7a4f;
   --accent-ink: #ffffff;
   --accent-soft: #dff1e8;
+  --bar: #1f8a5c;
+  --bar-track: #e3e8ed;
   --warn: #9a5b00;
   --warn-soft: #fbefd5;
+  --warn-bar: #d48a12;
   --bad: #b3261e;
   --bad-soft: #fbe3e1;
   --font-body: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -20,102 +24,169 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #11171d; --surface: #19212a; --surface-2: #222c37; --ink: #e6ebf0; --ink-2: #9aa7b4;
-    --line: #2e3a47; --accent: #4cc38a; --accent-ink: #0b1a13; --accent-soft: #17382a;
-    --warn: #f0b95a; --warn-soft: #3a2c10; --bad: #ff8a80; --bad-soft: #3d1b19; color-scheme: dark;
+    --bg: #11171d; --surface: #19212a; --surface-2: #222c37; --ink: #e6ebf0; --ink-2: #9aa7b4; --ink-3: #7b8896;
+    --line: #2e3a47; --accent: #4cc38a; --accent-ink: #0b1a13; --accent-soft: #17382a; --bar: #45b880; --bar-track: #26313c;
+    --warn: #f0b95a; --warn-soft: #3a2c10; --warn-bar: #e0a03a; --bad: #ff8a80; --bad-soft: #3d1b19; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #11171d; --surface: #19212a; --surface-2: #222c37; --ink: #e6ebf0; --ink-2: #9aa7b4;
-  --line: #2e3a47; --accent: #4cc38a; --accent-ink: #0b1a13; --accent-soft: #17382a;
-  --warn: #f0b95a; --warn-soft: #3a2c10; --bad: #ff8a80; --bad-soft: #3d1b19; color-scheme: dark;
+  --bg: #11171d; --surface: #19212a; --surface-2: #222c37; --ink: #e6ebf0; --ink-2: #9aa7b4; --ink-3: #7b8896;
+  --line: #2e3a47; --accent: #4cc38a; --accent-ink: #0b1a13; --accent-soft: #17382a; --bar: #45b880; --bar-track: #26313c;
+  --warn: #f0b95a; --warn-soft: #3a2c10; --warn-bar: #e0a03a; --bad: #ff8a80; --bad-soft: #3d1b19; color-scheme: dark;
 }
 body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.5; }
 .wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 48px; }
 h1 { font-size: 22px; line-height: 1.2; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
-h2 { font-size: 16px; margin: 0 0 4px; text-wrap: balance; }
+h2 { font-size: 16px; margin: 0; text-wrap: balance; }
+h3 { font-size: 14px; margin: 0; }
 p { margin: 0; }
 .sub { color: var(--ink-2); font-size: 13px; }
-header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.hint { font-size: 12.5px; color: var(--ink-2); }
+header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .saved { font-size: 12px; color: var(--ink-2); min-height: 18px; }
-nav.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 20px; overflow-x: auto; }
+.databar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; }
+.databar .meta { min-width: 0; }
+.databar b { font-size: 15px; }
+nav.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 20px; overflow-x: auto; }
 nav.tabs button { background: none; border: 0; padding: 10px 14px; font: inherit; font-weight: 600; color: var(--ink-2); cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; }
 nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+nav.tabs .count { font-size: 11px; background: var(--warn-soft); color: var(--warn); border-radius: 99px; padding: 0 6px; margin-left: 4px; }
 button, input, select, textarea { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .btn { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 6px; padding: 9px 16px; font-weight: 600; cursor: pointer; }
 .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
 .btn.small { padding: 5px 10px; font-size: 12.5px; }
 .btn:disabled { opacity: .5; cursor: default; }
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; min-width: 0; }
 .stack { display: flex; flex-direction: column; gap: 16px; }
-.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.between { justify-content: space-between; }
+.cols2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+@media (max-width: 420px) { .cols2 { grid-template-columns: 1fr; } }
 .drop { border: 2px dashed var(--line); border-radius: 10px; padding: 28px 16px; text-align: center; background: var(--surface); display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .drop.over { border-color: var(--accent); background: var(--accent-soft); }
-.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; text-align: left; }
-.steps div { min-width: 0; }
-.steps b { display: block; margin-bottom: 2px; }
-.stats { display: flex; flex-wrap: wrap; gap: 8px 28px; }
-.stat { min-width: 0; }
-.stat .v { font-family: var(--font-num); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.stat .l { font-size: 12px; color: var(--ink-2); }
-.banner { border-radius: 8px; padding: 10px 14px; font-size: 13px; }
-.banner.warn { background: var(--warn-soft); color: var(--warn); }
-.banner.bad { background: var(--bad-soft); color: var(--bad); }
-.banner.ok { background: var(--accent-soft); color: var(--accent); }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.step { display: flex; gap: 10px; align-items: flex-start; min-width: 0; text-align: left; }
+.step .no { flex: 0 0 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 13px; background: var(--surface-2); color: var(--ink-2); }
+.step.done .no { background: var(--accent); color: var(--accent-ink); }
+.step b { display: block; }
+/* angka utama */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.kpi { background: var(--surface); padding: 14px 16px; min-width: 0; }
+.kpi .l { font-size: 12px; color: var(--ink-2); font-weight: 600; }
+.kpi .v { font-family: var(--font-num); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; margin: 2px 0; overflow-wrap: anywhere; }
+.kpi .s { font-size: 12px; color: var(--ink-3); }
+/* keputusan */
+.insights { display: flex; flex-direction: column; }
+.ins { display: grid; grid-template-columns: 92px 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.ins:first-child { border-top: 0; }
+.ins .what { font-weight: 600; }
+.ins .act { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+@media (max-width: 520px) { .ins { grid-template-columns: 1fr; gap: 4px; } }
+.pill { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 1px 8px; border-radius: 99px; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.ok { background: var(--accent-soft); color: var(--accent); }
+/* grafik batang horizontal */
+.hbars { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.hbar { display: grid; grid-template-columns: minmax(110px, 38%) 1fr minmax(64px, auto); gap: 10px; align-items: center; font-size: 12.5px; }
+.hbar .nm { overflow-wrap: anywhere; color: var(--ink); }
+.hbar .tr { height: 14px; background: var(--bar-track); border-radius: 0 4px 4px 0; position: relative; }
+.hbar .fl { height: 100%; background: var(--bar); border-radius: 0 4px 4px 0; }
+.hbar .fl.warn { background: var(--warn-bar); }
+.hbar .vl { font-family: var(--font-num); font-variant-numeric: tabular-nums; text-align: right; color: var(--ink); white-space: nowrap; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--ink-2); margin-top: 10px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.chart svg { width: 100%; height: auto; display: block; }
+.chart svg text { fill: var(--ink-2); font-size: 11px; font-family: var(--font-body); }
+.chart .grid line { stroke: var(--line); stroke-width: 1; }
+.chart rect.col { fill: var(--bar); }
+.chart rect.col.warn { fill: var(--warn-bar); }
+.chart rect.hit { fill: transparent; cursor: default; }
+.chart rect.hit:hover + rect.col, .chart g.c:hover rect.col { opacity: .75; }
+#tip { position: fixed; z-index: 10; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 12px; padding: 6px 9px; border-radius: 6px; max-width: 260px; }
+/* tabel */
 .scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
 th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: middle; }
-th { background: var(--surface-2); font-size: 12px; font-weight: 600; color: var(--ink-2); position: sticky; top: 0; }
+th { background: var(--surface-2); font-size: 12px; font-weight: 600; color: var(--ink-2); }
 td.n, th.n { text-align: right; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 tr.emp { cursor: pointer; }
 tr.emp:hover td { background: var(--surface-2); }
 tr.tot td { font-weight: 700; background: var(--surface-2); }
 td.wrap { white-space: normal; min-width: 220px; }
-.pill { display: inline-block; font-size: 11.5px; padding: 1px 8px; border-radius: 99px; background: var(--surface-2); color: var(--ink-2); }
-.pill.warn { background: var(--warn-soft); color: var(--warn); }
-.pill.bad { background: var(--bad-soft); color: var(--bad); }
-.pill.ok { background: var(--accent-soft); color: var(--accent); }
 .neg { color: var(--bad); }
 .detail td { background: var(--bg); }
 .detail .scroll { margin: 4px 0; }
+.banner { border-radius: 8px; padding: 10px 14px; font-size: 13px; }
+.banner.warn { background: var(--warn-soft); color: var(--warn); }
+.banner.bad { background: var(--bad-soft); color: var(--bad); }
+.banner.ok { background: var(--accent-soft); color: var(--accent); }
+.empty { padding: 20px; text-align: center; color: var(--ink-2); }
+.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
 .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .field label { font-size: 12px; color: var(--ink-2); font-weight: 600; }
 input[type=text], input[type=number], input[type=date], select, textarea { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; width: 100%; }
+.filters select, .filters input { width: auto; max-width: 240px; }
 td input, td select { min-width: 90px; }
 textarea { resize: vertical; min-height: 70px; font-family: var(--font-num); font-size: 12.5px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
-.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
-.filters .row { flex: 1 1 auto; }
 details > summary { cursor: pointer; font-weight: 600; }
-.hint { font-size: 12.5px; color: var(--ink-2); }
-.empty { padding: 20px; text-align: center; color: var(--ink-2); }
-@media (max-width: 520px) { h1 { font-size: 19px; } }
+/* slip gaji: kertas putih di kedua tema, seperti dokumen cetak */
+.slips { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); gap: 16px; }
+@media (max-width: 420px) { .slips { grid-template-columns: 1fr; } }
+.slip { --p-ink: #1b2430; --p-ink-2: #5d6874; --p-line: #d9dee4; --p-head: #0e7a4f; background: #ffffff; color: var(--p-ink); border: 1px solid var(--line); border-radius: 6px; padding: 18px; font-size: 12.5px; min-width: 0; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+.slip .hd { display: flex; justify-content: space-between; gap: 10px; border-bottom: 2px solid var(--p-head); padding-bottom: 8px; margin-bottom: 10px; }
+.slip .co { font-weight: 700; font-size: 13px; overflow-wrap: anywhere; }
+.slip .ttl { text-align: right; font-weight: 700; color: var(--p-head); letter-spacing: .06em; font-size: 12px; white-space: nowrap; }
+.slip .ttl span { display: block; color: var(--p-ink-2); letter-spacing: 0; font-weight: 600; }
+.slip .id { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin-bottom: 10px; }
+.slip .id dt { color: var(--p-ink-2); }
+.slip .id dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.slip .att { display: flex; flex-wrap: wrap; gap: 4px 14px; background: #f2f5f3; border-radius: 4px; padding: 6px 8px; margin-bottom: 10px; color: var(--p-ink-2); }
+.slip .att b { color: var(--p-ink); }
+.slip .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 420px) { .slip .two { grid-template-columns: 1fr; } }
+.slip h4 { margin: 0 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--p-ink-2); }
+.slip .ln { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+.slip .ln span:last-child { font-family: var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.slip .sum { border-top: 1px solid var(--p-line); margin-top: 4px; padding-top: 4px; font-weight: 700; }
+.slip .net { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; border-top: 2px solid var(--p-head); margin-top: 12px; padding-top: 8px; font-weight: 700; }
+.slip .net span:last-child { font-family: var(--font-num); font-size: 17px; color: var(--p-head); }
+.slip .flag { background: #fbefd5; color: #8a5200; border-radius: 4px; padding: 6px 8px; margin-bottom: 8px; font-weight: 600; }
+.slip .acts { display: flex; justify-content: flex-end; margin-top: 10px; }
+.slip .acts .btn.ghost { color: var(--p-ink); border-color: var(--p-line); }
+@media (max-width: 520px) { h1 { font-size: 19px; } .kpi .v { font-size: 19px; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <div class="wrap">
   <header class="top">
     <div>
       <h1>Rekap Absensi &amp; Gaji</h1>
-      <p class="sub">Upload export HRIS bulanan. Telat, lembur, potongan, dan gaji per karyawan dihitung langsung di halaman ini.</p>
+      <p class="sub">Upload export HRIS bulanan. Dashboard, rekap karyawan, dan slip gaji langsung jadi.</p>
     </div>
     <div class="saved" id="saved" aria-live="polite"></div>
   </header>
-
+  <div id="databar"></div>
   <nav class="tabs" role="tablist" id="tabs">
-    <button role="tab" aria-selected="true" data-tab="hitung">Hitung</button>
+    <button role="tab" aria-selected="true" data-tab="dash">Dashboard</button>
+    <button role="tab" aria-selected="false" data-tab="kary">Karyawan</button>
+    <button role="tab" aria-selected="false" data-tab="slip">Slip Gaji</button>
     <button role="tab" aria-selected="false" data-tab="gaji">Tarif Gaji</button>
     <button role="tab" aria-selected="false" data-tab="aturan">Aturan</button>
   </nav>
-
-  <section id="tab-hitung"></section>
+  <section id="tab-dash"></section>
+  <section id="tab-kary" hidden></section>
+  <section id="tab-slip" hidden></section>
   <section id="tab-gaji" hidden></section>
   <section id="tab-aturan" hidden></section>
 </div>
+<div id="tip" hidden></div>
 
 <script>
 (function () {
@@ -155,7 +226,8 @@ details > summary { cursor: pointer; font-weight: 600; }
       pembagi: 26, telatAmbang: 10, telatNominal: 20000, pulangPerMenit: 0, bonusDouble: 0,
       tarif: SEED_TARIF.map(([c, p]) => ({ cabang: c, posisi: p, gaji: 0, tunj: 0, makan: 0 })),
       lembur: [],
-      izin: []
+      izin: [],
+      perusahaan: "", alamat: "", ttdNama: "", ttdJabatan: "HRD"
     };
   }
 
@@ -241,7 +313,8 @@ details > summary { cursor: pointer; font-weight: 600; }
       ci: toTimeStr(r["Check In At"]), co: toTimeStr(r["Check Out At"]),
       code: String(r["Attendance Code"]).trim(), lateHris: r["Late (Minutes)"],
       brS: toTimeStr(r["Break Start"]), brF: toTimeStr(r["Break Finish"]),
-      dbl: toTimeStr(r["Double Shift Check In At"])
+      dbl: toTimeStr(r["Double Shift Check In At"]),
+      pt: String(r["Company"] == null ? "" : r["Company"]).trim()
     })).filter((r) => r.iso && r.nama);
   }
 
@@ -281,6 +354,7 @@ details > summary { cursor: pointer; font-weight: 600; }
     cands.forEach((c) => { const b = biaya(c, ci, co); if (b < bb) { best = c; bb = b; } });
     if (!jad) return { sh: best, status: "shift ditebak (jadwal HRIS tidak valid)", bi: bb };
     const bj = biaya(jad, ci, co);
+    if (best.hari.length && best.nama !== jad.nama && bb < bj) return { sh: best, status: "shift khusus hari", bi: bb };
     if (bj - bb >= cfg.gantiShift && best.nama !== jad.nama) return { sh: best, status: "shift berubah (otomatis)", bi: bb };
     return { sh: jad, status: "sesuai jadwal", bi: bj };
   }
@@ -390,12 +464,15 @@ details > summary { cursor: pointer; font-weight: 600; }
       r.PotPc = r.PcMnt * cfg.pulangPerMenit;
       r.UangMakan = r.makan * r.Hadir;
       r.BonusDouble = r.Double * cfg.bonusDouble;
-      r.GajiBersih = r.adaTarif ? r.gaji + r.tunj + r.UangMakan + r.LemburUpah + r.BonusDouble - r.PotAbsen - r.TelatPot - r.PotPc : null;
+      r.Pendapatan = r.gaji + r.tunj + r.UangMakan + r.LemburUpah + r.BonusDouble;
+      r.Potongan = r.PotAbsen + r.TelatPot + r.PotPc;
+      r.GajiBersih = r.adaTarif ? Math.max(0, r.Pendapatan - r.Potongan) : null;
+      r.PersenHadir = r.Terjadwal ? r.Hadir / r.Terjadwal : 0;
       rekap.push(r);
     });
 
     const review = [];
-    det.forEach((d) => d._review.forEach((a) => review.push({ Tanggal: d.Tanggal, Nama: d.Nama, NIP: d.NIP, Cabang: d.Cabang, "Jadwal HRIS": d["Jadwal HRIS"], "Check In": d["Check In"], "Check Out": d["Check Out"], Alasan: a })));
+    det.forEach((d) => { if (d._review.length) review.push({ Tanggal: d.Tanggal, Nama: d.Nama, NIP: d.NIP, Cabang: d.Cabang, "Jadwal HRIS": d["Jadwal HRIS"], "Check In": d["Check In"], "Check Out": d["Check Out"], Alasan: d._review.join("; ") }); });
     rekap.forEach((r) => { if (r.Terjadwal && r.Hadir === 0) review.push({ Tanggal: "", Nama: r.Nama, NIP: r.NIP, Cabang: r.Cabang, "Jadwal HRIS": "", "Check In": "", "Check Out": "", Alasan: "Tidak pernah absen sebulan penuh (" + r.Absen + " hari Absent): resign, belum pakai aplikasi, atau izin?" }); });
     const nipNama = new Map();
     rows.forEach((r) => { if (!nipNama.has(r.nip)) nipNama.set(r.nip, new Set()); nipNama.get(r.nip).add(r.nama); });
@@ -425,150 +502,6 @@ details > summary { cursor: pointer; font-weight: 600; }
     return ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"][+m - 1] + " " + y;
   }
 
-  // ---------- render: tab Hitung ----------
-  let filterCabang = "", filterCari = "", terbuka = new Set();
-  function renderHitung() {
-    const el = $("#tab-hitung");
-    if (!hasil) {
-      el.innerHTML = '<div class="drop" id="drop"><div><h2>Upload export absensi bulan ini</h2><p class="sub">File .xlsx dari HRIS, langsung seperti hasil download. Tidak ada yang dikirim ke mana pun, dihitung di browser Anda.</p></div>' +
-        '<button class="btn" id="pick">Pilih file .xlsx</button><input type="file" id="file" accept=".xlsx,.xls" hidden><p class="sub">atau tarik file ke kotak ini</p><div id="err"></div>' +
-        '<div class="steps"><div><b>1. Isi Tarif Gaji</b><span class="sub">Gaji pokok per cabang dan posisi (PIC, CSO, dst). Sekali isi, tersimpan.</span></div>' +
-        '<div><b>2. Isi Aturan</b><span class="sub">Lembur per cabang dan tanggal, izin/cuti, potongan telat.</span></div>' +
-        '<div><b>3. Upload export</b><span class="sub">Rekap, potongan, dan gaji bersih muncul di halaman ini.</span></div></div></div>';
-      bindDrop();
-      return;
-    }
-    const rk = hasil.rekap.filter((r) => (!filterCabang || r.Cabang === filterCabang) && (!filterCari || (r.Nama + " " + r.NIP).toLowerCase().includes(filterCari.toLowerCase())));
-    const tot = (k) => rk.reduce((s, r) => s + (+r[k] || 0), 0);
-    const tanpaTarif = hasil.rekap.filter((r) => !r.adaTarif && r.Hadir > 0);
-    const cabangs = [...new Set(hasil.rekap.map((r) => r.Cabang))].sort();
-    const dipotongHris = tot("TelatHris");
-
-    let h = '<div class="stack">';
-    h += '<div class="panel"><div class="row" style="justify-content:space-between"><div><h2>' + bulanLabel(hasil.periode) + '</h2><p class="sub">' + esc(fileName) + " · " + hasil.dari + " s/d " + hasil.sampai + " · " + hasil.rekap.length + ' karyawan</p></div>' +
-      '<div class="row"><button class="btn ghost small" id="ganti">Ganti file</button><button class="btn small" id="unduh">Unduh Excel</button></div></div>' +
-      '<div class="stats" style="margin-top:14px">' +
-      stat(num(tot("Hadir")), "hari hadir") + stat(num(tot("Absen")), "hari absen") +
-      stat(num(tot("TelatKali")) + " kali", "telat (" + num(tot("TelatMnt")) + " mnt; HRIS: " + num(dipotongHris) + " mnt)") +
-      stat(rp(tot("TelatPot")), "potongan telat") + stat(rp(tot("LemburUpah")), "upah lembur") +
-      stat(rp(rk.reduce((s, r) => s + (r.GajiBersih || 0), 0)), "gaji bersih (yang tarifnya terisi)") + "</div></div>";
-    if (tanpaTarif.length) h += '<div class="banner warn"><b>' + tanpaTarif.length + ' karyawan belum punya tarif gaji</b> (cabang + posisi belum diisi atau gaji 0): ' + esc([...new Set(tanpaTarif.map((r) => r.Cabang + " / " + r.Posisi))].join("; ")) + '. Isi di tab Tarif Gaji, hasil langsung diperbarui.</div>';
-    const nLembur = hasil.rekap.reduce((s, r) => s + r.LemburTakDibayarJam, 0);
-    if (nLembur >= 1) h += '<div class="banner ok">Ada ' + nLembur.toFixed(1).replace(".", ",") + ' jam lembur terdeteksi yang belum dibayar karena tidak ada aturan lembur. Jika perlu dibayar, tambahkan di tab Aturan (per cabang dan tanggal).</div>';
-
-    h += '<div class="filters"><div class="row"><select id="fcab" aria-label="Filter cabang"><option value="">Semua cabang</option>' + cabangs.map((c) => '<option' + (c === filterCabang ? " selected" : "") + ' value="' + esc(c) + '">' + esc(c) + "</option>").join("") + '</select>' +
-      '<input type="text" id="fcari" placeholder="Cari nama / NIP" value="' + esc(filterCari) + '" aria-label="Cari karyawan" style="max-width:220px"></div><span class="hint">Klik baris karyawan untuk melihat detail harian.</span></div>';
-
-    h += '<div class="scroll"><table><thead><tr><th>Karyawan</th><th>Cabang / Posisi</th><th class="n">Hadir</th><th class="n">Absen</th><th class="n">Telat</th><th class="n">Pot. telat</th><th class="n">Pot. absen</th><th class="n">Pulang cepat</th><th class="n">Lembur</th><th class="n">Gaji pokok</th><th class="n">Gaji bersih</th></tr></thead><tbody>';
-    if (!rk.length) h += '<tr><td colspan="11" class="empty">Tidak ada karyawan yang cocok.</td></tr>';
-    rk.forEach((r) => {
-      const key = r.Nama + "||" + r.NIP, open = terbuka.has(key);
-      h += '<tr class="emp" data-k="' + esc(key) + '" tabindex="0" aria-expanded="' + open + '"><td><b>' + esc(r.Nama) + '</b><br><span class="sub">' + esc(r.NIP || "NIP kosong") + "</span></td>" +
-        '<td class="wrap">' + esc(r.Cabang) + '<br><span class="sub">' + esc(r.Posisi) + "</span></td>" +
-        '<td class="n">' + r.Hadir + '</td><td class="n">' + (r.Absen ? '<span class="neg">' + r.Absen + "</span>" : 0) + (r.Izin ? '<br><span class="sub">izin ' + r.Izin + "</span>" : "") + "</td>" +
-        '<td class="n">' + r.TelatKali + "×<br><span class='sub'>" + r.TelatMnt + " mnt</span></td>" +
-        '<td class="n">' + (r.TelatPot ? rp(r.TelatPot) : "—") + '</td><td class="n">' + (r.adaTarif ? (r.PotAbsen ? rp(r.PotAbsen) : "—") : "—") + "</td>" +
-        '<td class="n">' + r.PcKali + "×<br><span class='sub'>" + r.PcMnt + " mnt</span></td>" +
-        '<td class="n">' + (r.LemburJam ? r.LemburJam.toFixed(1) + " jam<br><span class='sub'>" + rp(r.LemburUpah) + "</span>" : "—") + "</td>" +
-        '<td class="n">' + (r.adaTarif ? rp(r.gaji) : '<span class="pill warn">belum diisi</span>') + '</td><td class="n"><b>' + (r.GajiBersih == null ? "—" : rp(r.GajiBersih)) + "</b></td></tr>";
-      if (open) h += '<tr class="detail"><td colspan="11">' + detailTabel(r) + "</td></tr>";
-    });
-    h += '<tr class="tot"><td colspan="2">Total' + (filterCabang || filterCari ? " (terfilter)" : "") + '</td><td class="n">' + num(tot("Hadir")) + '</td><td class="n">' + num(tot("Absen")) + '</td><td class="n">' + num(tot("TelatKali")) + "×</td><td class=\"n\">" + rp(tot("TelatPot")) + '</td><td class="n">' + rp(tot("PotAbsen")) + '</td><td class="n">' + num(tot("PcKali")) + '×</td><td class="n">' + rp(tot("LemburUpah")) + '</td><td class="n">' + rp(rk.reduce((s, r) => s + (r.adaTarif ? r.gaji : 0), 0)) + '</td><td class="n">' + rp(rk.reduce((s, r) => s + (r.GajiBersih || 0), 0)) + "</td></tr>";
-    h += "</tbody></table></div>";
-
-    h += '<details class="panel"' + (hasil.review.length ? " open" : "") + "><summary>Perlu dicek manual (" + hasil.review.length + ')</summary><p class="hint" style="margin:6px 0 10px">Kasus yang tidak bisa diputuskan otomatis. Hanya bagian ini yang perlu Anda periksa.</p>';
-    if (hasil.review.length) {
-      h += '<div class="scroll"><table><thead><tr><th>Tanggal</th><th>Nama</th><th>Cabang</th><th>Check in</th><th>Check out</th><th>Alasan</th></tr></thead><tbody>' +
-        hasil.review.map((v) => "<tr><td>" + esc(v.Tanggal) + "</td><td>" + esc(v.Nama) + "</td><td>" + esc(v.Cabang) + "</td><td>" + esc(v["Check In"]) + "</td><td>" + esc(v["Check Out"]) + '</td><td class="wrap">' + esc(v.Alasan) + "</td></tr>").join("") + "</tbody></table></div>";
-    } else h += '<p class="empty">Tidak ada.</p>';
-    h += "</details></div>";
-    el.innerHTML = h;
-    bindHitung();
-  }
-  function stat(v, l) { return '<div class="stat"><div class="v">' + v + '</div><div class="l">' + l + "</div></div>"; }
-  function detailTabel(r) {
-    let h = '<div class="scroll"><table><thead><tr><th>Tanggal</th><th>Hari</th><th>Status</th><th>Jadwal HRIS</th><th>Shift aktual</th><th>Masuk</th><th>Pulang</th><th class="n">Telat</th><th class="n">Pot. telat</th><th class="n">Pulang cepat</th><th class="n">Lembur</th><th>Catatan</th></tr></thead><tbody>';
-    r.detail.forEach((d) => {
-      const st = d.Status === "Present" ? "ok" : d.Status === "Absent" ? "bad" : "";
-      h += "<tr><td>" + d.Tanggal + "</td><td>" + esc(d.Hari) + '</td><td><span class="pill ' + st + '">' + (d.Status === "Present" ? "Hadir" : d.Status === "Absent" ? "Absen" : "Libur") + "</span></td><td>" + esc(d["Jadwal HRIS"]) + "</td><td>" + esc(d["Shift Aktual"]) + (d["Status Shift"].startsWith("shift berubah") ? ' <span class="pill warn">berubah</span>' : "") + "</td><td>" + esc(d["Check In"]) + "</td><td>" + esc(d["Check Out"]) +
-        '</td><td class="n">' + (d["Telat (mnt)"] || "") + '</td><td class="n">' + (d["Potongan Telat (Rp)"] ? rp(d["Potongan Telat (Rp)"]) : "") + '</td><td class="n">' + (d["Pulang Cepat (mnt)"] || "") + '</td><td class="n">' + (d["Lembur (mnt)"] ? d["Lembur (mnt)"] + " mnt" + (d["Upah Lembur (Rp)"] ? " · " + rp(d["Upah Lembur (Rp)"]) : "") : "") + '</td><td class="wrap">' + esc(d.Catatan.concat(d._review).join("; ")) + "</td></tr>";
-    });
-    return h + "</tbody></table></div>";
-  }
-  function bindDrop() {
-    const drop = $("#drop"), file = $("#file");
-    if (!drop) return;
-    $("#pick").onclick = () => file.click();
-    file.onchange = () => file.files[0] && muat(file.files[0]);
-    ["dragenter", "dragover"].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.add("over"); }));
-    ["dragleave", "drop"].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.remove("over"); }));
-    drop.addEventListener("drop", (ev) => { const f = ev.dataTransfer.files[0]; if (f) muat(f); });
-  }
-  function bindHitung() {
-    $("#ganti").onclick = () => { hasil = null; rawRows = null; terbuka.clear(); renderHitung(); };
-    $("#unduh").onclick = unduh;
-    $("#fcab").onchange = (e) => { filterCabang = e.target.value; renderHitung(); };
-    const cari = $("#fcari");
-    cari.oninput = (e) => { filterCari = e.target.value; clearTimeout(cari._t); cari._t = setTimeout(() => { renderHitung(); const n = $("#fcari"); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); };
-    document.querySelectorAll("tr.emp").forEach((tr) => {
-      const toggle = () => { const k = tr.dataset.k; terbuka.has(k) ? terbuka.delete(k) : terbuka.add(k); renderHitung(); };
-      tr.onclick = toggle;
-      tr.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } };
-    });
-  }
-
-  async function muat(f) {
-    const err = $("#err");
-    try {
-      if (typeof XLSX === "undefined") throw new Error("Pustaka pembaca Excel belum termuat. Muat ulang halaman.");
-      const buf = await f.arrayBuffer();
-      const wb = XLSX.read(buf, { type: "array", cellDates: false });
-      const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "", raw: true });
-      rawRows = normalisasi(json);
-      fileName = f.name;
-      tambahKombinasiBaru();
-      hasil = hitung(rawRows);
-      terbuka.clear(); filterCabang = ""; filterCari = "";
-      renderAll();
-    } catch (e) {
-      if (err) err.innerHTML = '<div class="banner bad">' + esc(e.message || e) + "</div>";
-    }
-  }
-  function tambahKombinasiBaru() {
-    let baru = 0;
-    rawRows.forEach((r) => {
-      if (!cfg.tarif.some((t) => t.cabang === r.cabang && t.posisi === r.posisi)) { cfg.tarif.push({ cabang: r.cabang, posisi: r.posisi, gaji: 0, tunj: 0, makan: 0 }); baru++; }
-    });
-    if (baru) scheduleSave();
-  }
-
-  function hitungUlang() { if (rawRows) hasil = hitung(rawRows); }
-
-  async function unduh() {
-    try {
-      const dl = await window.claude.use("downloads");
-      if (!dl) throw new Error("Unduh tidak tersedia di tampilan ini.");
-      const wb = XLSX.utils.book_new();
-      const rekap = hasil.rekap.map((r) => ({
-        Nama: r.Nama, NIP: r.NIP, Cabang: r.Cabang, Posisi: r.Posisi, "Hari Terjadwal": r.Terjadwal, Hadir: r.Hadir, Absen: r.Absen, "Izin/Sakit/Cuti": r.Izin, "Absen Dipotong": r.AbsenDipotong,
-        "Telat (kali)": r.TelatKali, "Telat (mnt)": r.TelatMnt, "Telat Kena Potongan (kali)": r.TelatKenaKali, "Potongan Telat (Rp)": r.TelatPot,
-        "Pulang Cepat (kali)": r.PcKali, "Pulang Cepat (mnt)": r.PcMnt, "Lembur Dibayar (jam)": r.LemburJam, "Upah Lembur (Rp)": r.LemburUpah,
-        "Double Shift": r.Double, "Shift Berubah (kali)": r.ShiftBerubah, "Telat Menurut HRIS (mnt)": r.TelatHris,
-        "Gaji Pokok": r.adaTarif ? r.gaji : "", "Tunjangan Tetap": r.adaTarif ? r.tunj : "", "Uang Makan": r.adaTarif ? r.UangMakan : "",
-        "Potongan Absen (Rp)": r.adaTarif ? Math.round(r.PotAbsen) : "", "Potongan Pulang Cepat (Rp)": r.PotPc, "Bonus Double Shift (Rp)": r.BonusDouble,
-        "Gaji Bersih": r.GajiBersih == null ? "Tarif belum diisi" : Math.round(r.GajiBersih)
-      }));
-      const det = hasil.det.map((d) => { const o = Object.assign({}, d); o.Catatan = d.Catatan.concat(d._review).join("; "); delete o._review; return o; });
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rekap), "Rekap Penggajian");
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(det), "Detail Harian");
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hasil.review.length ? hasil.review : [{ Info: "Tidak ada" }]), "Perlu Review");
-      const data = XLSX.write(wb, { type: "array", bookType: "xlsx" });
-      await dl.save({ filename: "Rekap_Absensi_" + hasil.periode + ".xlsx", data });
-    } catch (e) {
-      if (e && e.code === "declined") return;
-      setSaved("Unduhan gagal: " + (e.message || e.code || e));
-    }
-  }
 
   // ---------- render: tab Tarif Gaji ----------
   function renderGaji() {
@@ -585,7 +518,7 @@ details > summary { cursor: pointer; font-weight: 600; }
         "<td><button class='btn ghost small' data-del='tarif' data-i='" + i + "'>Hapus</button></td></tr>";
     });
     h += '</tbody></table></div><div><button class="btn ghost" data-add="tarif">Tambah baris</button></div>';
-    h += '<p class="hint">Potongan absen per hari = gaji pokok ÷ ' + cfg.pembagi + ' (pembagi hari kerja, bisa diubah di tab Aturan). Gaji bersih = gaji pokok + tunjangan + uang makan + lembur − potongan absen − potongan telat − potongan pulang cepat.</p></div>';
+    h += '<p class="hint">Gaji bersih tidak pernah di bawah Rp0. Potongan absen per hari = gaji pokok ÷ ' + cfg.pembagi + ' (pembagi hari kerja, bisa diubah di tab Aturan). Gaji bersih = gaji pokok + tunjangan + uang makan + lembur − potongan absen − potongan telat − potongan pulang cepat.</p></div>';
     el.innerHTML = h;
     bindEdits(el);
   }
@@ -595,6 +528,9 @@ details > summary { cursor: pointer; font-weight: 600; }
     const el = $("#tab-aturan");
     const f = (label, key, extra) => '<div class="field"><label for="c-' + key + '">' + label + '</label><input type="number" id="c-' + key + '" data-cfg="' + key + '" value="' + cfg[key] + '" min="0" ' + (extra || "") + "></div>";
     let h = '<div class="stack">';
+    const t = (label, key, ph) => '<div class="field"><label for="c-' + key + '">' + label + '</label><input type="text" id="c-' + key + '" data-cfg="' + key + '" value="' + esc(cfg[key]) + '" placeholder="' + esc(ph || "") + '"></div>';
+    h += '<div class="panel stack"><div><h2>Identitas di slip gaji</h2><p class="sub">Muncul di kepala dan tanda tangan setiap slip. Nama perusahaan kosong = diambil dari file export.</p></div><div class="grid">' +
+      t("Nama perusahaan", "perusahaan", perusahaanFile || "Nama perusahaan") + t("Alamat (opsional)", "alamat", "") + t("Nama penandatangan", "ttdNama", "") + t("Jabatan penandatangan", "ttdJabatan", "HRD") + "</div></div>";
     h += '<div class="panel stack"><div><h2>Potongan dan perhitungan</h2><p class="sub">Telat lebih dari ambang dipotong sebesar nominal tetap per kejadian. Telat sampai ambang tidak dipotong.</p></div><div class="grid">' +
       f("Ambang telat (menit)", "telatAmbang") + f("Potongan per kejadian telat (Rp)", "telatNominal", 'step="1000"') +
       f("Potongan pulang cepat (Rp / menit)", "pulangPerMenit") + f("Bonus double shift (Rp / shift)", "bonusDouble", 'step="1000"') +
@@ -656,7 +592,7 @@ details > summary { cursor: pointer; font-weight: 600; }
   function afterEdit(rerenderTab) {
     scheduleSave();
     hitungUlang();
-    renderHitung();
+    renderData();
     if (rerenderTab) renderAll(true);
   }
   function bindEdits(root) {
@@ -682,16 +618,440 @@ details > summary { cursor: pointer; font-weight: 600; }
     }));
   }
 
-  // ---------- tab & mulai ----------
-  function renderAll(keepFocusTab) {
-    renderGaji(); renderAturan();
-    if (!keepFocusTab) renderHitung();
-  }
-  document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => {
-    document.querySelectorAll("#tabs button").forEach((x) => x.setAttribute("aria-selected", x === b ? "true" : "false"));
-    ["hitung", "gaji", "aturan"].forEach((t) => { $("#tab-" + t).hidden = t !== b.dataset.tab; });
-  }));
 
+  // ---------- state tampilan ----------
+  let perusahaanFile = "";
+  let filterCabang = "", filterCari = "", terbuka = new Set();
+  let slipCabang = "", slipCari = "";
+  const AMBANG_HADIR = 0.85;
+  const pct = (x) => (x * 100).toFixed(1).replace(".", ",") + "%";
+  const jam = (x) => (Math.round(x * 10) / 10).toLocaleString("id-ID") + " jam";
+  const namaPT = () => cfg.perusahaan || perusahaanFile || "Nama perusahaan";
+  const keyOf = (r) => r.Nama + "||" + r.NIP;
+  const sumBy = (arr, f) => arr.reduce((s, x) => s + (+f(x) || 0), 0);
+
+  function showTab(name) {
+    document.querySelectorAll("#tabs button").forEach((x) => x.setAttribute("aria-selected", x.dataset.tab === name ? "true" : "false"));
+    ["dash", "kary", "slip", "gaji", "aturan"].forEach((t) => { $("#tab-" + t).hidden = t !== name; });
+  }
+  function renderData() { renderBar(); renderDash(); renderKary(); renderSlip(); updateTabCounts(); }
+  function renderAll(keepTab) { renderGaji(); renderAturan(); if (!keepTab) renderData(); else updateTabCounts(); }
+
+  function updateTabCounts() {
+    const set = (tab, n) => {
+      const b = $('#tabs button[data-tab="' + tab + '"]');
+      const old = b.querySelector(".count"); if (old) old.remove();
+      if (n) { const s = document.createElement("span"); s.className = "count"; s.textContent = n; b.appendChild(s); }
+    };
+    set("kary", hasil ? hasil.review.length : 0);
+    set("gaji", hasil ? new Set(hasil.rekap.filter((r) => !r.adaTarif && r.Hadir > 0).map((r) => r.Cabang + r.Posisi)).size : cfg.tarif.filter((t) => !(+t.gaji > 0)).length);
+  }
+
+  // ---------- bilah data ----------
+  function renderBar() {
+    const el = $("#databar");
+    if (!hasil) { el.innerHTML = ""; return; }
+    el.innerHTML = `<div class="databar"><div class="meta"><b>${bulanLabel(hasil.periode)}</b> <span class="sub">· ${esc(namaPT())} · ${hasil.rekap.length} karyawan · ${hasil.dari} s/d ${hasil.sampai}</span><div class="hint">${esc(fileName)}</div></div>
+      <div class="row"><button class="btn ghost small" id="ganti">Ganti file</button><button class="btn small" id="unduh">Unduh Excel</button></div></div>`;
+    $("#ganti").onclick = () => $("#file").click();
+    $("#unduh").onclick = unduhExcel;
+  }
+
+  // ---------- upload ----------
+  function uploadPanel() {
+    const nTarif = cfg.tarif.length, isi = cfg.tarif.filter((t) => +t.gaji > 0).length;
+    return `<div class="stack"><div class="panel"><div class="steps">
+      <div class="step ${isi ? "done" : ""}"><div class="no">1</div><div><b>Isi tarif gaji</b><span class="sub">${isi} dari ${nTarif} kombinasi cabang + posisi sudah diisi. <a href="#" data-go="gaji">Buka Tarif Gaji</a></span></div></div>
+      <div class="step ${cfg.lembur.length ? "done" : ""}"><div class="no">2</div><div><b>Atur lembur &amp; izin</b><span class="sub">${cfg.lembur.length} aturan lembur, ${cfg.izin.length} data izin. Boleh dilewati. <a href="#" data-go="aturan">Buka Aturan</a></span></div></div>
+      <div class="step"><div class="no">3</div><div><b>Upload export bulan ini</b><span class="sub">Dashboard, rekap, dan slip gaji langsung jadi.</span></div></div>
+    </div></div>
+    <div class="drop" id="drop"><h2>Upload export absensi dari HRIS</h2><p class="sub">File .xlsx persis seperti hasil download. Data dihitung di browser Anda dan tidak dikirim ke mana pun.</p>
+      <button class="btn" id="pick">Pilih file .xlsx</button><p class="hint">atau tarik file ke kotak ini</p><div id="err"></div></div></div>`;
+  }
+  function bindUpload(root) {
+    root.querySelectorAll("[data-go]").forEach((a) => a.onclick = (e) => { e.preventDefault(); showTab(a.dataset.go); });
+    const drop = root.querySelector("#drop");
+    if (!drop) return;
+    root.querySelector("#pick").onclick = () => $("#file").click();
+    ["dragenter", "dragover"].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.add("over"); }));
+    ["dragleave", "drop"].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.remove("over"); }));
+    drop.addEventListener("drop", (ev) => { const f = ev.dataTransfer.files[0]; if (f) muat(f); });
+  }
+  async function muat(f) {
+    try {
+      if (typeof XLSX === "undefined") throw new Error("Pembaca Excel belum termuat. Periksa koneksi internet lalu muat ulang halaman.");
+      const wb = XLSX.read(await f.arrayBuffer(), { type: "array" });
+      const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "", raw: true });
+      rawRows = normalisasi(json);
+      fileName = f.name;
+      perusahaanFile = (rawRows.find((r) => r.pt) || {}).pt || "";
+      tambahKombinasiBaru();
+      hasil = hitung(rawRows);
+      terbuka.clear(); filterCabang = filterCari = slipCabang = slipCari = "";
+      renderAll();
+      showTab("dash");
+    } catch (e) {
+      const err = $("#err");
+      const msg = esc(e.message || e);
+      if (err) err.innerHTML = '<div class="banner bad">' + msg + "</div>"; else setSaved(e.message || String(e));
+    }
+  }
+  function tambahKombinasiBaru() {
+    let baru = 0;
+    rawRows.forEach((r) => {
+      if (!cfg.tarif.some((t) => t.cabang === r.cabang && t.posisi === r.posisi)) { cfg.tarif.push({ cabang: r.cabang, posisi: r.posisi, gaji: 0, tunj: 0, makan: 0 }); baru++; }
+    });
+    if (baru) scheduleSave();
+  }
+  function hitungUlang() { if (rawRows) hasil = hitung(rawRows); }
+  function kosong(teks) {
+    return `<div class="panel empty"><p>${teks}</p><p style="margin-top:10px"><button class="btn" data-go="dash">Upload file di Dashboard</button></p></div>`;
+  }
+
+  // ---------- agregasi untuk dashboard ----------
+  function perCabang() {
+    const m = new Map();
+    hasil.rekap.forEach((r) => {
+      if (!m.has(r.Cabang)) m.set(r.Cabang, { cabang: r.Cabang, n: 0, hadir: 0, terjadwal: 0, absen: 0, telat: 0, telatPot: 0, lembur: 0, lemburTak: 0, gaji: 0, tarifKurang: 0, berubah: 0 });
+      const c = m.get(r.Cabang);
+      c.n++; c.hadir += r.Hadir; c.terjadwal += r.Terjadwal; c.absen += r.Absen; c.telat += r.TelatKali; c.telatPot += r.TelatPot;
+      c.lembur += r.LemburUpah; c.lemburTak += r.LemburTakDibayarJam; c.gaji += r.GajiBersih || 0; c.berubah += r.ShiftBerubah;
+      if (!r.adaTarif && r.Hadir > 0) c.tarifKurang++;
+    });
+    return [...m.values()].map((c) => Object.assign(c, { persen: c.terjadwal ? c.hadir / c.terjadwal : 0 }));
+  }
+  function perHari() {
+    const m = new Map();
+    hasil.det.forEach((d) => {
+      if (!m.has(d.Tanggal)) m.set(d.Tanggal, { tgl: d.Tanggal, hari: d.Hari, hadir: 0, terjadwal: 0 });
+      const x = m.get(d.Tanggal);
+      if (d.Status === "Present") { x.hadir++; x.terjadwal++; } else if (d.Status === "Absent") x.terjadwal++;
+    });
+    return [...m.values()].sort((a, b) => a.tgl.localeCompare(b.tgl)).map((x) => Object.assign(x, { persen: x.terjadwal ? x.hadir / x.terjadwal : 0 }));
+  }
+
+  function insights(cab) {
+    const out = [], rk = hasil.rekap;
+    const nol = rk.filter((r) => r.Terjadwal && r.Hadir === 0);
+    if (nol.length) {
+      const g = sumBy(nol, (r) => r.gaji);
+      out.push({ sev: "bad", what: `${nol.length} karyawan tidak pernah hadir sebulan penuh`,
+        act: `${nol.map((r) => r.Nama).join(", ")}. Pastikan statusnya (resign, belum pakai aplikasi, atau cuti panjang). Jika sudah tidak aktif, nonaktifkan di HRIS.` + (g ? ` Gaji pokok mereka yang masih tercatat ${rp(g)} per bulan.` : "") });
+    }
+    const rendah = cab.filter((c) => c.terjadwal && c.persen < AMBANG_HADIR).sort((a, b) => a.persen - b.persen);
+    if (rendah.length) out.push({ sev: rendah[0].persen < 0.7 ? "bad" : "warn", what: `Kehadiran di bawah ${Math.round(AMBANG_HADIR * 100)}% di ${rendah.length} cabang`,
+      act: rendah.map((c) => `${c.cabang} (${pct(c.persen)}, ${c.absen} hari absen)`).join("; ") + ". Cek kecukupan personel dan apakah jadwal di HRIS sesuai kenyataan." });
+    const kena = rk.filter((r) => r.TelatKenaKali > 0).sort((a, b) => b.TelatKenaKali - a.TelatKenaKali || b.TelatMnt - a.TelatMnt);
+    if (kena.length) out.push({ sev: "warn", what: `Telat lebih dari ${cfg.telatAmbang} menit terjadi ${sumBy(kena, (r) => r.TelatKenaKali)} kali, potongan ${rp(sumBy(kena, (r) => r.TelatPot))}`,
+      act: "Paling sering: " + kena.slice(0, 3).map((r) => `${r.Nama} (${r.TelatKenaKali}×, ${r.TelatMnt} mnt)`).join(", ") + ". Pertimbangkan teguran atau evaluasi jam shift mereka." });
+    const hadir = sumBy(rk, (r) => r.Hadir), berubah = sumBy(rk, (r) => r.ShiftBerubah);
+    if (hadir && berubah / hadir > 0.1) {
+      const top = [...cab].sort((a, b) => b.berubah - a.berubah).slice(0, 3).filter((c) => c.berubah);
+      out.push({ sev: "warn", what: `${pct(berubah / hadir)} hari kerja dijalankan di shift yang berbeda dari jadwal HRIS`,
+        act: "Paling banyak di " + top.map((c) => `${c.cabang} (${c.berubah} hari)`).join(", ") + ". Perbarui jadwal di HRIS agar angka telat dari HRIS bisa dipercaya. Sistem ini sudah menyesuaikan otomatis." });
+    }
+    const tak = sumBy(rk, (r) => r.LemburTakDibayarJam);
+    if (tak >= 1) {
+      const top = [...cab].sort((a, b) => b.lemburTak - a.lemburTak).slice(0, 3).filter((c) => c.lemburTak >= 0.5);
+      out.push({ sev: "info", what: `${jam(tak)} lembur terdeteksi, belum dibayar karena belum ada aturan lembur`,
+        act: "Terbanyak di " + top.map((c) => `${c.cabang} (${jam(c.lemburTak)})`).join(", ") + ". Jika memang lembur yang disetujui, tambahkan aturan per cabang dan tanggal di tab Aturan." });
+    }
+    const tk = rk.filter((r) => !r.adaTarif && r.Hadir > 0);
+    if (tk.length) out.push({ sev: "warn", what: `${tk.length} karyawan belum punya tarif gaji, slip dan total biaya belum lengkap`,
+      act: "Isi di tab Tarif Gaji: " + [...new Set(tk.map((r) => r.Cabang + " / " + r.Posisi))].join("; ") + "." });
+    const totGaji = sumBy(cab, (c) => c.gaji);
+    if (totGaji) {
+      const b = [...cab].sort((a, b) => b.gaji - a.gaji)[0];
+      out.push({ sev: "info", what: `Biaya gaji terbesar: ${b.cabang}, ${rp(b.gaji)} (${pct(b.gaji / totGaji)} dari total)`, act: `Rata-rata ${rp(b.gaji / Math.max(1, b.n))} per karyawan (${b.n} orang).` });
+    }
+    const dq = hasil.review.filter((v) => v.Alasan.startsWith("NIP"));
+    if (dq.length) out.push({ sev: "info", what: `${dq.length} masalah data NIP di HRIS`, act: dq.map((v) => `${v.Nama}: ${v.Alasan}`).join("; ") + "." });
+    if (!out.length) out.push({ sev: "ok", what: "Tidak ada masalah besar bulan ini", act: "Kehadiran, keterlambatan, dan lembur dalam batas wajar." });
+    return out;
+  }
+
+  // ---------- grafik ----------
+  function hbars(items, fmt, opts) {
+    const max = Math.max(...items.map((x) => x.v), opts && opts.max || 0) || 1;
+    return '<div class="hbars">' + items.map((x) =>
+      `<div class="hbar" data-tip="${esc(x.tip || "")}"><div class="nm">${esc(x.label)}</div><div class="tr"><div class="fl ${x.warn ? "warn" : ""}" style="width:${Math.max(0.5, x.v / max * 100)}%"></div></div><div class="vl">${fmt(x.v)}</div></div>`).join("") + "</div>";
+  }
+  function kolomHarian(hr) {
+    const W = 760, H = 210, L = 38, R = 8, T = 10, B = 26, n = hr.length;
+    const cw = (W - L - R) / n, bw = Math.max(3, cw - 3);
+    const y = (p) => T + (1 - p) * (H - T - B);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Persentase kehadiran per hari"><g class="grid">`;
+    [0, 0.25, 0.5, 0.75, 1].forEach((p) => { s += `<line x1="${L}" x2="${W - R}" y1="${y(p)}" y2="${y(p)}"></line><text x="${L - 6}" y="${y(p) + 4}" text-anchor="end">${p * 100}%</text>`; });
+    s += "</g>";
+    hr.forEach((d, i) => {
+      const x = L + i * cw + (cw - bw) / 2, top = y(d.persen), hgt = Math.max(0, y(0) - top);
+      const tip = `${d.hari} ${d.tgl.slice(8)}/${d.tgl.slice(5, 7)}: ${d.hadir} hadir dari ${d.terjadwal} terjadwal (${pct(d.persen)})`;
+      s += `<g class="c" data-tip="${esc(tip)}"><rect class="hit" x="${L + i * cw}" y="${T}" width="${cw}" height="${H - T - B}"></rect><rect class="col ${d.persen < AMBANG_HADIR ? "warn" : ""}" x="${x}" y="${top}" width="${bw}" height="${hgt}" rx="${Math.min(3, bw / 2)}"></rect></g>`;
+      if (i === 0 || (+d.tgl.slice(8)) % 5 === 0) s += `<text x="${x + bw / 2}" y="${H - 8}" text-anchor="middle">${+d.tgl.slice(8)}</text>`;
+    });
+    return s + "</svg>";
+  }
+  const legenda = () => `<div class="legend"><span><i style="background:var(--bar)"></i>${Math.round(AMBANG_HADIR * 100)}% atau lebih</span><span><i style="background:var(--warn-bar)"></i>di bawah ${Math.round(AMBANG_HADIR * 100)}% (perlu perhatian)</span></div>`;
+
+  // ---------- tab Dashboard ----------
+  function renderDash() {
+    const el = $("#tab-dash");
+    if (!hasil) { el.innerHTML = uploadPanel(); bindUpload(el); return; }
+    const rk = hasil.rekap, cab = perCabang().sort((a, b) => a.persen - b.persen), hr = perHari();
+    const hadir = sumBy(rk, (r) => r.Hadir), terj = sumBy(rk, (r) => r.Terjadwal), adaTarif = rk.filter((r) => r.adaTarif).length;
+    const totGaji = sumBy(rk, (r) => r.GajiBersih || 0);
+    const sev = { bad: ["bad", "Kritis"], warn: ["warn", "Perhatian"], info: ["", "Info"], ok: ["ok", "Baik"] };
+    let h = '<div class="stack">';
+    h += `<div class="kpis">
+      <div class="kpi"><div class="l">Total gaji dibayar</div><div class="v">${adaTarif ? rp(totGaji) : "—"}</div><div class="s">${adaTarif} dari ${rk.length} karyawan sudah ada tarif</div></div>
+      <div class="kpi"><div class="l">Tingkat kehadiran</div><div class="v">${pct(terj ? hadir / terj : 0)}</div><div class="s">${num(hadir)} hadir · ${num(terj - hadir)} absen</div></div>
+      <div class="kpi"><div class="l">Telat &gt; ${cfg.telatAmbang} menit</div><div class="v">${num(sumBy(rk, (r) => r.TelatKenaKali))}×</div><div class="s">potongan ${rp(sumBy(rk, (r) => r.TelatPot))}</div></div>
+      <div class="kpi"><div class="l">Lembur dibayar</div><div class="v">${rp(sumBy(rk, (r) => r.LemburUpah))}</div><div class="s">${jam(sumBy(rk, (r) => r.LemburJam))} · ${jam(sumBy(rk, (r) => r.LemburTakDibayarJam))} belum diputuskan</div></div>
+      <div class="kpi"><div class="l">Perlu dicek manual</div><div class="v">${hasil.review.length}</div><div class="s">kasus, lihat tab Karyawan</div></div>
+    </div>`;
+    h += '<div class="panel"><h2>Yang perlu diputuskan bulan ini</h2><p class="sub">Disusun otomatis dari data, urut dari yang paling penting.</p><div class="insights" style="margin-top:6px">' +
+      insights(cab).map((x) => `<div class="ins"><div><span class="pill ${sev[x.sev][0]}">${sev[x.sev][1]}</span></div><div><div class="what">${esc(x.what)}</div><div class="act">${esc(x.act)}</div></div></div>`).join("") + "</div></div>";
+    h += '<div class="cols2">';
+    h += '<div class="panel"><h2>Kehadiran per cabang</h2><p class="sub">Hari hadir dibanding hari terjadwal. Terendah di atas.</p>' +
+      hbars(cab.map((c) => ({ label: c.cabang, v: c.persen, warn: c.persen < AMBANG_HADIR, tip: `${c.cabang}: ${c.hadir} hadir dari ${c.terjadwal} hari terjadwal, ${c.n} karyawan` })), pct, { max: 1 }) + legenda() + "</div>";
+    if (totGaji) {
+      const byG = [...cab].sort((a, b) => b.gaji - a.gaji);
+      h += '<div class="panel"><h2>Biaya gaji per cabang</h2><p class="sub">Gaji bersih yang dibayar (karyawan dengan tarif terisi).</p>' +
+        hbars(byG.map((c) => ({ label: c.cabang, v: c.gaji, tip: `${c.cabang}: ${rp(c.gaji)} untuk ${c.n} karyawan` + (c.tarifKurang ? `, ${c.tarifKurang} belum ada tarif` : "") })), rp) + "</div>";
+    } else {
+      h += '<div class="panel"><h2>Biaya gaji per cabang</h2><p class="sub" style="margin-top:8px">Muncul setelah tarif gaji diisi.</p><p style="margin-top:12px"><button class="btn ghost" data-go="gaji">Isi Tarif Gaji</button></p></div>';
+    }
+    h += "</div>";
+    h += `<div class="panel chart"><div class="row between"><div><h2>Kehadiran harian</h2><p class="sub">Persentase karyawan terjadwal yang hadir tiap tanggal. Arahkan kursor ke batang untuk detail.</p></div></div>${kolomHarian(hr)}${legenda()}
+      <details style="margin-top:10px"><summary class="hint">Lihat sebagai tabel</summary><div class="scroll" style="margin-top:8px"><table><thead><tr><th>Tanggal</th><th>Hari</th><th class="n">Hadir</th><th class="n">Terjadwal</th><th class="n">Kehadiran</th></tr></thead><tbody>${hr.map((d) => `<tr><td>${d.tgl}</td><td>${esc(d.hari)}</td><td class="n">${d.hadir}</td><td class="n">${d.terjadwal}</td><td class="n">${pct(d.persen)}</td></tr>`).join("")}</tbody></table></div></details></div>`;
+    const telat = [...rk].filter((r) => r.TelatMnt > 0).sort((a, b) => b.TelatMnt - a.TelatMnt).slice(0, 8);
+    const absen = [...rk].filter((r) => r.Absen > 0).sort((a, b) => b.Absen - a.Absen).slice(0, 8);
+    h += '<div class="cols2">';
+    h += '<div class="panel"><h2>Paling banyak telat</h2><p class="sub">Total menit telat dalam sebulan, dihitung dari shift yang benar-benar dijalankan.</p>' +
+      (telat.length ? hbars(telat.map((r) => ({ label: r.Nama, v: r.TelatMnt, tip: `${r.Nama} (${r.Cabang}): ${r.TelatKali}× telat, ${r.TelatKenaKali}× kena potongan ${rp(r.TelatPot)}` })), (v) => num(v) + " mnt") : '<p class="empty">Tidak ada yang telat.</p>') + "</div>";
+    h += '<div class="panel"><h2>Paling banyak absen</h2><p class="sub">Hari terjadwal tanpa check-in (belum termasuk izin yang dicatat).</p>' +
+      (absen.length ? hbars(absen.map((r) => ({ label: r.Nama, v: r.Absen, warn: r.Hadir === 0, tip: `${r.Nama} (${r.Cabang}): ${r.Absen} absen dari ${r.Terjadwal} hari terjadwal` + (r.Izin ? `, ${r.Izin} izin` : "") })), (v) => v + " hari") +
+        '<div class="legend"><span><i style="background:var(--warn-bar)"></i>tidak pernah hadir sebulan</span></div>' : '<p class="empty">Tidak ada yang absen.</p>') + "</div>";
+    h += "</div>";
+    const cabNama = [...cab].sort((a, b) => a.cabang.localeCompare(b.cabang));
+    h += '<div class="stack" style="gap:8px"><h2>Ringkasan per cabang</h2><div class="scroll"><table><thead><tr><th>Cabang</th><th class="n">Karyawan</th><th class="n">Kehadiran</th><th class="n">Absen</th><th class="n">Telat</th><th class="n">Pot. telat</th><th class="n">Lembur</th><th class="n">Lembur belum diputuskan</th><th class="n">Total gaji</th></tr></thead><tbody>' +
+      cabNama.map((c) => `<tr><td>${esc(c.cabang)}</td><td class="n">${c.n}</td><td class="n">${c.persen < AMBANG_HADIR ? '<span class="pill warn">' + pct(c.persen) + "</span>" : pct(c.persen)}</td><td class="n">${c.absen}</td><td class="n">${c.telat}×</td><td class="n">${rp(c.telatPot)}</td><td class="n">${rp(c.lembur)}</td><td class="n">${c.lemburTak >= 0.1 ? jam(c.lemburTak) : "—"}</td><td class="n">${c.gaji ? rp(c.gaji) : "—"}${c.tarifKurang ? ' <span class="pill warn">' + c.tarifKurang + " tanpa tarif</span>" : ""}</td></tr>`).join("") +
+      `<tr class="tot"><td>Total</td><td class="n">${rk.length}</td><td class="n">${pct(terj ? hadir / terj : 0)}</td><td class="n">${num(terj - hadir)}</td><td class="n">${num(sumBy(rk, (r) => r.TelatKali))}×</td><td class="n">${rp(sumBy(rk, (r) => r.TelatPot))}</td><td class="n">${rp(sumBy(rk, (r) => r.LemburUpah))}</td><td class="n">${jam(sumBy(rk, (r) => r.LemburTakDibayarJam))}</td><td class="n">${rp(totGaji)}</td></tr></tbody></table></div></div>`;
+    h += "</div>";
+    el.innerHTML = h;
+    bindUpload(el);
+  }
+
+  // ---------- tab Karyawan ----------
+  function renderKary() {
+    const el = $("#tab-kary");
+    if (!hasil) { el.innerHTML = kosong("Belum ada data. Upload export absensi dulu."); bindUpload(el); return; }
+    const rk = hasil.rekap.filter((r) => (!filterCabang || r.Cabang === filterCabang) && (!filterCari || (r.Nama + " " + r.NIP).toLowerCase().includes(filterCari.toLowerCase())));
+    const tot = (k) => rk.reduce((s, r) => s + (+r[k] || 0), 0);
+    const cabangs = [...new Set(hasil.rekap.map((r) => r.Cabang))].sort();
+    let h = '<div class="stack">';
+    h += `<div class="filters"><div class="row"><select id="fcab" aria-label="Filter cabang"><option value="">Semua cabang</option>${cabangs.map((c) => `<option${c === filterCabang ? " selected" : ""} value="${esc(c)}">${esc(c)}</option>`).join("")}</select>
+      <input type="text" id="fcari" placeholder="Cari nama / NIP" value="${esc(filterCari)}" aria-label="Cari karyawan"></div><span class="hint">Klik baris untuk melihat absensi harian.</span></div>`;
+    h += '<div class="scroll"><table><thead><tr><th>Karyawan</th><th>Cabang / Posisi</th><th class="n">Hadir</th><th class="n">Absen</th><th class="n">Telat</th><th class="n">Pot. telat</th><th class="n">Pot. absen</th><th class="n">Pulang cepat</th><th class="n">Lembur</th><th class="n">Gaji pokok</th><th class="n">Gaji diterima</th></tr></thead><tbody>';
+    if (!rk.length) h += '<tr><td colspan="11" class="empty">Tidak ada karyawan yang cocok.</td></tr>';
+    rk.forEach((r) => {
+      const key = keyOf(r), open = terbuka.has(key);
+      h += `<tr class="emp" data-k="${esc(key)}" tabindex="0" aria-expanded="${open}"><td><b>${esc(r.Nama)}</b><br><span class="sub">${esc(r.NIP || "NIP kosong")}</span></td>
+        <td class="wrap">${esc(r.Cabang)}<br><span class="sub">${esc(r.Posisi)}</span></td>
+        <td class="n">${r.Hadir}</td><td class="n">${r.Absen ? '<span class="neg">' + r.Absen + "</span>" : 0}${r.Izin ? '<br><span class="sub">izin ' + r.Izin + "</span>" : ""}</td>
+        <td class="n">${r.TelatKali}×<br><span class="sub">${r.TelatMnt} mnt</span></td>
+        <td class="n">${r.TelatPot ? rp(r.TelatPot) : "—"}</td><td class="n">${r.adaTarif && r.PotAbsen ? rp(r.PotAbsen) : "—"}</td>
+        <td class="n">${r.PcKali}×<br><span class="sub">${r.PcMnt} mnt</span></td>
+        <td class="n">${r.LemburJam ? jam(r.LemburJam) + "<br><span class='sub'>" + rp(r.LemburUpah) + "</span>" : "—"}</td>
+        <td class="n">${r.adaTarif ? rp(r.gaji) : '<span class="pill warn">belum diisi</span>'}</td><td class="n"><b>${r.GajiBersih == null ? "—" : rp(r.GajiBersih)}</b></td></tr>`;
+      if (open) h += `<tr class="detail"><td colspan="11">${detailTabel(r)}</td></tr>`;
+    });
+    h += `<tr class="tot"><td colspan="2">Total${filterCabang || filterCari ? " (terfilter)" : ""}</td><td class="n">${num(tot("Hadir"))}</td><td class="n">${num(tot("Absen"))}</td><td class="n">${num(tot("TelatKali"))}×</td><td class="n">${rp(tot("TelatPot"))}</td><td class="n">${rp(rk.reduce((s, r) => s + (r.adaTarif ? r.PotAbsen : 0), 0))}</td><td class="n">${num(tot("PcKali"))}×</td><td class="n">${rp(tot("LemburUpah"))}</td><td class="n">${rp(rk.reduce((s, r) => s + (r.adaTarif ? r.gaji : 0), 0))}</td><td class="n">${rp(rk.reduce((s, r) => s + (r.GajiBersih || 0), 0))}</td></tr></tbody></table></div>`;
+    h += `<details class="panel"${hasil.review.length ? " open" : ""}><summary>Perlu dicek manual (${hasil.review.length})</summary><p class="hint" style="margin:6px 0 10px">Kasus yang tidak bisa diputuskan otomatis. Hanya bagian ini yang perlu Anda periksa.</p>`;
+    h += hasil.review.length ? '<div class="scroll"><table><thead><tr><th>Tanggal</th><th>Nama</th><th>Cabang</th><th>Masuk</th><th>Pulang</th><th>Alasan</th></tr></thead><tbody>' +
+      hasil.review.map((v) => `<tr><td>${esc(v.Tanggal)}</td><td>${esc(v.Nama)}</td><td>${esc(v.Cabang)}</td><td>${esc(v["Check In"])}</td><td>${esc(v["Check Out"])}</td><td class="wrap">${esc(v.Alasan)}</td></tr>`).join("") + "</tbody></table></div>" : '<p class="empty">Tidak ada.</p>';
+    h += "</details></div>";
+    el.innerHTML = h;
+    $("#fcab").onchange = (e) => { filterCabang = e.target.value; renderKary(); };
+    const cari = $("#fcari");
+    cari.oninput = (e) => { filterCari = e.target.value; clearTimeout(cari._t); cari._t = setTimeout(() => { renderKary(); const n = $("#fcari"); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); };
+    el.querySelectorAll("tr.emp").forEach((tr) => {
+      const toggle = () => { const k = tr.dataset.k; terbuka.has(k) ? terbuka.delete(k) : terbuka.add(k); renderKary(); };
+      tr.onclick = toggle;
+      tr.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } };
+    });
+  }
+  function detailTabel(r) {
+    let h = '<div class="scroll"><table><thead><tr><th>Tanggal</th><th>Hari</th><th>Status</th><th>Jadwal HRIS</th><th>Shift aktual</th><th>Masuk</th><th>Pulang</th><th class="n">Telat</th><th class="n">Pot. telat</th><th class="n">Pulang cepat</th><th class="n">Lembur</th><th>Catatan</th></tr></thead><tbody>';
+    r.detail.forEach((d) => {
+      const st = d.Status === "Present" ? "ok" : d.Status === "Absent" ? "bad" : "";
+      h += "<tr><td>" + d.Tanggal + "</td><td>" + esc(d.Hari) + '</td><td><span class="pill ' + st + '">' + (d.Status === "Present" ? "Hadir" : d.Status === "Absent" ? "Absen" : "Libur") + "</span></td><td>" + esc(d["Jadwal HRIS"]) + "</td><td>" + esc(d["Shift Aktual"]) + (d["Status Shift"].startsWith("shift berubah") ? ' <span class="pill warn">berubah</span>' : "") + "</td><td>" + esc(d["Check In"]) + "</td><td>" + esc(d["Check Out"]) +
+        '</td><td class="n">' + (d["Telat (mnt)"] || "") + '</td><td class="n">' + (d["Potongan Telat (Rp)"] ? rp(d["Potongan Telat (Rp)"]) : "") + '</td><td class="n">' + (d["Pulang Cepat (mnt)"] || "") + '</td><td class="n">' + (d["Lembur (mnt)"] ? d["Lembur (mnt)"] + " mnt" + (d["Upah Lembur (Rp)"] ? " · " + rp(d["Upah Lembur (Rp)"]) : "") : "") + '</td><td class="wrap">' + esc(d.Catatan.concat(d._review).join("; ")) + "</td></tr>";
+    });
+    return h + "</tbody></table></div>";
+  }
+
+  // ---------- tab Slip Gaji ----------
+  function slipRows(r) {
+    const isi = (a, i) => i === 0 || a[1] > 0;
+    const x = slipRowsAll(r);
+    return { masuk: x.masuk.filter(isi), potong: x.potong.filter((a) => a[1] > 0).concat(x.potong.some((a) => a[1] > 0) ? [] : [["Tidak ada potongan", 0]]) };
+  }
+  function slipRowsAll(r) {
+    return {
+      masuk: [["Gaji pokok", r.gaji], ["Tunjangan tetap", r.tunj], [`Uang makan (${r.Hadir} hari)`, r.UangMakan], [`Upah lembur (${jam(r.LemburJam)})`, r.LemburUpah], [`Bonus double shift (${r.Double}×)`, r.BonusDouble]],
+      potong: [[`Absen (${r.AbsenDipotong} hari)`, r.PotAbsen], [`Telat > ${cfg.telatAmbang} mnt (${r.TelatKenaKali}×)`, r.TelatPot], [`Pulang cepat (${r.PcMnt} mnt)`, r.PotPc]]
+    };
+  }
+  function slipHTML(r) {
+    const s = slipRows(r);
+    const ln = (a) => `<div class="ln"><span>${esc(a[0])}</span><span>${rp(a[1])}</span></div>`;
+    return `<article class="slip" aria-label="Slip gaji ${esc(r.Nama)}">
+      <div class="hd"><div><div class="co">${esc(namaPT())}</div>${cfg.alamat ? `<div style="color:var(--p-ink-2)">${esc(cfg.alamat)}</div>` : ""}</div><div class="ttl">SLIP GAJI<span>${bulanLabel(hasil.periode)}</span></div></div>
+      ${r.adaTarif ? "" : '<div class="flag">Tarif gaji untuk cabang + posisi ini belum diisi. Slip tidak ikut diunduh.</div>'}
+      <dl class="id"><dt>Nama</dt><dd>${esc(r.Nama)}</dd><dt>NIP</dt><dd>${esc(r.NIP || "-")}</dd><dt>Cabang</dt><dd>${esc(r.Cabang)}</dd><dt>Posisi</dt><dd>${esc(r.Posisi)}</dd></dl>
+      <div class="att"><span>Terjadwal <b>${r.Terjadwal}</b></span><span>Hadir <b>${r.Hadir}</b></span><span>Absen <b>${r.Absen}</b></span><span>Izin <b>${r.Izin}</b></span><span>Telat <b>${r.TelatKali}×</b></span><span>Lembur <b>${jam(r.LemburJam)}</b></span></div>
+      <div class="two"><div><h4>Pendapatan</h4>${s.masuk.map(ln).join("")}<div class="ln sum"><span>Total pendapatan</span><span>${rp(r.Pendapatan)}</span></div></div>
+      <div><h4>Potongan</h4>${s.potong.map(ln).join("")}<div class="ln sum"><span>Total potongan</span><span>${rp(r.Potongan)}</span></div></div></div>
+      <div class="net"><span>Gaji diterima</span><span>${r.adaTarif ? rp(r.GajiBersih) : "—"}</span></div>
+      ${r.adaTarif ? `<div class="acts"><button class="btn ghost small" data-pdf="${esc(keyOf(r))}">Unduh PDF</button></div>` : ""}
+    </article>`;
+  }
+  function slipFilter() {
+    return hasil.rekap.filter((r) => (!slipCabang || r.Cabang === slipCabang) && (!slipCari || (r.Nama + " " + r.NIP).toLowerCase().includes(slipCari.toLowerCase())));
+  }
+  function renderSlip() {
+    const el = $("#tab-slip");
+    if (!hasil) { el.innerHTML = kosong("Slip gaji dibuat dari data absensi. Upload export dulu."); bindUpload(el); return; }
+    const list = slipFilter(), siap = list.filter((r) => r.adaTarif), belum = list.length - siap.length;
+    const cabangs = [...new Set(hasil.rekap.map((r) => r.Cabang))].sort();
+    let h = `<div class="stack"><div class="panel"><div class="row between"><div><h2>Slip gaji ${bulanLabel(hasil.periode)}</h2><p class="sub">${siap.length} slip siap${belum ? `, ${belum} menunggu tarif gaji` : ""}. Semua slip diunduh dalam satu PDF, satu halaman per karyawan.</p></div>
+      <button class="btn" id="pdfAll" ${siap.length ? "" : "disabled"}>Unduh ${siap.length} slip (PDF)</button></div>
+      <div class="filters" style="margin-top:12px"><div class="row"><select id="scab" aria-label="Filter cabang"><option value="">Semua cabang</option>${cabangs.map((c) => `<option${c === slipCabang ? " selected" : ""} value="${esc(c)}">${esc(c)}</option>`).join("")}</select>
+      <input type="text" id="scari" placeholder="Cari nama / NIP" value="${esc(slipCari)}" aria-label="Cari slip"></div></div></div>`;
+    if (belum) h += `<div class="banner warn">${belum} karyawan belum punya tarif gaji. <a href="#" data-go="gaji">Isi Tarif Gaji</a>, slip langsung diperbarui.</div>`;
+    h += list.length ? `<div class="slips">${list.map(slipHTML).join("")}</div>` : '<p class="empty">Tidak ada karyawan yang cocok.</p>';
+    el.innerHTML = h + "</div>";
+    bindUpload(el);
+    $("#scab").onchange = (e) => { slipCabang = e.target.value; renderSlip(); };
+    const cari = $("#scari");
+    cari.oninput = (e) => { slipCari = e.target.value; clearTimeout(cari._t); cari._t = setTimeout(() => { renderSlip(); const n = $("#scari"); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); };
+    $("#pdfAll").onclick = () => unduhPDF(siap, "Slip_Gaji_" + hasil.periode + (slipCabang ? "_" + slipCabang.replace(/[^\w]+/g, "_") : "") + ".pdf");
+    el.querySelectorAll("[data-pdf]").forEach((b) => b.onclick = () => {
+      const r = hasil.rekap.find((x) => keyOf(x) === b.dataset.pdf);
+      unduhPDF([r], "Slip_Gaji_" + hasil.periode + "_" + r.Nama.replace(/[^\w]+/g, "_") + ".pdf");
+    });
+  }
+
+  // ---------- PDF slip ----------
+  function gambarSlip(doc, r) {
+    const G = [14, 122, 79], INK = [27, 36, 48], MUTED = [93, 104, 116];
+    const rpTxt = (n) => "Rp" + Math.round(n || 0).toLocaleString("id-ID");
+    let y = 22;
+    doc.setTextColor(...INK); doc.setFont("helvetica", "bold"); doc.setFontSize(14);
+    const pt = doc.splitTextToSize(namaPT(), 120); doc.text(pt, 15, y);
+    doc.setFontSize(13); doc.setTextColor(...G); doc.text("SLIP GAJI", 195, y, { align: "right" });
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...MUTED);
+    doc.text(bulanLabel(hasil.periode), 195, y + 6, { align: "right" });
+    y += pt.length * 6;
+    if (cfg.alamat) { const a = doc.splitTextToSize(cfg.alamat, 120); doc.text(a, 15, y); y += a.length * 5; }
+    y = Math.max(y, 32);
+    doc.setDrawColor(...G); doc.setLineWidth(0.8); doc.line(15, y, 195, y); y += 9;
+    const idf = [["Nama", r.Nama, "Cabang", r.Cabang], ["NIP", r.NIP || "-", "Posisi", r.Posisi]];
+    doc.setFontSize(10);
+    idf.forEach((p) => {
+      doc.setTextColor(...MUTED); doc.text(p[0], 15, y); doc.text(p[2], 110, y);
+      doc.setTextColor(...INK); doc.setFont("helvetica", "bold");
+      doc.text(doc.splitTextToSize(String(p[1]), 65)[0], 35, y); doc.text(doc.splitTextToSize(String(p[3]), 65)[0], 130, y);
+      doc.setFont("helvetica", "normal"); y += 6;
+    });
+    y += 2;
+    doc.setFillColor(242, 245, 243); doc.rect(15, y, 180, 9, "F");
+    doc.setTextColor(...MUTED);
+    doc.text(`Terjadwal ${r.Terjadwal}   Hadir ${r.Hadir}   Absen ${r.Absen}   Izin ${r.Izin}   Telat ${r.TelatKali}x (${r.TelatMnt} mnt)   Lembur ${jam(r.LemburJam)}`, 18, y + 6);
+    y += 17;
+    const s = slipRows(r);
+    const kolom = (judul, rows, total, totLabel, x) => {
+      let yy = y;
+      doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...MUTED); doc.text(judul.toUpperCase(), x, yy); yy += 6;
+      doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...INK);
+      rows.forEach((a) => { doc.text(a[0], x, yy); doc.text(rpTxt(a[1]), x + 82, yy, { align: "right" }); yy += 6; });
+      doc.setDrawColor(217, 222, 228); doc.setLineWidth(0.3); doc.line(x, yy - 3.5, x + 82, yy - 3.5);
+      doc.setFont("helvetica", "bold"); doc.text(totLabel, x, yy + 1); doc.text(rpTxt(total), x + 82, yy + 1, { align: "right" });
+      doc.setFont("helvetica", "normal");
+      return yy + 1;
+    };
+    const y1 = kolom("Pendapatan", s.masuk, r.Pendapatan, "Total pendapatan", 15);
+    const y2 = kolom("Potongan", s.potong, r.Potongan, "Total potongan", 113);
+    y = Math.max(y1, y2) + 8;
+    doc.setDrawColor(...G); doc.setLineWidth(0.8); doc.line(15, y, 195, y); y += 8;
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...INK); doc.text("Gaji diterima", 15, y);
+    doc.setTextColor(...G); doc.setFontSize(15); doc.text(rpTxt(r.GajiBersih), 195, y, { align: "right" });
+    y += 22;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...INK);
+    doc.text("Diterima oleh,", 15, y); doc.text("Mengetahui,", 130, y);
+    doc.text(cfg.ttdJabatan || "", 130, y + 5);
+    y += 28;
+    doc.text(r.Nama, 15, y); doc.text(cfg.ttdNama || "(..............................)", 130, y);
+    doc.setFontSize(8); doc.setTextColor(...MUTED);
+    doc.text(`Dihitung otomatis dari data absensi HRIS ${hasil.dari} s/d ${hasil.sampai}.`, 15, 285);
+  }
+  async function unduhPDF(list, filename) {
+    try {
+      if (!window.jspdf) throw new Error("Pembuat PDF belum termuat. Periksa koneksi lalu muat ulang halaman.");
+      const dl = await window.claude.use("downloads");
+      if (!dl) throw new Error("Unduhan tidak tersedia di tampilan ini.");
+      const doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
+      list.forEach((r, i) => { if (i) doc.addPage(); gambarSlip(doc, r); });
+      await dl.save({ filename, data: doc.output("arraybuffer") });
+    } catch (e) {
+      if (e && e.code === "declined") return;
+      setSaved("Unduhan gagal: " + (e.message || e.code || e));
+    }
+  }
+
+  // ---------- Excel ----------
+  async function unduhExcel() {
+    try {
+      const dl = await window.claude.use("downloads");
+      if (!dl) throw new Error("Unduhan tidak tersedia di tampilan ini.");
+      const wb = XLSX.utils.book_new();
+      const rekap = hasil.rekap.map((r) => ({
+        Nama: r.Nama, NIP: r.NIP, Cabang: r.Cabang, Posisi: r.Posisi, "Hari Terjadwal": r.Terjadwal, Hadir: r.Hadir, Absen: r.Absen, "Izin/Sakit/Cuti": r.Izin, "Absen Dipotong": r.AbsenDipotong,
+        "Telat (kali)": r.TelatKali, "Telat (mnt)": r.TelatMnt, "Telat Kena Potongan (kali)": r.TelatKenaKali, "Potongan Telat (Rp)": r.TelatPot,
+        "Pulang Cepat (kali)": r.PcKali, "Pulang Cepat (mnt)": r.PcMnt, "Lembur Dibayar (jam)": r.LemburJam, "Upah Lembur (Rp)": r.LemburUpah, "Lembur Belum Diputuskan (jam)": Math.round(r.LemburTakDibayarJam * 10) / 10,
+        "Double Shift": r.Double, "Shift Berubah (kali)": r.ShiftBerubah, "Telat Menurut HRIS (mnt)": r.TelatHris,
+        "Gaji Pokok": r.adaTarif ? r.gaji : "", "Tunjangan Tetap": r.adaTarif ? r.tunj : "", "Uang Makan": r.adaTarif ? r.UangMakan : "",
+        "Potongan Absen (Rp)": r.adaTarif ? Math.round(r.PotAbsen) : "", "Potongan Pulang Cepat (Rp)": r.PotPc, "Bonus Double Shift (Rp)": r.BonusDouble,
+        "Gaji Diterima": r.GajiBersih == null ? "Tarif belum diisi" : Math.round(r.GajiBersih)
+      }));
+      const cab = perCabang().sort((a, b) => a.cabang.localeCompare(b.cabang)).map((c) => ({ Cabang: c.cabang, Karyawan: c.n, Hadir: c.hadir, Terjadwal: c.terjadwal, "Kehadiran (%)": Math.round(c.persen * 1000) / 10, Absen: c.absen, "Telat (kali)": c.telat, "Potongan Telat (Rp)": c.telatPot, "Upah Lembur (Rp)": c.lembur, "Total Gaji (Rp)": Math.round(c.gaji) }));
+      const det = hasil.det.map((d) => { const o = Object.assign({}, d); o.Catatan = d.Catatan.concat(d._review).join("; "); delete o._review; return o; });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rekap), "Rekap Penggajian");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cab), "Ringkasan Cabang");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(det), "Detail Harian");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hasil.review.length ? hasil.review : [{ Info: "Tidak ada" }]), "Perlu Review");
+      await dl.save({ filename: "Rekap_Absensi_" + hasil.periode + ".xlsx", data: XLSX.write(wb, { type: "array", bookType: "xlsx" }) });
+    } catch (e) {
+      if (e && e.code === "declined") return;
+      setSaved("Unduhan gagal: " + (e.message || e.code || e));
+    }
+  }
+
+  // ---------- mulai ----------
+  const fileInput = document.createElement("input");
+  fileInput.type = "file"; fileInput.id = "file"; fileInput.accept = ".xlsx,.xls"; fileInput.hidden = true;
+  document.body.appendChild(fileInput);
+  fileInput.onchange = () => { if (fileInput.files[0]) muat(fileInput.files[0]); fileInput.value = ""; };
+  document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+  const tip = $("#tip");
+  document.addEventListener("mousemove", (e) => {
+    const t = e.target.closest && e.target.closest("[data-tip]");
+    if (!t || !t.dataset.tip) { tip.hidden = true; return; }
+    tip.textContent = t.dataset.tip; tip.hidden = false;
+    const x = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
+    tip.style.left = x + "px"; tip.style.top = (e.clientY + 16) + "px";
+  });
   renderAll();
   loadCfg();
 })();
