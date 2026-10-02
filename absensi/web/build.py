@@ -1,5 +1,5 @@
 head=open('p_head.html').read().replace('<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>','<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>\n<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>')
-parts=[head]+[open(f).read() for f in ['p_cfg.js','p_store.js','p_core.js','p_calc.js','p_ui.js','p_slip.js','p_dash2.js','p_set.js']]
+parts=[head]+[open(f).read() for f in ['p_cfg.js','p_store.js','p_core.js','p_calc.js','p_ui.js','p_slip.js','p_dash2.js','p_lap.js','p_set.js']]
 out='\n'.join(parts).replace('HRIS','Kolabo')
 open('rekap-absensi.html','w').write(out)
 print('built',len(out))

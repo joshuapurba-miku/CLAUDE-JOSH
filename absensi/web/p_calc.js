@@ -38,7 +38,8 @@
     ["jabatan", "Jabatan / level", "text", "dl-jab"], ["status", "Status kerja", "text", "dl-status"],
     ["oGaji", "Gaji pokok khusus"], ["oTunjMT", "Tunj. makan & transport khusus"], ["oTunjKin", "Tunj. kinerja khusus"], ["oTunjAbs", "Tunj. absensi khusus"],
     ["benKes", "BPJS Kesehatan (dibayar perusahaan)"], ["benTK", "BPJS Ketenagakerjaan (dibayar perusahaan)"],
-    ["iuranKes", "Iuran BPJS Kesehatan (dipotong)"], ["iuranTK", "Iuran BPJS Ketenagakerjaan (dipotong)"], ["addOn", "Add-on benefit (pengganti BPJS)"]
+    ["iuranKes", "Iuran BPJS Kesehatan (dipotong)"], ["iuranTK", "Iuran BPJS Ketenagakerjaan (dipotong)"], ["addOn", "Add-on benefit (pengganti BPJS)"],
+    ["bank", "Bank", "text", "dl-bank"], ["noRek", "No. rekening", "text"], ["atasNama", "Atas nama rekening", "text"]
   ];
   const F_BULAN = [
     { sec: "Masa kerja bulan ini", hint: "Isi hanya jika pegawai baru masuk atau berhenti di tengah bulan. Gaji tetap dihitung prorata.", f: [["tglMasuk", "Mulai kerja tanggal", "date"], ["tglKeluar", "Berhenti tanggal", "date"]] },
@@ -142,6 +143,7 @@
       rekap.push(r);
     });
 
+    [...rekap].sort((a, b) => a.Cabang.localeCompare(b.Cabang) || a.Nama.localeCompare(b.Nama)).forEach((r, i) => { r.NoSlip = `SG/${periode.slice(0, 4)}/${periode.slice(5, 7)}/${String(i + 1).padStart(3, "0")}`; });
     const review = [];
     det.forEach((d) => { if (d._review.length) review.push({ key: d.key, Tanggal: d.Tanggal, Nama: d.Nama, NIP: d.NIP, Cabang: d.Cabang, "Jadwal HRIS": d["Jadwal HRIS"], "Check In": d["Check In"], "Check Out": d["Check Out"], Alasan: d._review.join("; ") }); });
     rekap.forEach((r) => { if (r.Hadir === 0 && r.Absen > 0) review.push({ key: r.key, Tanggal: "", Nama: r.Nama, NIP: r.NIP, Cabang: r.Cabang, "Jadwal HRIS": "", "Check In": "", "Check Out": "", Alasan: "Tidak pernah hadir sebulan penuh (" + r.Absen + " hari tanpa keterangan): resign, belum pakai aplikasi, atau cuti?" }); });

@@ -27,7 +27,20 @@
     if (name === "gaji") renderGaji();
     if (name === "aturan") renderAturan();
   }
-  function renderAll() { renderBar(); updateTabCounts(); showTab(currentTab); }
+  function renderAll() { applyBrand(); renderBar(); updateTabCounts(); showTab(currentTab); }
+  const terkunci = () => !!(hasil && cfg.approval[hasil.periode]);
+  function lockBanner() {
+    const a = hasil && cfg.approval[hasil.periode];
+    return a ? `<div class="banner ok">Gaji ${bulanLabel(hasil.periode)} sudah disetujui oleh <b>${esc(a.oleh)}</b> pada ${esc(a.tanggal)}. Data dikunci; untuk mengubah, buka kunci di tab Slip Gaji.</div>` : "";
+  }
+  function applyBrand() {
+    const img = $("#hdrLogo");
+    if (cfg.logo) { img.src = cfg.logo; img.hidden = false; } else { img.removeAttribute("src"); img.hidden = true; }
+  }
+  function kunciForm(root) {
+    if (!terkunci()) return;
+    root.querySelectorAll("input, select, textarea, button").forEach((x) => { if (!x.closest("[data-free]")) x.disabled = true; });
+  }
   function recompute(keepInput) {
     if (rawRows) { hasil = hitung(rawRows); simpanRiwayat(); }
     renderBar(); updateTabCounts();
@@ -122,6 +135,7 @@
       <p class="sub">Klik kotak tanggal atau tombol Koreksi untuk mengubah status, menit telat, atau jam lembur. Gaji dan slip langsung ikut berubah.</p></div>
       <div class="seg" role="group" aria-label="Tampilan rekap"><button data-mode="lokasi" aria-pressed="${rekapMode === "lokasi"}">Kode per lokasi</button><button data-mode="jam" aria-pressed="${rekapMode === "jam"}">Jam masuk &amp; pulang</button><button data-mode="pegawai" aria-pressed="${rekapMode === "pegawai"}">Per pegawai</button></div></div>
       <div style="margin-top:12px">${rekapMode === "jam" ? legendaJam() : legendaKode()}</div></div>`;
+    h += lockBanner();
     h += rekapMode === "lokasi" ? rekapLokasiHTML() : rekapMode === "jam" ? rekapJamHTML() : rekapPegawaiHTML();
     el.innerHTML = h + "</div>";
     el.querySelectorAll("[data-mode]").forEach((b) => b.onclick = () => { rekapMode = b.dataset.mode; renderRekap(); });
@@ -246,6 +260,7 @@
   function tutupModal() { $("#modal").innerHTML = ""; document.removeEventListener("keydown", escModal); }
   function escModal(e) { if (e.key === "Escape") tutupModal(); }
   function bukaKoreksi(key, tgl) {
+    if (terkunci()) { setSaved("Periode sudah disetujui dan dikunci. Buka kunci di tab Slip Gaji untuk mengoreksi."); return; }
     const d = hasil.det.find((x) => x.key === key && x.Tanggal === tgl);
     if (!d) return;
     const a = d.adj || {}, au = d.auto;
@@ -309,7 +324,7 @@
       <div class="field"><label for="mb-v">Nilai (Rp)</label><input type="number" id="mb-v" min="0" step="1000" style="width:150px"></div>
       <div class="field"><label for="mb-c">Untuk</label><select id="mb-c"><option value="">Semua pegawai</option>${[...new Set(hasil.rekap.map((x) => x.Cabang))].sort().map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("")}</select></div>
       <button class="btn" id="mb-go">Terapkan</button></div><p class="hint" id="mb-msg" style="margin-top:6px">Mengganti nilai komponen itu untuk bulan ${bulanLabel(hasil.periode)}. Isi 0 untuk menghapus.</p></details>`;
-    h += dl("dl-jab", ["CSO - JUNIOR", "CSO - SENIOR", "PIC - PERCOBAAN", "PIC - JUNIOR", "PIC - SENIOR", "INTERNAL", "MANPOWER"]) + dl("dl-status", ["MITRA KERJA", "PROBATION", "KONTRAK", "PERMANEN"]);
+    h += dl("dl-jab", ["CSO - JUNIOR", "CSO - SENIOR", "PIC - PERCOBAAN", "PIC - JUNIOR", "PIC - SENIOR", "INTERNAL", "MANPOWER"]) + dl("dl-status", ["MITRA KERJA", "PROBATION", "KONTRAK", "PERMANEN"]) + dl("dl-bank", ["BRI", "BNI", "Mandiri", "BCA", "BSI", "BTN", "Bank Sulselbar"]);
     h += `<div class="ig"><div class="stack">
       <div class="panel"><fieldset class="fs"><legend>Data tetap ${esc(r.Nama)} <span class="sub">(berlaku untuk bulan-bulan berikutnya)</span></legend>
         <p class="hint">Tarif ${esc(r.Cabang)} / ${esc(r.Posisi)}: gaji pokok ${rp(t.gaji)}, tunj. makan & transport ${rp(t.tunjMT)}, kinerja ${rp(t.tunjKin)}, absensi ${rp(t.tunjAbs)}. Isi kolom "khusus" hanya jika pegawai ini berbeda dari tarif (misal PIC senior).</p>
@@ -319,7 +334,7 @@
     });
     h += `</div><div class="panel sumbox" id="in-sum"></div></div>`;
     h += `<div class="stack" style="gap:8px"><h2>Semua pegawai bulan ini</h2><div class="scroll" id="in-all"></div></div></div>`;
-    el.innerHTML = h;
+    el.innerHTML = lockBanner() + h;
     renderInputSummary();
     $("#in-emp").onchange = (e) => { inputKey = e.target.value; renderInput(); };
     $("#mb-go").onclick = () => {
@@ -332,6 +347,7 @@
     };
     $("#in-prev").onclick = () => { inputKey = rk[idx - 1].key; renderInput(); };
     $("#in-next").onclick = () => { inputKey = rk[idx + 1].key; renderInput(); };
+    if (terkunci()) { el.querySelectorAll("input[data-scope], #mb-f, #mb-v, #mb-c, #mb-go").forEach((x) => { x.disabled = true; }); }
     el.querySelectorAll("input[data-scope]").forEach((inp) => inp.addEventListener("change", () => {
       const f = inp.dataset.f, val = inp.type === "number" ? (inp.value === "" ? "" : +inp.value) : inp.value.trim();
       let obj;

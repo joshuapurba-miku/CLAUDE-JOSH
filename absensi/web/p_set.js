@@ -2,7 +2,8 @@
   // ---------- tab Tarif Gaji ----------
   function inpRow(p, i, f, val, type, extra) {
     const t = type || "number";
-    return `<td><input type="${t}" data-p="${p}" data-i="${i}" data-f="${f}" value="${esc(val == null ? "" : val)}" ${t === "number" ? 'min="0" step="1000" inputmode="numeric" placeholder="0"' : ""} ${extra || ""} aria-label="${f}"></td>`;
+    const lebar = t === "text" && ["cabang", "posisi", "nama", "ket"].includes(f) ? ` class="wide${f === "cabang" ? " xl" : ""}" title="${esc(val == null ? "" : val)}"` : "";
+    return `<td><input type="${t}"${lebar} data-p="${p}" data-i="${i}" data-f="${f}" value="${esc(val == null ? "" : val)}" ${t === "number" ? 'min="0" step="1000" inputmode="numeric" placeholder="0"' : ""} ${extra || ""} aria-label="${f}"></td>`;
   }
   function renderGaji() {
     const el = $("#tab-gaji");
@@ -14,8 +15,8 @@
     });
     h += `</tbody></table></div><div><button class="btn ghost" data-add="tarif">Tambah baris</button></div>
       <p class="hint">Lokasi tanpa jadwal tetap (${esc(list(cfg.tanpaJadwal).join(", ") || "tidak ada")}) boleh bergaji pokok 0; pendapatannya dari order home cleaning.</p></div>`;
-    el.innerHTML = h;
-    bindEdits(el);
+    el.innerHTML = lockBanner() + h;
+    bindEdits(el); kunciForm(el);
   }
 
   // ---------- tab Aturan ----------
@@ -27,7 +28,13 @@
     let h = '<div class="stack">';
     h += `<div class="panel stack"><div><h2>Identitas di slip gaji</h2><p class="sub">Nama perusahaan kosong = diambil dari file Kolabo.</p></div><div class="grid">
       ${t("Nama perusahaan", "perusahaan", perusahaanFile || "Nama perusahaan")}${t("Alamat / keterangan", "alamat", "")}${t("Judul slip", "judulSlip", "Financial Detail Report")}
-      ${t("Kota tanda tangan", "kota", "Makassar")}${t("Nama penandatangan", "ttdNama", "")}${t("Jabatan penandatangan", "ttdJabatan", "")}</div></div>`;
+      ${t("Kota tanda tangan", "kota", "Makassar")}${t("Nama penandatangan", "ttdNama", "")}${t("Jabatan penandatangan", "ttdJabatan", "")}</div>
+      <div class="row" style="align-items:center">${cfg.logo ? `<img class="logo-prev" src="${cfg.logo}" alt="Logo saat ini">` : '<span class="sub">Belum ada logo.</span>'}
+        <button class="btn ghost" id="logo-up">${cfg.logo ? "Ganti logo" : "Unggah logo"}</button>${cfg.logo ? '<button class="btn ghost" id="logo-del">Hapus logo</button>' : ""}<input type="file" id="logo-file" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden>
+        <span class="hint">PNG dengan latar transparan paling rapi. Logo muncul di aplikasi, slip, dan laporan.</span></div>
+      <div class="field" style="max-width:520px"><label for="c-pw">Password PDF slip per pegawai</label><select id="c-pw" data-cfgsel="slipPassword">
+        <option value="none"${cfg.slipPassword !== "nip" ? " selected" : ""}>Tanpa password</option><option value="nip"${cfg.slipPassword === "nip" ? " selected" : ""}>Password = NIP tanpa spasi (misal SQUAD021)</option></select>
+        <span class="hint">Berlaku untuk PDF per pegawai dan isi ZIP. PDF gabungan untuk HR/keuangan tetap tanpa password.</span></div></div>`;
     h += `<div class="panel stack"><div><h2>Cara menghitung gaji</h2></div>
       <div class="field"><label for="c-metode">Metode untuk hari tidak masuk</label><select id="c-metode" data-cfgsel="metodeGaji">
         <option value="potong"${cfg.metodeGaji === "potong" ? " selected" : ""}>Gaji penuh, dipotong per hari tanpa keterangan / izin (seperti slip sekarang)</option>
@@ -56,14 +63,34 @@
       <div class="field"><label for="c-tetap">Lokasi dengan shift tetap (tidak ditebak), satu per baris</label><textarea id="c-tetap" data-cfg="tetap">${esc(cfg.tetap)}</textarea></div></div>
       <div class="grid">${f("Ganti shift jika lebih cocok (selisih menit)", "gantiShift")}${f("Tandai dicek jika selisih melebihi (menit)", "reviewBiaya")}${f("Durasi kerja minimal valid (menit)", "minKerja")}</div></div></details>`;
     h += `<div class="panel stack"><div><h2>Bagikan pengaturan ke tim</h2><p class="sub">Simpan semua pengaturan (tarif, aturan, input gaji, koreksi absensi, invoice) ke satu file, lalu buka di laptop lain lewat tombol Impor.</p></div>
-      <div class="row"><button class="btn ghost" id="cfg-export">Ekspor pengaturan (.json)</button><button class="btn ghost" id="cfg-import">Impor pengaturan</button><input type="file" id="cfg-file" accept=".json,application/json" hidden><span class="hint" id="cfg-msg"></span></div></div>`;
+      <div class="row" data-free><button class="btn ghost" id="cfg-export">Ekspor pengaturan (.json)</button><button class="btn ghost" id="cfg-import">Impor pengaturan</button><input type="file" id="cfg-file" accept=".json,application/json" hidden><span class="hint" id="cfg-msg"></span></div></div>`;
     h += '<div><button class="btn ghost small" data-reset="1">Kembalikan semua pengaturan ke bawaan</button></div></div>';
-    el.innerHTML = h;
-    bindEdits(el);
+    el.innerHTML = lockBanner() + h;
+    bindEdits(el); kunciForm(el);
+    $("#logo-up").onclick = () => $("#logo-file").click();
+    if ($("#logo-del")) $("#logo-del").onclick = () => { cfg.logo = ""; cfg.logoW = cfg.logoH = 0; scheduleSave(); applyBrand(); renderAturan(); };
+    $("#logo-file").onchange = (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      const rd = new FileReader();
+      rd.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const sc = Math.min(1, 480 / img.width, 200 / img.height), cv = document.createElement("canvas");
+          cv.width = Math.max(1, Math.round(img.width * sc)); cv.height = Math.max(1, Math.round(img.height * sc));
+          cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+          cfg.logo = cv.toDataURL("image/png"); cfg.logoW = cv.width; cfg.logoH = cv.height;
+          scheduleSave(); applyBrand(); renderAturan();
+        };
+        img.onerror = () => setSaved("File logo tidak bisa dibaca. Gunakan PNG atau JPG.");
+        img.src = rd.result;
+      };
+      rd.readAsDataURL(f);
+    };
     $("#cfg-export").onclick = () => saveFile("pengaturan-rekap-gaji-" + new Date().toISOString().slice(0, 10) + ".json", JSON.stringify(cfg, null, 1), "application/json");
     $("#cfg-import").onclick = () => $("#cfg-file").click();
     $("#cfg-file").onchange = async (e) => {
       const file = e.target.files[0]; if (!file) return;
+      if (terkunci()) { $("#cfg-msg").textContent = "Buka kunci periode dulu sebelum mengimpor pengaturan."; return; }
       try { cfg = mergeCfg(JSON.parse(await file.text())); scheduleSave(); recompute(); renderAturan(); $("#cfg-msg").textContent = "Pengaturan diimpor dari " + file.name; }
       catch (err) { $("#cfg-msg").textContent = "File tidak bisa dibaca: pastikan file .json hasil ekspor halaman ini."; }
     };
@@ -111,21 +138,24 @@
       setSaved("Unduhan gagal: " + (e.message || e.code || e));
     }
   }
-  function buatPDF(list) {
+  const pwSlip = (r) => cfg.slipPassword === "nip" && r.NIP && r.NIP !== "0" ? r.NIP.replace(/\s+/g, "") : "";
+  function buatPDF(list, pw) {
     if (!window.jspdf) throw new Error("Pembuat PDF belum termuat. Periksa koneksi lalu muat ulang halaman.");
-    const doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
+    const o = { unit: "mm", format: "a4" };
+    if (pw) o.encryption = { userPassword: pw, ownerPassword: pw + "-hr-" + hasil.periode, userPermissions: ["print"] };
+    const doc = new window.jspdf.jsPDF(o);
     list.forEach((r, i) => { if (i) doc.addPage(); gambarSlip(doc, r); });
     return doc.output("arraybuffer");
   }
   async function unduhPDF(list, filename) {
-    try { await saveFile(filename, buatPDF(list), "application/pdf"); } catch (e) { setSaved(e.message || String(e)); }
+    try { await saveFile(filename, buatPDF(list, list.length === 1 ? pwSlip(list[0]) : ""), "application/pdf"); } catch (e) { setSaved(e.message || String(e)); }
   }
   async function unduhZIP(list, filename) {
     try {
       if (!window.JSZip) throw new Error("Pembuat ZIP belum termuat. Periksa koneksi lalu muat ulang halaman.");
       setSaved("Menyiapkan " + list.length + " slip…");
       const zip = new window.JSZip();
-      list.forEach((r) => zip.file(`${r.Cabang.replace(/[^\w]+/g, "_")}/Slip_${hasil.periode}_${r.Nama.replace(/[^\w]+/g, "_")}.pdf`, buatPDF([r])));
+      list.forEach((r) => zip.file(`${r.Cabang.replace(/[^\w]+/g, "_")}/Slip_${hasil.periode}_${r.Nama.replace(/[^\w]+/g, "_")}.pdf`, buatPDF([r], pwSlip(r))));
       await saveFile(filename, await zip.generateAsync({ type: "arraybuffer" }), "application/zip");
       setSaved("");
     } catch (e) { setSaved(e.message || String(e)); }
@@ -164,6 +194,8 @@
       });
       const det = hasil.det.map((d) => ({ Tanggal: d.Tanggal, Hari: d.Hari, Nama: d.Nama, NIP: d.NIP, Lokasi: d.Cabang, Kode: d.Kode, Status: STATUS_LABEL[d.Status], "Jadwal Kolabo": d["Jadwal HRIS"], "Shift Aktual": d["Shift Aktual"], "Check In": d["Check In"], "Check Out": d["Check Out"], "Telat (mnt)": d["Telat (mnt)"], "Potongan Telat": d["Potongan Telat (Rp)"], "Pulang Cepat (mnt)": d["Pulang Cepat (mnt)"], "Lewat Jam Pulang (mnt)": d["Lembur (mnt)"], "Lembur Dibayar (jam)": d["Lembur Dibayar (jam)"], "Upah Lembur": d["Upah Lembur (Rp)"], "Jam Kerja": d["Jam Kerja"], Koreksi: d.adj ? "ya" : "", Catatan: d.Catatan.concat(d._review).join("; ") }));
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cab), "Ringkasan Lokasi");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataTransfer()), "Daftar Transfer");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataLogKoreksi()), "Log Koreksi");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rekap), "Rekap Absensi Pegawai");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "Rekap per Lokasi");
       const jamSheet = (jenis) => {

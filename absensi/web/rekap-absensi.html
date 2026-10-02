@@ -132,6 +132,9 @@ td.wrap { white-space: normal; min-width: 220px; }
 input[type=text], input[type=number], input[type=date], select, textarea { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; width: 100%; }
 .filters select, .filters input { width: auto; max-width: 240px; }
 td input, td select { min-width: 90px; }
+td input[type=number] { min-width: 110px; }
+td input.wide { min-width: 210px; }
+td input.wide.xl { min-width: 270px; }
 textarea { resize: vertical; min-height: 70px; font-family: var(--font-num); font-size: 12.5px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
 details > summary { cursor: pointer; font-weight: 600; }
@@ -175,6 +178,16 @@ details > summary { cursor: pointer; font-weight: 600; }
 .tm.lv { background: var(--info-soft); color: var(--info); }
 .tm.off { background: transparent; color: var(--ink-3); cursor: default; }
 .tm.adj::after { content: ""; position: absolute; top: 2px; right: 2px; width: 4px; height: 4px; border-radius: 50%; background: var(--ink); }
+/* merek & persetujuan */
+.brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+#hdrLogo { height: 46px; width: auto; max-width: 170px; object-fit: contain; }
+.logo-prev { height: 56px; max-width: 220px; object-fit: contain; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 4px; }
+.slip .lg { background: #fff; border-radius: 6px; padding: 4px 6px; display: inline-flex; margin-right: 10px; flex: 0 0 auto; }
+.slip .lg img { height: 34px; width: auto; max-width: 120px; object-fit: contain; }
+.slip .band .left { display: flex; align-items: center; min-width: 0; }
+.slip .band .no { font-weight: 400; letter-spacing: 0; opacity: .9; font-size: 11px; display: block; }
+.slip .draft { display: inline-block; background: #fbefd5; color: #8a5200; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 3px; letter-spacing: .1em; margin-top: 3px; }
+.slip .conf { font-size: 10px; letter-spacing: .12em; color: var(--p-ink-2); text-transform: uppercase; }
 /* modal koreksi */
 .modal { position: fixed; inset: 0; z-index: 20; background: rgba(10, 16, 22, .45); display: flex; align-items: center; justify-content: center; padding: 16px; }
 .modal .box { background: var(--surface); color: var(--ink); border-radius: 10px; width: min(560px, 100%); max-height: 92vh; overflow: auto; padding: 18px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
@@ -241,10 +254,10 @@ details > summary { cursor: pointer; font-weight: 600; }
 
 <div class="wrap">
   <header class="top">
-    <div>
+    <div class="brand"><img id="hdrLogo" alt="Logo perusahaan" hidden><div>
       <h1>Rekap Absensi &amp; Gaji</h1>
       <p class="sub">Upload export Kolabo bulanan. Cek dan koreksi absensi, isi komponen gaji, lalu unduh slip.</p>
-    </div>
+    </div></div>
     <div class="saved" id="saved" aria-live="polite"></div>
   </header>
   <div id="databar"></div>
@@ -317,7 +330,8 @@ details > summary { cursor: pointer; font-weight: 600; }
         { min: 7, max: 8, bagi: 30000, makan: 15000, trans: 15000 },
         { min: 9, max: 24, bagi: 35000, makan: 20000, trans: 15000 }
       ],
-      invoice: {}, riwayat: {}
+      invoice: {}, riwayat: {}, approval: {},
+      logo: "", logoW: 0, logoH: 0, slipPassword: "none"
     };
   }
 
@@ -344,7 +358,7 @@ details > summary { cursor: pointer; font-weight: 600; }
       delete x.tunj; delete x.makan;
       return x;
     });
-    ["adj", "pegawai", "bulanan", "invoice", "riwayat"].forEach((k) => { if (!c[k] || typeof c[k] !== "object") c[k] = {}; });
+    ["adj", "pegawai", "bulanan", "invoice", "riwayat", "approval"].forEach((k) => { if (!c[k] || typeof c[k] !== "object") c[k] = {}; });
     const dsh = Object.fromEntries(d.shifts.map((x) => [x.nama, x]));
     c.shifts = (c.shifts || []).map((x) => (x.nama === "Lapangan 09-16" || x.nama === "Lapangan 09-18") && !x.cabang && dsh[x.nama] && x.masuk === dsh[x.nama].masuk && x.pulang === dsh[x.nama].pulang ? Object.assign({}, x, { cabang: dsh[x.nama].cabang }) : x);
     c.dasarHarian = Object.assign({}, d.dasarHarian, saved.dasarHarian || {});
@@ -580,7 +594,8 @@ details > summary { cursor: pointer; font-weight: 600; }
     ["jabatan", "Jabatan / level", "text", "dl-jab"], ["status", "Status kerja", "text", "dl-status"],
     ["oGaji", "Gaji pokok khusus"], ["oTunjMT", "Tunj. makan & transport khusus"], ["oTunjKin", "Tunj. kinerja khusus"], ["oTunjAbs", "Tunj. absensi khusus"],
     ["benKes", "BPJS Kesehatan (dibayar perusahaan)"], ["benTK", "BPJS Ketenagakerjaan (dibayar perusahaan)"],
-    ["iuranKes", "Iuran BPJS Kesehatan (dipotong)"], ["iuranTK", "Iuran BPJS Ketenagakerjaan (dipotong)"], ["addOn", "Add-on benefit (pengganti BPJS)"]
+    ["iuranKes", "Iuran BPJS Kesehatan (dipotong)"], ["iuranTK", "Iuran BPJS Ketenagakerjaan (dipotong)"], ["addOn", "Add-on benefit (pengganti BPJS)"],
+    ["bank", "Bank", "text", "dl-bank"], ["noRek", "No. rekening", "text"], ["atasNama", "Atas nama rekening", "text"]
   ];
   const F_BULAN = [
     { sec: "Masa kerja bulan ini", hint: "Isi hanya jika pegawai baru masuk atau berhenti di tengah bulan. Gaji tetap dihitung prorata.", f: [["tglMasuk", "Mulai kerja tanggal", "date"], ["tglKeluar", "Berhenti tanggal", "date"]] },
@@ -684,6 +699,7 @@ details > summary { cursor: pointer; font-weight: 600; }
       rekap.push(r);
     });
 
+    [...rekap].sort((a, b) => a.Cabang.localeCompare(b.Cabang) || a.Nama.localeCompare(b.Nama)).forEach((r, i) => { r.NoSlip = `SG/${periode.slice(0, 4)}/${periode.slice(5, 7)}/${String(i + 1).padStart(3, "0")}`; });
     const review = [];
     det.forEach((d) => { if (d._review.length) review.push({ key: d.key, Tanggal: d.Tanggal, Nama: d.Nama, NIP: d.NIP, Cabang: d.Cabang, "Jadwal Kolabo": d["Jadwal Kolabo"], "Check In": d["Check In"], "Check Out": d["Check Out"], Alasan: d._review.join("; ") }); });
     rekap.forEach((r) => { if (r.Hadir === 0 && r.Absen > 0) review.push({ key: r.key, Tanggal: "", Nama: r.Nama, NIP: r.NIP, Cabang: r.Cabang, "Jadwal Kolabo": "", "Check In": "", "Check Out": "", Alasan: "Tidak pernah hadir sebulan penuh (" + r.Absen + " hari tanpa keterangan): resign, belum pakai aplikasi, atau cuti?" }); });
@@ -735,7 +751,20 @@ details > summary { cursor: pointer; font-weight: 600; }
     if (name === "gaji") renderGaji();
     if (name === "aturan") renderAturan();
   }
-  function renderAll() { renderBar(); updateTabCounts(); showTab(currentTab); }
+  function renderAll() { applyBrand(); renderBar(); updateTabCounts(); showTab(currentTab); }
+  const terkunci = () => !!(hasil && cfg.approval[hasil.periode]);
+  function lockBanner() {
+    const a = hasil && cfg.approval[hasil.periode];
+    return a ? `<div class="banner ok">Gaji ${bulanLabel(hasil.periode)} sudah disetujui oleh <b>${esc(a.oleh)}</b> pada ${esc(a.tanggal)}. Data dikunci; untuk mengubah, buka kunci di tab Slip Gaji.</div>` : "";
+  }
+  function applyBrand() {
+    const img = $("#hdrLogo");
+    if (cfg.logo) { img.src = cfg.logo; img.hidden = false; } else { img.removeAttribute("src"); img.hidden = true; }
+  }
+  function kunciForm(root) {
+    if (!terkunci()) return;
+    root.querySelectorAll("input, select, textarea, button").forEach((x) => { if (!x.closest("[data-free]")) x.disabled = true; });
+  }
   function recompute(keepInput) {
     if (rawRows) { hasil = hitung(rawRows); simpanRiwayat(); }
     renderBar(); updateTabCounts();
@@ -830,6 +859,7 @@ details > summary { cursor: pointer; font-weight: 600; }
       <p class="sub">Klik kotak tanggal atau tombol Koreksi untuk mengubah status, menit telat, atau jam lembur. Gaji dan slip langsung ikut berubah.</p></div>
       <div class="seg" role="group" aria-label="Tampilan rekap"><button data-mode="lokasi" aria-pressed="${rekapMode === "lokasi"}">Kode per lokasi</button><button data-mode="jam" aria-pressed="${rekapMode === "jam"}">Jam masuk &amp; pulang</button><button data-mode="pegawai" aria-pressed="${rekapMode === "pegawai"}">Per pegawai</button></div></div>
       <div style="margin-top:12px">${rekapMode === "jam" ? legendaJam() : legendaKode()}</div></div>`;
+    h += lockBanner();
     h += rekapMode === "lokasi" ? rekapLokasiHTML() : rekapMode === "jam" ? rekapJamHTML() : rekapPegawaiHTML();
     el.innerHTML = h + "</div>";
     el.querySelectorAll("[data-mode]").forEach((b) => b.onclick = () => { rekapMode = b.dataset.mode; renderRekap(); });
@@ -954,6 +984,7 @@ details > summary { cursor: pointer; font-weight: 600; }
   function tutupModal() { $("#modal").innerHTML = ""; document.removeEventListener("keydown", escModal); }
   function escModal(e) { if (e.key === "Escape") tutupModal(); }
   function bukaKoreksi(key, tgl) {
+    if (terkunci()) { setSaved("Periode sudah disetujui dan dikunci. Buka kunci di tab Slip Gaji untuk mengoreksi."); return; }
     const d = hasil.det.find((x) => x.key === key && x.Tanggal === tgl);
     if (!d) return;
     const a = d.adj || {}, au = d.auto;
@@ -1017,7 +1048,7 @@ details > summary { cursor: pointer; font-weight: 600; }
       <div class="field"><label for="mb-v">Nilai (Rp)</label><input type="number" id="mb-v" min="0" step="1000" style="width:150px"></div>
       <div class="field"><label for="mb-c">Untuk</label><select id="mb-c"><option value="">Semua pegawai</option>${[...new Set(hasil.rekap.map((x) => x.Cabang))].sort().map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("")}</select></div>
       <button class="btn" id="mb-go">Terapkan</button></div><p class="hint" id="mb-msg" style="margin-top:6px">Mengganti nilai komponen itu untuk bulan ${bulanLabel(hasil.periode)}. Isi 0 untuk menghapus.</p></details>`;
-    h += dl("dl-jab", ["CSO - JUNIOR", "CSO - SENIOR", "PIC - PERCOBAAN", "PIC - JUNIOR", "PIC - SENIOR", "INTERNAL", "MANPOWER"]) + dl("dl-status", ["MITRA KERJA", "PROBATION", "KONTRAK", "PERMANEN"]);
+    h += dl("dl-jab", ["CSO - JUNIOR", "CSO - SENIOR", "PIC - PERCOBAAN", "PIC - JUNIOR", "PIC - SENIOR", "INTERNAL", "MANPOWER"]) + dl("dl-status", ["MITRA KERJA", "PROBATION", "KONTRAK", "PERMANEN"]) + dl("dl-bank", ["BRI", "BNI", "Mandiri", "BCA", "BSI", "BTN", "Bank Sulselbar"]);
     h += `<div class="ig"><div class="stack">
       <div class="panel"><fieldset class="fs"><legend>Data tetap ${esc(r.Nama)} <span class="sub">(berlaku untuk bulan-bulan berikutnya)</span></legend>
         <p class="hint">Tarif ${esc(r.Cabang)} / ${esc(r.Posisi)}: gaji pokok ${rp(t.gaji)}, tunj. makan & transport ${rp(t.tunjMT)}, kinerja ${rp(t.tunjKin)}, absensi ${rp(t.tunjAbs)}. Isi kolom "khusus" hanya jika pegawai ini berbeda dari tarif (misal PIC senior).</p>
@@ -1027,7 +1058,7 @@ details > summary { cursor: pointer; font-weight: 600; }
     });
     h += `</div><div class="panel sumbox" id="in-sum"></div></div>`;
     h += `<div class="stack" style="gap:8px"><h2>Semua pegawai bulan ini</h2><div class="scroll" id="in-all"></div></div></div>`;
-    el.innerHTML = h;
+    el.innerHTML = lockBanner() + h;
     renderInputSummary();
     $("#in-emp").onchange = (e) => { inputKey = e.target.value; renderInput(); };
     $("#mb-go").onclick = () => {
@@ -1040,6 +1071,7 @@ details > summary { cursor: pointer; font-weight: 600; }
     };
     $("#in-prev").onclick = () => { inputKey = rk[idx - 1].key; renderInput(); };
     $("#in-next").onclick = () => { inputKey = rk[idx + 1].key; renderInput(); };
+    if (terkunci()) { el.querySelectorAll("input[data-scope], #mb-f, #mb-v, #mb-c, #mb-go").forEach((x) => { x.disabled = true; }); }
     el.querySelectorAll("input[data-scope]").forEach((inp) => inp.addEventListener("change", () => {
       const f = inp.dataset.f, val = inp.type === "number" ? (inp.value === "" ? "" : +inp.value) : inp.value.trim();
       let obj;
@@ -1090,10 +1122,11 @@ details > summary { cursor: pointer; font-weight: 600; }
     const ln = (a, cls) => `<div class="ln${cls ? " " + cls : ""}"><span>${esc(a[0])}</span><span>${rp(a[1])}</span></div>`;
     const thp = s.ada ? Math.max(0, s.thp) : 0;
     return `<article class="slip" aria-label="Slip gaji ${esc(r.Nama)}">
-      <div class="band"><div class="co">${esc(namaPT())}${cfg.alamat ? `<small>${esc(cfg.alamat)}</small>` : ""}</div><div class="ttl">SLIP GAJI<small>${bulanLabel(hasil.periode)}</small></div></div>
+      <div class="band"><div class="left">${cfg.logo ? `<span class="lg"><img src="${cfg.logo}" alt=""></span>` : ""}<div class="co">${esc(namaPT())}${cfg.alamat ? `<small>${esc(cfg.alamat)}</small>` : ""}</div></div>
+        <div class="ttl">SLIP GAJI<small>${bulanLabel(hasil.periode)}</small><span class="no">No. ${esc(r.NoSlip)}</span>${terkunci() ? "" : '<span class="draft">DRAFT</span>'}</div></div>
       <div class="body">
         ${s.ada ? "" : '<div class="flag">Gaji pokok belum diisi untuk pegawai ini. Slip tidak ikut diunduh.</div>'}
-        <div class="muted">${esc(cfg.judulSlip)} · ${esc(POSISI_LABEL[r.Posisi] || r.Posisi)}</div>
+        <div class="row between"><div class="muted">${esc(cfg.judulSlip)} · ${esc(POSISI_LABEL[r.Posisi] || r.Posisi)}</div><span class="conf">Rahasia · hanya untuk penerima</span></div>
         <dl class="id">
           <div><dt>Nama</dt><dd>${esc(r.Nama)}</dd></div><div><dt>NIP</dt><dd>${esc(r.NIP || "-")}</dd></div>
           <div><dt>Jabatan</dt><dd>${esc(r.Jabatan)}</dd></div><div><dt>Penempatan</dt><dd>${esc(r.Cabang)}</dd></div>
@@ -1122,6 +1155,10 @@ details > summary { cursor: pointer; font-weight: 600; }
       <div class="row"><button class="btn ghost" id="zipAll" ${siap.length ? "" : "disabled"}>ZIP: 1 file per pegawai</button><button class="btn" id="pdfAll" ${siap.length ? "" : "disabled"}>Unduh ${siap.length} slip (1 PDF)</button></div></div>
       <div class="filters" style="margin-top:12px"><div class="row"><select id="scab" aria-label="Filter lokasi">${cabangOpts(slipCabang, true)}</select>
       <input type="text" id="scari" placeholder="Cari nama / NIP" value="${esc(slipCari)}" aria-label="Cari slip"></div><span class="hint">Komponen variabel (home cleaning, bonus, kasbon, dll) diisi di tab Input Gaji.</span></div></div>`;
+    const ap = cfg.approval[hasil.periode];
+    h += ap ? `<div class="panel row between"><div><h3>Disetujui</h3><p class="sub">Gaji ${bulanLabel(hasil.periode)} disetujui oleh <b>${esc(ap.oleh)}</b> pada ${esc(ap.tanggal)}. Absensi, input gaji, tarif, dan aturan dikunci; slip tidak lagi bertanda DRAFT.</p></div><button class="btn ghost" id="ap-buka">Buka kunci</button></div>`
+      : `<div class="panel row between"><div style="min-width:0;flex:1 1 320px"><h3>Status: Draft</h3><p class="sub">Setelah absensi, input gaji, dan slip dicek, setujui periode ini. Slip berhenti bertanda DRAFT dan data dikunci agar tidak berubah tanpa sengaja.</p></div>
+        <div class="row"><input type="text" id="ap-oleh" value="${esc(cfg.ttdNama)}" placeholder="Disetujui oleh" aria-label="Disetujui oleh" style="width:200px"><button class="btn" id="ap-kunci" ${siap.length ? "" : "disabled"}>Setujui &amp; kunci</button></div></div>`;
     if (belum) h += `<div class="banner warn">${belum} pegawai belum punya gaji pokok. <a href="#" data-go="gaji">Isi Tarif Gaji</a> atau isi gaji pokok khusus di Input Gaji.</div>`;
     h += list.length ? `<div class="slips">${list.map(slipHTML).join("")}</div>` : '<p class="empty">Tidak ada pegawai yang cocok.</p>';
     el.innerHTML = h + "</div>";
@@ -1130,6 +1167,14 @@ details > summary { cursor: pointer; font-weight: 600; }
     const cari = $("#scari");
     cari.oninput = (e) => { slipCari = e.target.value; clearTimeout(cari._t); cari._t = setTimeout(() => { renderSlip(); const n = $("#scari"); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); };
     const nmFile = "Slip_Gaji_" + hasil.periode + (slipCabang ? "_" + slipCabang.replace(/[^\w]+/g, "_") : "");
+    const bk = $("#ap-buka"), kc = $("#ap-kunci");
+    if (bk) bk.onclick = () => { if (bk.dataset.armed) { delete cfg.approval[hasil.periode]; scheduleSave(); renderAll(); } else { bk.dataset.armed = "1"; bk.textContent = "Klik lagi untuk membuka kunci"; } };
+    if (kc) kc.onclick = () => {
+      const oleh = $("#ap-oleh").value.trim();
+      if (!oleh) { $("#ap-oleh").focus(); setSaved("Isi nama yang menyetujui."); return; }
+      if (!kc.dataset.armed) { kc.dataset.armed = "1"; kc.textContent = "Klik lagi untuk mengunci"; return; }
+      cfg.approval[hasil.periode] = { oleh, tanggal: tglPanjang(new Date()) }; scheduleSave(); renderAll();
+    };
     $("#pdfAll").onclick = () => unduhPDF(siap, nmFile + ".pdf");
     $("#zipAll").onclick = () => unduhZIP(siap, nmFile + ".zip");
     el.querySelectorAll("[data-pdf]").forEach((b) => b.onclick = () => {
@@ -1145,14 +1190,18 @@ details > summary { cursor: pointer; font-weight: 600; }
     const rpT = (n) => "Rp" + Math.round(n || 0).toLocaleString("id-ID");
     const X0 = 14, X1 = 196, W = X1 - X0;
     // kepala
+    if (!terkunci()) watermark(doc, "DRAFT");
     doc.setFillColor(...G); doc.rect(0, 0, 210, 30, "F");
-    doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(14);
-    doc.text(doc.splitTextToSize(namaPT(), 120)[0], X0, 13);
+    const tx = X0 + logoPDF(doc, X0, 5, 20);
+    doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold");
+    namaPDF(doc, tx, 13, 118 - (tx - X0));
     doc.setFont("helvetica", "normal"); doc.setFontSize(9);
-    doc.text(doc.splitTextToSize(cfg.alamat || "", 120)[0] || "", X0, 19);
-    doc.text(cfg.judulSlip + " · " + (POSISI_LABEL[r.Posisi] || r.Posisi), X0, 24);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.text("SLIP GAJI", X1, 14, { align: "right" });
-    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("Periode " + bulanLabel(hasil.periode), X1, 21, { align: "right" });
+    doc.text(doc.splitTextToSize(cfg.alamat || "", 118 - (tx - X0))[0] || "", tx, 19);
+    doc.text(cfg.judulSlip + " · " + (POSISI_LABEL[r.Posisi] || r.Posisi), tx, 24);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.text("SLIP GAJI", X1, 12, { align: "right" });
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.text("Periode " + bulanLabel(hasil.periode), X1, 18, { align: "right" });
+    doc.text("No. " + r.NoSlip, X1, 23, { align: "right" });
+    doc.setFontSize(7.5); doc.text(terkunci() ? "RAHASIA" : "DRAFT · RAHASIA", X1, 27.5, { align: "right" });
     let y = 40;
     // identitas
     const idf = [["Nama", r.Nama, "NIP", r.NIP || "-"], ["Jabatan", r.Jabatan, "Penempatan", r.Cabang], ["Status", r.StatusKerja || "-", "Performance", s.M.performance || "-"]];
@@ -1221,7 +1270,31 @@ details > summary { cursor: pointer; font-weight: 600; }
     doc.text(r.Nama, 50, y + 24, { align: "center" }); doc.text(cfg.ttdNama || "(........................)", 160, y + 24, { align: "center" });
     doc.setFont("helvetica", "normal"); doc.text(cfg.ttdJabatan || "", 160, y + 29, { align: "center" });
     doc.setFontSize(7.5); doc.setTextColor(...MUTED);
-    doc.text(`Dihitung dari data absensi Kolabo ${hasil.dari} s/d ${hasil.sampai}. Dokumen ini dibuat otomatis.`, X0, 290);
+    const ap = cfg.approval[hasil.periode];
+    doc.text(`Dihitung dari data absensi Kolabo ${hasil.dari} s/d ${hasil.sampai}. ${ap ? "Disetujui oleh " + ap.oleh + ", " + ap.tanggal + "." : "DRAFT, belum disetujui."} Dokumen rahasia, hanya untuk penerima.`, X0, 290);
+  }
+
+  // ---------- util PDF bersama ----------
+  function logoPDF(doc, x, y, h) {
+    if (!cfg.logo || !cfg.logoW) return 0;
+    const ih = h - 3, w = Math.min(45, ih * cfg.logoW / cfg.logoH), ihh = w * cfg.logoH / cfg.logoW;
+    doc.setFillColor(255, 255, 255); doc.roundedRect(x, y, w + 4, h, 2, 2, "F");
+    try { doc.addImage(cfg.logo, "PNG", x + 2, y + (h - ihh) / 2, w, ihh); } catch (e) { return 0; }
+    return w + 8;
+  }
+  function watermark(doc, teks) {
+    doc.saveGraphicsState();
+    try { doc.setGState(new doc.GState({ opacity: 0.07 })); } catch (e) { /* abaikan */ }
+    doc.setTextColor(120, 120, 120); doc.setFont("helvetica", "bold"); doc.setFontSize(110);
+    doc.text(teks, 45, 215, { angle: 35 });
+    doc.restoreGraphicsState();
+  }
+  function namaPDF(doc, x, y, maxW) {
+    doc.setFontSize(14);
+    if (doc.getTextWidth(namaPT()) <= maxW) { doc.text(namaPT(), x, y); return; }
+    doc.setFontSize(11);
+    const ln = doc.splitTextToSize(namaPT(), maxW).slice(0, 2);
+    doc.text(ln, x, ln.length > 1 ? y - 3.6 : y);
   }
 
 
@@ -1351,9 +1424,11 @@ details > summary { cursor: pointer; font-weight: 600; }
       [!tarifKurang, "Tarif gaji lengkap", tarifKurang ? `${tarifKurang} pegawai belum ada gaji pokok` : "semua pegawai punya tarif", "gaji"],
       [Object.keys(bul).length > 0, "Komponen variabel diisi", `${Object.keys(bul).length} pegawai punya input bulan ini (bonus, HC, kasbon)`, "input"],
       [invCab.length === cab.length, "Invoice per lokasi diisi", `${invCab.length} dari ${cab.length} lokasi`, "#inv"],
-      [rk.filter((r) => r.adaTarif && r.Pendapatan > 0).length > 0, "Slip siap diunduh", `${rk.filter((r) => r.adaTarif && r.Pendapatan > 0).length} slip siap`, "slip"]
+      [rk.filter((r) => r.adaTarif && r.Pendapatan > 0).length > 0, "Slip siap diunduh", `${rk.filter((r) => r.adaTarif && r.Pendapatan > 0).length} slip siap`, "slip"],
+      [terkunci(), "Disetujui & dikunci", terkunci() ? `oleh ${cfg.approval[hasil.periode].oleh}` : "masih draft", "slip"]
     ];
-    let h = `<div class="stack"><div class="panel"><h2>Progres rekap gaji ${bulanLabel(hasil.periode)}</h2><div class="steps" style="margin-top:12px">${steps.map((s, i) => `<div class="step ${s[0] ? "done" : ""}"><div class="no">${s[0] ? "✓" : i + 1}</div><div><b>${s[1]}</b><span class="sub">${s[2]}${s[3] ? ` · ${s[3].startsWith("#") ? `<a href="${s[3]}">isi</a>` : `<a href="#" data-go="${s[3]}">buka</a>`}` : ""}</span></div></div>`).join("")}</div></div>`;
+    let h = `<div class="stack"><div class="panel"><div class="row between"><h2>Progres rekap gaji ${bulanLabel(hasil.periode)}</h2>
+      <div class="row"><span class="hint">Unduh isi dashboard:</span><button class="btn ghost small" id="lap-xls">Laporan Excel</button><button class="btn small" id="lap-pdf">Laporan PDF untuk manajemen</button></div></div><div class="steps" style="margin-top:12px">${steps.map((s, i) => `<div class="step ${s[0] ? "done" : ""}"><div class="no">${s[0] ? "✓" : i + 1}</div><div><b>${s[1]}</b><span class="sub">${s[2]}${s[3] ? ` · ${s[3].startsWith("#") ? `<a href="${s[3]}">isi</a>` : `<a href="#" data-go="${s[3]}">buka</a>`}` : ""}</span></div></div>`).join("")}</div></div>`;
     h += `<h2>Penggajian</h2><div class="kpis">
       <div class="kpi"><div class="l">Biaya tenaga kerja</div><div class="v">${rp(biaya)}</div><div class="s">pendapatan bruto + benefit perusahaan${prev ? "<br>" + delta(biaya, prev.biaya) : ""}</div></div>
       <div class="kpi"><div class="l">Gaji ditransfer</div><div class="v">${rp(thp)}</div><div class="s">total take home pay ${rk.filter((r) => r.adaTarif).length} pegawai</div></div>
@@ -1406,6 +1481,7 @@ details > summary { cursor: pointer; font-weight: 600; }
     h += "</div>";
     el.innerHTML = h;
     bindUpload(el);
+    $("#lap-xls").onclick = unduhLaporanExcel; $("#lap-pdf").onclick = unduhLaporanPDF;
     el.querySelectorAll("[data-inv]").forEach((inp) => inp.addEventListener("change", () => {
       const b = cfg.invoice[hasil.periode] = cfg.invoice[hasil.periode] || {};
       if (inp.value === "" || +inp.value === 0) delete b[inp.dataset.inv]; else b[inp.dataset.inv] = +inp.value;
@@ -1415,10 +1491,189 @@ details > summary { cursor: pointer; font-weight: 600; }
   }
 
 
+  // ---------- data untuk laporan & Excel ----------
+  function dataTransfer() {
+    return [...hasil.rekap].filter((r) => r.adaTarif && r.Pendapatan > 0).sort((a, b) => a.Cabang.localeCompare(b.Cabang) || a.Nama.localeCompare(b.Nama)).map((r, i) => {
+      const P = cfg.pegawai[r.key] || {};
+      return { No: i + 1, "No. Slip": r.NoSlip, Nama: r.Nama, NIP: r.NIP, Lokasi: r.Cabang, Bank: P.bank || "", "No. Rekening": P.noRek || "", "Atas Nama": P.atasNama || r.Nama, "Nominal Transfer": Math.round(r.GajiBersih || 0), Keterangan: (P.noRek ? "" : "rekening belum diisi") };
+    });
+  }
+  function dataLogKoreksi() {
+    const rows = hasil.det.filter((d) => d.adj).map((d) => ({
+      Tanggal: d.Tanggal, Nama: d.Nama, NIP: d.NIP, Lokasi: d.Cabang,
+      "Status Sistem": STATUS_LABEL[d.auto.status], "Status Akhir": STATUS_LABEL[d.Status],
+      "Telat Sistem (mnt)": d.auto.telat, "Telat Akhir (mnt)": d["Telat (mnt)"], "Lembur Sistem (jam)": d.auto.lembur, "Lembur Akhir (jam)": d["Lembur Dibayar (jam)"],
+      Alasan: d.adj.ket || ""
+    }));
+    return rows.length ? rows : [{ Info: "Tidak ada koreksi manual bulan ini" }];
+  }
+  function dataLaporan() {
+    const rk = hasil.rekap, cab = perCabang().sort((a, b) => a.cabang.localeCompare(b.cabang));
+    const hadir = sumBy(rk, (r) => r.Hadir), terj = sumBy(rk, (r) => r.Terjadwal);
+    const biaya = sumBy(cab, (c) => c.biaya), thp = sumBy(rk, (r) => r.GajiBersih || 0), inv = sumBy(cab, (c) => c.invoice);
+    const biayaInv = sumBy(cab.filter((c) => c.invoice), (c) => c.biaya);
+    const ap = cfg.approval[hasil.periode];
+    const kpi = [
+      ["Periode", bulanLabel(hasil.periode)], ["Status", ap ? `Disetujui oleh ${ap.oleh}, ${ap.tanggal}` : "Draft (belum disetujui)"],
+      ["Jumlah pegawai", rk.length], ["Biaya tenaga kerja (Rp)", Math.round(biaya)], ["Gaji ditransfer (Rp)", Math.round(thp)],
+      ["Total invoice (Rp)", Math.round(inv)], ["Margin lokasi ber-invoice (Rp)", inv ? Math.round(inv - biayaInv) : ""], ["Margin (%)", inv ? Math.round((inv - biayaInv) / inv * 1000) / 10 : ""],
+      ["Total potongan (Rp)", Math.round(sumBy(rk, (r) => r.Potongan))], ["Tingkat kehadiran (%)", terj ? Math.round(hadir / terj * 1000) / 10 : ""],
+      ["Hari tanpa keterangan", sumBy(rk, (r) => r.Absen)], ["Telat dipotong (kali)", sumBy(rk, (r) => r.TelatKenaKali)], ["Potongan telat (Rp)", sumBy(rk, (r) => r.TelatPot)],
+      ["Lembur dibayar (Rp)", Math.round(sumBy(rk, (r) => r.LemburUpah))], ["Kasus perlu dicek", hasil.review.length], ["Koreksi manual", hasil.det.filter((d) => d.adj).length]
+    ];
+    const keputusan = insights(perCabang()).map((x) => ({ Tingkat: { bad: "Kritis", warn: "Perhatian", info: "Info", ok: "Baik" }[x.sev], Temuan: x.what, Tindakan: x.act }));
+    const biayaInvoice = cab.map((c) => ({ Lokasi: c.cabang, Pegawai: c.n, "Gaji Ditransfer": Math.round(c.gaji), "Biaya Tenaga Kerja": Math.round(c.biaya), Invoice: c.invoice || "", Selisih: c.invoice ? Math.round(c.invoice - c.biaya) : "", "Margin (%)": c.invoice ? Math.round((c.invoice - c.biaya) / c.invoice * 1000) / 10 : "", "Biaya per Pegawai": Math.round(c.biaya / Math.max(1, c.n)) }));
+    const kehadiran = cab.map((c) => ({ Lokasi: c.cabang, Pegawai: c.n, Hadir: c.hadir, Terjadwal: c.terjadwal, "Kehadiran (%)": c.tanpaJadwal ? "sesuai order" : Math.round(c.persen * 1000) / 10, "Tanpa Keterangan": c.absen, "Telat (kali)": c.telat, "Potongan Telat": c.telatPot, "Upah Lembur": Math.round(c.lembur), "Lembur Belum Diputuskan (jam)": Math.round(c.lemburTak * 10) / 10 }));
+    const pegawai = [...rk].sort((a, b) => a.Cabang.localeCompare(b.Cabang) || a.Nama.localeCompare(b.Nama)).map((r) => ({ "No. Slip": r.NoSlip, Nama: r.Nama, Lokasi: r.Cabang, Jabatan: r.Jabatan, Hadir: r.Hadir, Terjadwal: r.Terjadwal, "Tanpa Ket.": r.Absen, "Telat Dipotong": r.TelatKenaKali, "Pendapatan Bruto": Math.round(r.Pendapatan), Potongan: Math.round(r.Potongan), "Gaji Diterima": r.GajiBersih == null ? "" : Math.round(r.GajiBersih), "Biaya Tenaga Kerja": r.adaTarif ? Math.round(r.Biaya) : "" }));
+    const komp = [["Gaji pokok", (r) => r.slip.pend[0].items[0][1]], ["Tunjangan tetap", (r) => r.slip.pend[0].total - r.slip.pend[0].items[0][1]], ["Home cleaning", (r) => r.slip.pend[1].total], ["Project", (r) => r.slip.pend[2].total], ["Bonus & insentif", (r) => r.slip.pend[3].total], ["Lain-lain, lembur & adjustment", (r) => r.slip.pend[4].total], ["Benefit perusahaan", (r) => r.Benefit]]
+      .map(([l, f]) => ({ Komponen: l, "Jumlah (Rp)": Math.round(sumBy(rk.filter((r) => r.adaTarif), f)) }));
+    const harian = perHari().map((d) => ({ Tanggal: d.tgl, Hari: d.hari, Hadir: d.hadir, Terjadwal: d.terjadwal, "Kehadiran (%)": Math.round(d.persen * 1000) / 10 }));
+    const tren = Object.keys(cfg.riwayat).sort().map((p) => { const x = cfg.riwayat[p]; return { Bulan: bulanLabel(p), Pegawai: x.pegawai, "Kehadiran (%)": x.terjadwal ? Math.round(x.hadir / x.terjadwal * 1000) / 10 : "", "Biaya Tenaga Kerja": x.biaya, "Gaji Ditransfer": x.thp, Invoice: x.invoice || "", "Potongan Telat": x.telatPot }; });
+    return { kpi, keputusan, biayaInvoice, kehadiran, pegawai, komp, harian, tren, ap, cab, rk };
+  }
+  async function unduhLaporanExcel() {
+    try {
+      const L = dataLaporan(), wb = XLSX.utils.book_new(), add = (rows, nm) => XLSX.utils.book_append_sheet(wb, Array.isArray(rows[0]) ? XLSX.utils.aoa_to_sheet(rows) : XLSX.utils.json_to_sheet(rows.length ? rows : [{ Info: "Tidak ada data" }]), nm);
+      add([["Laporan Absensi & Penggajian", namaPT()], [], ...L.kpi], "Ringkasan");
+      add(L.keputusan, "Perlu Diputuskan");
+      add(L.biayaInvoice, "Biaya vs Invoice");
+      add(L.komp, "Komposisi Biaya");
+      add(L.kehadiran, "Kehadiran per Lokasi");
+      add(L.harian, "Kehadiran Harian");
+      add(L.pegawai, "Gaji per Pegawai");
+      add(dataTransfer(), "Daftar Transfer");
+      add(dataLogKoreksi(), "Log Koreksi");
+      add(L.tren, "Tren Bulanan");
+      await saveFile("Laporan_Gaji_" + hasil.periode + ".xlsx", XLSX.write(wb, { type: "array", bookType: "xlsx" }), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    } catch (e) { setSaved("Unduhan gagal: " + (e.message || e)); }
+  }
+
+  // ---------- laporan manajemen PDF ----------
+  async function unduhLaporanPDF() {
+    try {
+      if (!window.jspdf) throw new Error("Pembuat PDF belum termuat. Periksa koneksi lalu muat ulang halaman.");
+      const L = dataLaporan(), doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
+      const G = [14, 92, 61], INK = [27, 36, 48], MUTED = [93, 104, 116], SOFT = [238, 244, 241], LINE = [221, 227, 232], RED = [179, 38, 30], AMB = [154, 91, 0];
+      const X0 = 14, X1 = 196, W = X1 - X0, BOTTOM = 280;
+      const rpT = (n) => "Rp" + Math.round(n || 0).toLocaleString("id-ID");
+      let y;
+      const kepala = (first) => {
+        if (!L.ap) watermark(doc, "DRAFT");
+        doc.setFillColor(...G); doc.rect(0, 0, 210, first ? 32 : 16, "F");
+        const tx = X0 + logoPDF(doc, X0, first ? 6 : 2, first ? 20 : 12);
+        doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold");
+        if (first) {
+          namaPDF(doc, tx, 14, 120 - (tx - X0));
+          doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("Laporan Absensi & Penggajian", tx, 21);
+          doc.setFontSize(9); doc.text(cfg.alamat || "", tx, 26.5);
+          doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text(bulanLabel(hasil.periode), X1, 14, { align: "right" });
+          doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.text(L.ap ? `Disetujui: ${L.ap.oleh}, ${L.ap.tanggal}` : "DRAFT · belum disetujui", X1, 21, { align: "right" });
+          doc.text("Dicetak " + tglPanjang(new Date()), X1, 26.5, { align: "right" });
+          y = 42;
+        } else {
+          doc.setFontSize(10); doc.text(namaPT() + " · Laporan Absensi & Penggajian " + bulanLabel(hasil.periode), tx, 10);
+          y = 26;
+        }
+      };
+      const baru = () => { doc.addPage(); kepala(false); };
+      const judul = (t, sub) => {
+        if (y > BOTTOM - 20) baru();
+        doc.setFont("helvetica", "bold"); doc.setFontSize(11.5); doc.setTextColor(...G); doc.text(t, X0, y);
+        doc.setDrawColor(...G); doc.setLineWidth(0.4); doc.line(X0, y + 1.8, X1, y + 1.8); y += 7;
+        if (sub) { doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...MUTED); doc.text(sub, X0, y); y += 5; }
+      };
+      const tabel = (cols, rows, opt) => {
+        const tot = cols.reduce((a, c) => a + c.w, 0), sc = W / tot;
+        const head = () => {
+          doc.setFillColor(...SOFT); doc.rect(X0, y - 4, W, 6.5, "F");
+          doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...MUTED);
+          let x = X0; cols.forEach((c) => { const cw = c.w * sc; doc.text(c.t, c.r ? x + cw - 1.5 : x + 1.5, y, { align: c.r ? "right" : "left" }); x += cw; }); y += 6;
+        };
+        head();
+        rows.forEach((row, ri) => {
+          const isTot = opt && opt.total && ri === rows.length - 1;
+          if (y > BOTTOM) { baru(); head(); }
+          doc.setFont("helvetica", isTot ? "bold" : "normal"); doc.setFontSize(8.5);
+          let x = X0;
+          cols.forEach((c, ci) => {
+            const cw = c.w * sc, v = row[ci];
+            const col = typeof v === "object" && v ? v : { t: v };
+            doc.setTextColor(...(col.c || INK));
+            doc.text(doc.splitTextToSize(String(col.t == null ? "" : col.t), cw - 3)[0] || "", c.r ? x + cw - 1.5 : x + 1.5, y, { align: c.r ? "right" : "left" });
+            x += cw;
+          });
+          doc.setDrawColor(...LINE); doc.setLineWidth(0.15); doc.line(X0, y + 1.8, X1, y + 1.8);
+          y += 5.6;
+        });
+        y += 4;
+      };
+
+      kepala(true);
+      // ringkasan angka
+      const rk = L.rk, cab = L.cab;
+      const biaya = sumBy(cab, (c) => c.biaya), inv = sumBy(cab, (c) => c.invoice), biayaInv = sumBy(cab.filter((c) => c.invoice), (c) => c.biaya), margin = inv - biayaInv;
+      const hadir = sumBy(rk, (r) => r.Hadir), terj = sumBy(rk, (r) => r.Terjadwal);
+      const kotak = [["Biaya tenaga kerja", rpT(biaya)], ["Gaji ditransfer", rpT(sumBy(rk, (r) => r.GajiBersih || 0))], ["Total invoice", inv ? rpT(inv) : "-"],
+        [margin >= 0 ? "Margin" : "Rugi", inv ? rpT(Math.abs(margin)) + " (" + pct(Math.abs(margin) / inv) + ")" : "-", inv ? (margin >= 0 ? G : RED) : INK],
+        ["Kehadiran", pct(terj ? hadir / terj : 0)], ["Telat dipotong", sumBy(rk, (r) => r.TelatKenaKali) + "x · " + rpT(sumBy(rk, (r) => r.TelatPot))]];
+      const kw = W / 3;
+      kotak.forEach((k, i) => {
+        const x = X0 + (i % 3) * kw, yy = y + Math.floor(i / 3) * 17;
+        doc.setFillColor(...SOFT); doc.rect(x + 0.5, yy, kw - 1, 15, "F");
+        doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text(k[0], x + 4, yy + 5.5);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...(k[2] || INK)); doc.text(k[1], x + 4, yy + 12);
+      });
+      y += 40;
+      // keputusan
+      judul("Yang perlu diputuskan", "Disusun otomatis dari data absensi dan penggajian.");
+      L.keputusan.forEach((k) => {
+        const warna = k.Tingkat === "Kritis" ? RED : k.Tingkat === "Perhatian" ? AMB : MUTED;
+        const t1 = doc.splitTextToSize(k.Temuan, W - 24), t2 = doc.splitTextToSize(k.Tindakan, W - 24);
+        if (y + (t1.length + t2.length) * 4.2 > BOTTOM) baru();
+        doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.setTextColor(...warna); doc.text(k.Tingkat.toUpperCase(), X0, y);
+        doc.setFontSize(9); doc.setTextColor(...INK); doc.text(t1, X0 + 22, y); y += t1.length * 4.2;
+        doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...MUTED); doc.text(t2, X0 + 22, y); y += t2.length * 4 + 3;
+      });
+      y += 2;
+      // biaya vs invoice
+      judul("Biaya gaji vs invoice per lokasi", "Biaya tenaga kerja = pendapatan bruto + benefit perusahaan. Merah = biaya melebihi invoice.");
+      tabel([{ t: "Lokasi", w: 46 }, { t: "Pegawai", w: 14, r: 1 }, { t: "Gaji ditransfer", w: 26, r: 1 }, { t: "Biaya", w: 26, r: 1 }, { t: "Invoice", w: 26, r: 1 }, { t: "Selisih", w: 26, r: 1 }, { t: "Margin", w: 16, r: 1 }],
+        cab.map((c) => { const s = c.invoice - c.biaya; const cl = !c.invoice ? INK : s < 0 ? RED : G; return [c.cabang, c.n, rpT(c.gaji), rpT(c.biaya), c.invoice ? rpT(c.invoice) : "-", c.invoice ? { t: (s >= 0 ? "+" : "-") + rpT(Math.abs(s)), c: cl } : "-", c.invoice ? { t: pct(s / c.invoice), c: cl } : "-"]; })
+          .concat([["Total", rk.length, rpT(sumBy(rk, (r) => r.GajiBersih || 0)), rpT(biaya), inv ? rpT(inv) : "-", inv ? (margin >= 0 ? "+" : "-") + rpT(Math.abs(margin)) : "-", inv ? pct(margin / inv) : "-"]]), { total: 1 });
+      // komposisi
+      judul("Komposisi biaya tenaga kerja");
+      tabel([{ t: "Komponen", w: 70 }, { t: "Jumlah", w: 40, r: 1 }, { t: "Porsi", w: 25, r: 1 }], L.komp.filter((k) => k["Jumlah (Rp)"]).map((k) => [k.Komponen, rpT(k["Jumlah (Rp)"]), pct(k["Jumlah (Rp)"] / (biaya || 1))]));
+      // kehadiran
+      judul("Kehadiran per lokasi");
+      tabel([{ t: "Lokasi", w: 46 }, { t: "Pegawai", w: 14, r: 1 }, { t: "Hadir", w: 14, r: 1 }, { t: "Terjadwal", w: 17, r: 1 }, { t: "Kehadiran", w: 18, r: 1 }, { t: "Tanpa ket.", w: 17, r: 1 }, { t: "Telat", w: 12, r: 1 }, { t: "Pot. telat", w: 22, r: 1 }],
+        cab.map((c) => [c.cabang, c.n, c.hadir, c.terjadwal, c.tanpaJadwal ? "order" : { t: pct(c.persen), c: c.persen < AMBANG_HADIR ? AMB : INK }, c.absen, c.telat, rpT(c.telatPot)]));
+      // per pegawai
+      baru();
+      judul("Rincian gaji per pegawai");
+      tabel([{ t: "No. slip", w: 22 }, { t: "Nama", w: 38 }, { t: "Lokasi", w: 34 }, { t: "Hadir", w: 13, r: 1 }, { t: "Telat", w: 11, r: 1 }, { t: "Bruto", w: 23, r: 1 }, { t: "Potongan", w: 21, r: 1 }, { t: "Diterima", w: 23, r: 1 }],
+        L.pegawai.map((p) => [p["No. Slip"], p.Nama, p.Lokasi, `${p.Hadir}/${p.Terjadwal}`, p["Telat Dipotong"], rpT(p["Pendapatan Bruto"]), rpT(p.Potongan), p["Gaji Diterima"] === "" ? "tarif kosong" : rpT(p["Gaji Diterima"])])
+          .concat([["", "Total", "", "", "", rpT(sumBy(rk, (r) => r.Pendapatan)), rpT(sumBy(rk, (r) => r.Potongan)), rpT(sumBy(rk, (r) => r.GajiBersih || 0))]]), { total: 1 });
+      // tanda tangan
+      if (y > BOTTOM - 40) baru();
+      y += 6; doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(...INK);
+      doc.text("Disiapkan oleh,", 50, y, { align: "center" }); doc.text(cfg.kota + ", " + tglPanjang(new Date()), 160, y, { align: "center" });
+      doc.text("Disetujui oleh,", 160, y + 5, { align: "center" });
+      doc.setFont("helvetica", "bold");
+      doc.text("(........................)", 50, y + 30, { align: "center" }); doc.text(L.ap ? L.ap.oleh : (cfg.ttdNama || "(........................)"), 160, y + 30, { align: "center" });
+      doc.setFont("helvetica", "normal"); doc.text(cfg.ttdJabatan || "", 160, y + 35, { align: "center" });
+      // nomor halaman
+      const n = doc.getNumberOfPages();
+      for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...MUTED); doc.text(`Rahasia · hanya untuk manajemen · halaman ${i} dari ${n}`, X0, 290); doc.text(`Sumber: Kolabo ${hasil.dari} s/d ${hasil.sampai}`, X1, 290, { align: "right" }); }
+      await saveFile("Laporan_Gaji_" + hasil.periode + ".pdf", doc.output("arraybuffer"), "application/pdf");
+    } catch (e) { setSaved("Unduhan gagal: " + (e.message || e)); }
+  }
+
+
   // ---------- tab Tarif Gaji ----------
   function inpRow(p, i, f, val, type, extra) {
     const t = type || "number";
-    return `<td><input type="${t}" data-p="${p}" data-i="${i}" data-f="${f}" value="${esc(val == null ? "" : val)}" ${t === "number" ? 'min="0" step="1000" inputmode="numeric" placeholder="0"' : ""} ${extra || ""} aria-label="${f}"></td>`;
+    const lebar = t === "text" && ["cabang", "posisi", "nama", "ket"].includes(f) ? ` class="wide${f === "cabang" ? " xl" : ""}" title="${esc(val == null ? "" : val)}"` : "";
+    return `<td><input type="${t}"${lebar} data-p="${p}" data-i="${i}" data-f="${f}" value="${esc(val == null ? "" : val)}" ${t === "number" ? 'min="0" step="1000" inputmode="numeric" placeholder="0"' : ""} ${extra || ""} aria-label="${f}"></td>`;
   }
   function renderGaji() {
     const el = $("#tab-gaji");
@@ -1430,8 +1685,8 @@ details > summary { cursor: pointer; font-weight: 600; }
     });
     h += `</tbody></table></div><div><button class="btn ghost" data-add="tarif">Tambah baris</button></div>
       <p class="hint">Lokasi tanpa jadwal tetap (${esc(list(cfg.tanpaJadwal).join(", ") || "tidak ada")}) boleh bergaji pokok 0; pendapatannya dari order home cleaning.</p></div>`;
-    el.innerHTML = h;
-    bindEdits(el);
+    el.innerHTML = lockBanner() + h;
+    bindEdits(el); kunciForm(el);
   }
 
   // ---------- tab Aturan ----------
@@ -1443,7 +1698,13 @@ details > summary { cursor: pointer; font-weight: 600; }
     let h = '<div class="stack">';
     h += `<div class="panel stack"><div><h2>Identitas di slip gaji</h2><p class="sub">Nama perusahaan kosong = diambil dari file Kolabo.</p></div><div class="grid">
       ${t("Nama perusahaan", "perusahaan", perusahaanFile || "Nama perusahaan")}${t("Alamat / keterangan", "alamat", "")}${t("Judul slip", "judulSlip", "Financial Detail Report")}
-      ${t("Kota tanda tangan", "kota", "Makassar")}${t("Nama penandatangan", "ttdNama", "")}${t("Jabatan penandatangan", "ttdJabatan", "")}</div></div>`;
+      ${t("Kota tanda tangan", "kota", "Makassar")}${t("Nama penandatangan", "ttdNama", "")}${t("Jabatan penandatangan", "ttdJabatan", "")}</div>
+      <div class="row" style="align-items:center">${cfg.logo ? `<img class="logo-prev" src="${cfg.logo}" alt="Logo saat ini">` : '<span class="sub">Belum ada logo.</span>'}
+        <button class="btn ghost" id="logo-up">${cfg.logo ? "Ganti logo" : "Unggah logo"}</button>${cfg.logo ? '<button class="btn ghost" id="logo-del">Hapus logo</button>' : ""}<input type="file" id="logo-file" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden>
+        <span class="hint">PNG dengan latar transparan paling rapi. Logo muncul di aplikasi, slip, dan laporan.</span></div>
+      <div class="field" style="max-width:520px"><label for="c-pw">Password PDF slip per pegawai</label><select id="c-pw" data-cfgsel="slipPassword">
+        <option value="none"${cfg.slipPassword !== "nip" ? " selected" : ""}>Tanpa password</option><option value="nip"${cfg.slipPassword === "nip" ? " selected" : ""}>Password = NIP tanpa spasi (misal SQUAD021)</option></select>
+        <span class="hint">Berlaku untuk PDF per pegawai dan isi ZIP. PDF gabungan untuk HR/keuangan tetap tanpa password.</span></div></div>`;
     h += `<div class="panel stack"><div><h2>Cara menghitung gaji</h2></div>
       <div class="field"><label for="c-metode">Metode untuk hari tidak masuk</label><select id="c-metode" data-cfgsel="metodeGaji">
         <option value="potong"${cfg.metodeGaji === "potong" ? " selected" : ""}>Gaji penuh, dipotong per hari tanpa keterangan / izin (seperti slip sekarang)</option>
@@ -1472,14 +1733,34 @@ details > summary { cursor: pointer; font-weight: 600; }
       <div class="field"><label for="c-tetap">Lokasi dengan shift tetap (tidak ditebak), satu per baris</label><textarea id="c-tetap" data-cfg="tetap">${esc(cfg.tetap)}</textarea></div></div>
       <div class="grid">${f("Ganti shift jika lebih cocok (selisih menit)", "gantiShift")}${f("Tandai dicek jika selisih melebihi (menit)", "reviewBiaya")}${f("Durasi kerja minimal valid (menit)", "minKerja")}</div></div></details>`;
     h += `<div class="panel stack"><div><h2>Bagikan pengaturan ke tim</h2><p class="sub">Simpan semua pengaturan (tarif, aturan, input gaji, koreksi absensi, invoice) ke satu file, lalu buka di laptop lain lewat tombol Impor.</p></div>
-      <div class="row"><button class="btn ghost" id="cfg-export">Ekspor pengaturan (.json)</button><button class="btn ghost" id="cfg-import">Impor pengaturan</button><input type="file" id="cfg-file" accept=".json,application/json" hidden><span class="hint" id="cfg-msg"></span></div></div>`;
+      <div class="row" data-free><button class="btn ghost" id="cfg-export">Ekspor pengaturan (.json)</button><button class="btn ghost" id="cfg-import">Impor pengaturan</button><input type="file" id="cfg-file" accept=".json,application/json" hidden><span class="hint" id="cfg-msg"></span></div></div>`;
     h += '<div><button class="btn ghost small" data-reset="1">Kembalikan semua pengaturan ke bawaan</button></div></div>';
-    el.innerHTML = h;
-    bindEdits(el);
+    el.innerHTML = lockBanner() + h;
+    bindEdits(el); kunciForm(el);
+    $("#logo-up").onclick = () => $("#logo-file").click();
+    if ($("#logo-del")) $("#logo-del").onclick = () => { cfg.logo = ""; cfg.logoW = cfg.logoH = 0; scheduleSave(); applyBrand(); renderAturan(); };
+    $("#logo-file").onchange = (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      const rd = new FileReader();
+      rd.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const sc = Math.min(1, 480 / img.width, 200 / img.height), cv = document.createElement("canvas");
+          cv.width = Math.max(1, Math.round(img.width * sc)); cv.height = Math.max(1, Math.round(img.height * sc));
+          cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+          cfg.logo = cv.toDataURL("image/png"); cfg.logoW = cv.width; cfg.logoH = cv.height;
+          scheduleSave(); applyBrand(); renderAturan();
+        };
+        img.onerror = () => setSaved("File logo tidak bisa dibaca. Gunakan PNG atau JPG.");
+        img.src = rd.result;
+      };
+      rd.readAsDataURL(f);
+    };
     $("#cfg-export").onclick = () => saveFile("pengaturan-rekap-gaji-" + new Date().toISOString().slice(0, 10) + ".json", JSON.stringify(cfg, null, 1), "application/json");
     $("#cfg-import").onclick = () => $("#cfg-file").click();
     $("#cfg-file").onchange = async (e) => {
       const file = e.target.files[0]; if (!file) return;
+      if (terkunci()) { $("#cfg-msg").textContent = "Buka kunci periode dulu sebelum mengimpor pengaturan."; return; }
       try { cfg = mergeCfg(JSON.parse(await file.text())); scheduleSave(); recompute(); renderAturan(); $("#cfg-msg").textContent = "Pengaturan diimpor dari " + file.name; }
       catch (err) { $("#cfg-msg").textContent = "File tidak bisa dibaca: pastikan file .json hasil ekspor halaman ini."; }
     };
@@ -1527,21 +1808,24 @@ details > summary { cursor: pointer; font-weight: 600; }
       setSaved("Unduhan gagal: " + (e.message || e.code || e));
     }
   }
-  function buatPDF(list) {
+  const pwSlip = (r) => cfg.slipPassword === "nip" && r.NIP && r.NIP !== "0" ? r.NIP.replace(/\s+/g, "") : "";
+  function buatPDF(list, pw) {
     if (!window.jspdf) throw new Error("Pembuat PDF belum termuat. Periksa koneksi lalu muat ulang halaman.");
-    const doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
+    const o = { unit: "mm", format: "a4" };
+    if (pw) o.encryption = { userPassword: pw, ownerPassword: pw + "-hr-" + hasil.periode, userPermissions: ["print"] };
+    const doc = new window.jspdf.jsPDF(o);
     list.forEach((r, i) => { if (i) doc.addPage(); gambarSlip(doc, r); });
     return doc.output("arraybuffer");
   }
   async function unduhPDF(list, filename) {
-    try { await saveFile(filename, buatPDF(list), "application/pdf"); } catch (e) { setSaved(e.message || String(e)); }
+    try { await saveFile(filename, buatPDF(list, list.length === 1 ? pwSlip(list[0]) : ""), "application/pdf"); } catch (e) { setSaved(e.message || String(e)); }
   }
   async function unduhZIP(list, filename) {
     try {
       if (!window.JSZip) throw new Error("Pembuat ZIP belum termuat. Periksa koneksi lalu muat ulang halaman.");
       setSaved("Menyiapkan " + list.length + " slip…");
       const zip = new window.JSZip();
-      list.forEach((r) => zip.file(`${r.Cabang.replace(/[^\w]+/g, "_")}/Slip_${hasil.periode}_${r.Nama.replace(/[^\w]+/g, "_")}.pdf`, buatPDF([r])));
+      list.forEach((r) => zip.file(`${r.Cabang.replace(/[^\w]+/g, "_")}/Slip_${hasil.periode}_${r.Nama.replace(/[^\w]+/g, "_")}.pdf`, buatPDF([r], pwSlip(r))));
       await saveFile(filename, await zip.generateAsync({ type: "arraybuffer" }), "application/zip");
       setSaved("");
     } catch (e) { setSaved(e.message || String(e)); }
@@ -1580,6 +1864,8 @@ details > summary { cursor: pointer; font-weight: 600; }
       });
       const det = hasil.det.map((d) => ({ Tanggal: d.Tanggal, Hari: d.Hari, Nama: d.Nama, NIP: d.NIP, Lokasi: d.Cabang, Kode: d.Kode, Status: STATUS_LABEL[d.Status], "Jadwal Kolabo": d["Jadwal Kolabo"], "Shift Aktual": d["Shift Aktual"], "Check In": d["Check In"], "Check Out": d["Check Out"], "Telat (mnt)": d["Telat (mnt)"], "Potongan Telat": d["Potongan Telat (Rp)"], "Pulang Cepat (mnt)": d["Pulang Cepat (mnt)"], "Lewat Jam Pulang (mnt)": d["Lembur (mnt)"], "Lembur Dibayar (jam)": d["Lembur Dibayar (jam)"], "Upah Lembur": d["Upah Lembur (Rp)"], "Jam Kerja": d["Jam Kerja"], Koreksi: d.adj ? "ya" : "", Catatan: d.Catatan.concat(d._review).join("; ") }));
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cab), "Ringkasan Lokasi");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataTransfer()), "Daftar Transfer");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataLogKoreksi()), "Log Koreksi");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rekap), "Rekap Absensi Pegawai");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "Rekap per Lokasi");
       const jamSheet = (jenis) => {

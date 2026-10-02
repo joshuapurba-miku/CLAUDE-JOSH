@@ -125,9 +125,11 @@
       [!tarifKurang, "Tarif gaji lengkap", tarifKurang ? `${tarifKurang} pegawai belum ada gaji pokok` : "semua pegawai punya tarif", "gaji"],
       [Object.keys(bul).length > 0, "Komponen variabel diisi", `${Object.keys(bul).length} pegawai punya input bulan ini (bonus, HC, kasbon)`, "input"],
       [invCab.length === cab.length, "Invoice per lokasi diisi", `${invCab.length} dari ${cab.length} lokasi`, "#inv"],
-      [rk.filter((r) => r.adaTarif && r.Pendapatan > 0).length > 0, "Slip siap diunduh", `${rk.filter((r) => r.adaTarif && r.Pendapatan > 0).length} slip siap`, "slip"]
+      [rk.filter((r) => r.adaTarif && r.Pendapatan > 0).length > 0, "Slip siap diunduh", `${rk.filter((r) => r.adaTarif && r.Pendapatan > 0).length} slip siap`, "slip"],
+      [terkunci(), "Disetujui & dikunci", terkunci() ? `oleh ${cfg.approval[hasil.periode].oleh}` : "masih draft", "slip"]
     ];
-    let h = `<div class="stack"><div class="panel"><h2>Progres rekap gaji ${bulanLabel(hasil.periode)}</h2><div class="steps" style="margin-top:12px">${steps.map((s, i) => `<div class="step ${s[0] ? "done" : ""}"><div class="no">${s[0] ? "✓" : i + 1}</div><div><b>${s[1]}</b><span class="sub">${s[2]}${s[3] ? ` · ${s[3].startsWith("#") ? `<a href="${s[3]}">isi</a>` : `<a href="#" data-go="${s[3]}">buka</a>`}` : ""}</span></div></div>`).join("")}</div></div>`;
+    let h = `<div class="stack"><div class="panel"><div class="row between"><h2>Progres rekap gaji ${bulanLabel(hasil.periode)}</h2>
+      <div class="row"><span class="hint">Unduh isi dashboard:</span><button class="btn ghost small" id="lap-xls">Laporan Excel</button><button class="btn small" id="lap-pdf">Laporan PDF untuk manajemen</button></div></div><div class="steps" style="margin-top:12px">${steps.map((s, i) => `<div class="step ${s[0] ? "done" : ""}"><div class="no">${s[0] ? "✓" : i + 1}</div><div><b>${s[1]}</b><span class="sub">${s[2]}${s[3] ? ` · ${s[3].startsWith("#") ? `<a href="${s[3]}">isi</a>` : `<a href="#" data-go="${s[3]}">buka</a>`}` : ""}</span></div></div>`).join("")}</div></div>`;
     h += `<h2>Penggajian</h2><div class="kpis">
       <div class="kpi"><div class="l">Biaya tenaga kerja</div><div class="v">${rp(biaya)}</div><div class="s">pendapatan bruto + benefit perusahaan${prev ? "<br>" + delta(biaya, prev.biaya) : ""}</div></div>
       <div class="kpi"><div class="l">Gaji ditransfer</div><div class="v">${rp(thp)}</div><div class="s">total take home pay ${rk.filter((r) => r.adaTarif).length} pegawai</div></div>
@@ -180,6 +182,7 @@
     h += "</div>";
     el.innerHTML = h;
     bindUpload(el);
+    $("#lap-xls").onclick = unduhLaporanExcel; $("#lap-pdf").onclick = unduhLaporanPDF;
     el.querySelectorAll("[data-inv]").forEach((inp) => inp.addEventListener("change", () => {
       const b = cfg.invoice[hasil.periode] = cfg.invoice[hasil.periode] || {};
       if (inp.value === "" || +inp.value === 0) delete b[inp.dataset.inv]; else b[inp.dataset.inv] = +inp.value;

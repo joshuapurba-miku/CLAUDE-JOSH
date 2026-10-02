@@ -132,6 +132,9 @@ td.wrap { white-space: normal; min-width: 220px; }
 input[type=text], input[type=number], input[type=date], select, textarea { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; width: 100%; }
 .filters select, .filters input { width: auto; max-width: 240px; }
 td input, td select { min-width: 90px; }
+td input[type=number] { min-width: 110px; }
+td input.wide { min-width: 210px; }
+td input.wide.xl { min-width: 270px; }
 textarea { resize: vertical; min-height: 70px; font-family: var(--font-num); font-size: 12.5px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
 details > summary { cursor: pointer; font-weight: 600; }
@@ -175,6 +178,16 @@ details > summary { cursor: pointer; font-weight: 600; }
 .tm.lv { background: var(--info-soft); color: var(--info); }
 .tm.off { background: transparent; color: var(--ink-3); cursor: default; }
 .tm.adj::after { content: ""; position: absolute; top: 2px; right: 2px; width: 4px; height: 4px; border-radius: 50%; background: var(--ink); }
+/* merek & persetujuan */
+.brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+#hdrLogo { height: 46px; width: auto; max-width: 170px; object-fit: contain; }
+.logo-prev { height: 56px; max-width: 220px; object-fit: contain; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 4px; }
+.slip .lg { background: #fff; border-radius: 6px; padding: 4px 6px; display: inline-flex; margin-right: 10px; flex: 0 0 auto; }
+.slip .lg img { height: 34px; width: auto; max-width: 120px; object-fit: contain; }
+.slip .band .left { display: flex; align-items: center; min-width: 0; }
+.slip .band .no { font-weight: 400; letter-spacing: 0; opacity: .9; font-size: 11px; display: block; }
+.slip .draft { display: inline-block; background: #fbefd5; color: #8a5200; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 3px; letter-spacing: .1em; margin-top: 3px; }
+.slip .conf { font-size: 10px; letter-spacing: .12em; color: var(--p-ink-2); text-transform: uppercase; }
 /* modal koreksi */
 .modal { position: fixed; inset: 0; z-index: 20; background: rgba(10, 16, 22, .45); display: flex; align-items: center; justify-content: center; padding: 16px; }
 .modal .box { background: var(--surface); color: var(--ink); border-radius: 10px; width: min(560px, 100%); max-height: 92vh; overflow: auto; padding: 18px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
@@ -240,10 +253,10 @@ details > summary { cursor: pointer; font-weight: 600; }
 
 <div class="wrap">
   <header class="top">
-    <div>
+    <div class="brand"><img id="hdrLogo" alt="Logo perusahaan" hidden><div>
       <h1>Rekap Absensi &amp; Gaji</h1>
       <p class="sub">Upload export HRIS bulanan. Cek dan koreksi absensi, isi komponen gaji, lalu unduh slip.</p>
-    </div>
+    </div></div>
     <div class="saved" id="saved" aria-live="polite"></div>
   </header>
   <div id="databar"></div>

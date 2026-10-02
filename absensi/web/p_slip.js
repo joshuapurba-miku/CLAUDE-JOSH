@@ -17,10 +17,11 @@
     const ln = (a, cls) => `<div class="ln${cls ? " " + cls : ""}"><span>${esc(a[0])}</span><span>${rp(a[1])}</span></div>`;
     const thp = s.ada ? Math.max(0, s.thp) : 0;
     return `<article class="slip" aria-label="Slip gaji ${esc(r.Nama)}">
-      <div class="band"><div class="co">${esc(namaPT())}${cfg.alamat ? `<small>${esc(cfg.alamat)}</small>` : ""}</div><div class="ttl">SLIP GAJI<small>${bulanLabel(hasil.periode)}</small></div></div>
+      <div class="band"><div class="left">${cfg.logo ? `<span class="lg"><img src="${cfg.logo}" alt=""></span>` : ""}<div class="co">${esc(namaPT())}${cfg.alamat ? `<small>${esc(cfg.alamat)}</small>` : ""}</div></div>
+        <div class="ttl">SLIP GAJI<small>${bulanLabel(hasil.periode)}</small><span class="no">No. ${esc(r.NoSlip)}</span>${terkunci() ? "" : '<span class="draft">DRAFT</span>'}</div></div>
       <div class="body">
         ${s.ada ? "" : '<div class="flag">Gaji pokok belum diisi untuk pegawai ini. Slip tidak ikut diunduh.</div>'}
-        <div class="muted">${esc(cfg.judulSlip)} · ${esc(POSISI_LABEL[r.Posisi] || r.Posisi)}</div>
+        <div class="row between"><div class="muted">${esc(cfg.judulSlip)} · ${esc(POSISI_LABEL[r.Posisi] || r.Posisi)}</div><span class="conf">Rahasia · hanya untuk penerima</span></div>
         <dl class="id">
           <div><dt>Nama</dt><dd>${esc(r.Nama)}</dd></div><div><dt>NIP</dt><dd>${esc(r.NIP || "-")}</dd></div>
           <div><dt>Jabatan</dt><dd>${esc(r.Jabatan)}</dd></div><div><dt>Penempatan</dt><dd>${esc(r.Cabang)}</dd></div>
@@ -49,6 +50,10 @@
       <div class="row"><button class="btn ghost" id="zipAll" ${siap.length ? "" : "disabled"}>ZIP: 1 file per pegawai</button><button class="btn" id="pdfAll" ${siap.length ? "" : "disabled"}>Unduh ${siap.length} slip (1 PDF)</button></div></div>
       <div class="filters" style="margin-top:12px"><div class="row"><select id="scab" aria-label="Filter lokasi">${cabangOpts(slipCabang, true)}</select>
       <input type="text" id="scari" placeholder="Cari nama / NIP" value="${esc(slipCari)}" aria-label="Cari slip"></div><span class="hint">Komponen variabel (home cleaning, bonus, kasbon, dll) diisi di tab Input Gaji.</span></div></div>`;
+    const ap = cfg.approval[hasil.periode];
+    h += ap ? `<div class="panel row between"><div><h3>Disetujui</h3><p class="sub">Gaji ${bulanLabel(hasil.periode)} disetujui oleh <b>${esc(ap.oleh)}</b> pada ${esc(ap.tanggal)}. Absensi, input gaji, tarif, dan aturan dikunci; slip tidak lagi bertanda DRAFT.</p></div><button class="btn ghost" id="ap-buka">Buka kunci</button></div>`
+      : `<div class="panel row between"><div style="min-width:0;flex:1 1 320px"><h3>Status: Draft</h3><p class="sub">Setelah absensi, input gaji, dan slip dicek, setujui periode ini. Slip berhenti bertanda DRAFT dan data dikunci agar tidak berubah tanpa sengaja.</p></div>
+        <div class="row"><input type="text" id="ap-oleh" value="${esc(cfg.ttdNama)}" placeholder="Disetujui oleh" aria-label="Disetujui oleh" style="width:200px"><button class="btn" id="ap-kunci" ${siap.length ? "" : "disabled"}>Setujui &amp; kunci</button></div></div>`;
     if (belum) h += `<div class="banner warn">${belum} pegawai belum punya gaji pokok. <a href="#" data-go="gaji">Isi Tarif Gaji</a> atau isi gaji pokok khusus di Input Gaji.</div>`;
     h += list.length ? `<div class="slips">${list.map(slipHTML).join("")}</div>` : '<p class="empty">Tidak ada pegawai yang cocok.</p>';
     el.innerHTML = h + "</div>";
@@ -57,6 +62,14 @@
     const cari = $("#scari");
     cari.oninput = (e) => { slipCari = e.target.value; clearTimeout(cari._t); cari._t = setTimeout(() => { renderSlip(); const n = $("#scari"); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); };
     const nmFile = "Slip_Gaji_" + hasil.periode + (slipCabang ? "_" + slipCabang.replace(/[^\w]+/g, "_") : "");
+    const bk = $("#ap-buka"), kc = $("#ap-kunci");
+    if (bk) bk.onclick = () => { if (bk.dataset.armed) { delete cfg.approval[hasil.periode]; scheduleSave(); renderAll(); } else { bk.dataset.armed = "1"; bk.textContent = "Klik lagi untuk membuka kunci"; } };
+    if (kc) kc.onclick = () => {
+      const oleh = $("#ap-oleh").value.trim();
+      if (!oleh) { $("#ap-oleh").focus(); setSaved("Isi nama yang menyetujui."); return; }
+      if (!kc.dataset.armed) { kc.dataset.armed = "1"; kc.textContent = "Klik lagi untuk mengunci"; return; }
+      cfg.approval[hasil.periode] = { oleh, tanggal: tglPanjang(new Date()) }; scheduleSave(); renderAll();
+    };
     $("#pdfAll").onclick = () => unduhPDF(siap, nmFile + ".pdf");
     $("#zipAll").onclick = () => unduhZIP(siap, nmFile + ".zip");
     el.querySelectorAll("[data-pdf]").forEach((b) => b.onclick = () => {
@@ -72,14 +85,18 @@
     const rpT = (n) => "Rp" + Math.round(n || 0).toLocaleString("id-ID");
     const X0 = 14, X1 = 196, W = X1 - X0;
     // kepala
+    if (!terkunci()) watermark(doc, "DRAFT");
     doc.setFillColor(...G); doc.rect(0, 0, 210, 30, "F");
-    doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(14);
-    doc.text(doc.splitTextToSize(namaPT(), 120)[0], X0, 13);
+    const tx = X0 + logoPDF(doc, X0, 5, 20);
+    doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold");
+    namaPDF(doc, tx, 13, 118 - (tx - X0));
     doc.setFont("helvetica", "normal"); doc.setFontSize(9);
-    doc.text(doc.splitTextToSize(cfg.alamat || "", 120)[0] || "", X0, 19);
-    doc.text(cfg.judulSlip + " · " + (POSISI_LABEL[r.Posisi] || r.Posisi), X0, 24);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.text("SLIP GAJI", X1, 14, { align: "right" });
-    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("Periode " + bulanLabel(hasil.periode), X1, 21, { align: "right" });
+    doc.text(doc.splitTextToSize(cfg.alamat || "", 118 - (tx - X0))[0] || "", tx, 19);
+    doc.text(cfg.judulSlip + " · " + (POSISI_LABEL[r.Posisi] || r.Posisi), tx, 24);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.text("SLIP GAJI", X1, 12, { align: "right" });
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.text("Periode " + bulanLabel(hasil.periode), X1, 18, { align: "right" });
+    doc.text("No. " + r.NoSlip, X1, 23, { align: "right" });
+    doc.setFontSize(7.5); doc.text(terkunci() ? "RAHASIA" : "DRAFT · RAHASIA", X1, 27.5, { align: "right" });
     let y = 40;
     // identitas
     const idf = [["Nama", r.Nama, "NIP", r.NIP || "-"], ["Jabatan", r.Jabatan, "Penempatan", r.Cabang], ["Status", r.StatusKerja || "-", "Performance", s.M.performance || "-"]];
@@ -148,5 +165,29 @@
     doc.text(r.Nama, 50, y + 24, { align: "center" }); doc.text(cfg.ttdNama || "(........................)", 160, y + 24, { align: "center" });
     doc.setFont("helvetica", "normal"); doc.text(cfg.ttdJabatan || "", 160, y + 29, { align: "center" });
     doc.setFontSize(7.5); doc.setTextColor(...MUTED);
-    doc.text(`Dihitung dari data absensi HRIS ${hasil.dari} s/d ${hasil.sampai}. Dokumen ini dibuat otomatis.`, X0, 290);
+    const ap = cfg.approval[hasil.periode];
+    doc.text(`Dihitung dari data absensi Kolabo ${hasil.dari} s/d ${hasil.sampai}. ${ap ? "Disetujui oleh " + ap.oleh + ", " + ap.tanggal + "." : "DRAFT, belum disetujui."} Dokumen rahasia, hanya untuk penerima.`, X0, 290);
+  }
+
+  // ---------- util PDF bersama ----------
+  function logoPDF(doc, x, y, h) {
+    if (!cfg.logo || !cfg.logoW) return 0;
+    const ih = h - 3, w = Math.min(45, ih * cfg.logoW / cfg.logoH), ihh = w * cfg.logoH / cfg.logoW;
+    doc.setFillColor(255, 255, 255); doc.roundedRect(x, y, w + 4, h, 2, 2, "F");
+    try { doc.addImage(cfg.logo, "PNG", x + 2, y + (h - ihh) / 2, w, ihh); } catch (e) { return 0; }
+    return w + 8;
+  }
+  function watermark(doc, teks) {
+    doc.saveGraphicsState();
+    try { doc.setGState(new doc.GState({ opacity: 0.07 })); } catch (e) { /* abaikan */ }
+    doc.setTextColor(120, 120, 120); doc.setFont("helvetica", "bold"); doc.setFontSize(110);
+    doc.text(teks, 45, 215, { angle: 35 });
+    doc.restoreGraphicsState();
+  }
+  function namaPDF(doc, x, y, maxW) {
+    doc.setFontSize(14);
+    if (doc.getTextWidth(namaPT()) <= maxW) { doc.text(namaPT(), x, y); return; }
+    doc.setFontSize(11);
+    const ln = doc.splitTextToSize(namaPT(), maxW).slice(0, 2);
+    doc.text(ln, x, ln.length > 1 ? y - 3.6 : y);
   }
