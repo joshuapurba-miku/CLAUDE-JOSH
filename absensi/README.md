@@ -23,14 +23,15 @@ HRIS menghitung telat dari jadwal yang kaku. Script ini menebak **shift aktual**
 
 ## File opsional di `data/` (lihat file `.contoh`)
 - `izin_cuti.csv` : ubah hari "Absent" menjadi Izin/Sakit/Cuti (kolom `dibayar` ya/tidak menentukan dipotong atau tidak).
+- `lembur.csv`   : **aturan lembur manual** per cabang + tanggal. Lembur hanya dibayar bila ada aturan yang cocok; tanpa aturan, lembur tetap tampil sebagai info (kolom "Lembur Tidak Dibayar"). Kolom: `cabang` (isi `*` untuk semua cabang), `tanggal_mulai`, `tanggal_selesai` (kosong = 1 hari), `tarif_per_jam`, `nip` (opsional, kosong = semua karyawan cabang), `keterangan`.
 - `karyawan.csv`  : gaji pokok, tunjangan, uang makan -> aktifkan perhitungan potongan & gaji bersih.
 
 ## Yang perlu Anda sesuaikan di `config.json`
 - `shifts`: daftar shift yang dipakai perusahaan. **Tambah shift baru di sini** bila ada pola jam baru.
 - `alias_jadwal`: jadwal HRIS yang salah setting (mis. 08:30-22:00 -> kantor 08:30-17:30; 15:00-11:00 -> 15-23).
 - `cabang_shift_tetap`: cabang yang shift-nya tidak ditebak (kantor).
-- `penggajian`: nilai Rupiah per menit telat, upah lembur, dll. **Default 0, isi sesuai kebijakan.**
-- `lembur`: minimum menit, pembulatan, dan cabang yang berhak lembur. Lembur >= 4 jam tidak dibayar otomatis (masuk Perlu Review).
+- `penggajian`: telat **> 10 menit = potongan Rp20.000 per kejadian** (`potongan_telat_ambang_menit`, `potongan_telat_per_kejadian`); telat <= 10 menit tidak dipotong. Potongan pulang cepat & bonus double shift default 0.
+- `lembur`: minimum menit (60) dan pembulatan (30 mnt). Tarif/jam diisi di `lembur.csv`, bukan di sini.
 
 ## Test
 `python -m pytest test_absensi.py`

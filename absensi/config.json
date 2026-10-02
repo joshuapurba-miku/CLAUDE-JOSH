@@ -79,25 +79,18 @@
   "review_jika_biaya_di_atas_menit": 120,
   "min_menit_kerja_valid": 120,
   "lembur": {
+    "_catatan": "Lembur hanya dibayar bila ada aturan di data/lembur.csv (cabang + tanggal). Tanpa aturan, lembur hanya tampil sebagai info.",
     "min_menit": 60,
-    "pembulatan_menit": 30,
-    "cabang_berhak_lembur": [
-      "Tim Lapangan DAFI SCHOOL",
-      "Tim Lapangan FIT INFINITY",
-      "Tim Lapangan RSMH",
-      "Tim Lapangan Play Padel",
-      "Tim Lapangan Gotong-Gotong",
-      "Tim Lapangan Cv Bintang Harapan",
-      "Home Cleaning"
-    ]
+    "pembulatan_menit": 30
   },
   "penggajian": {
     "pembagi_hari_kerja": 26,
     "potongan_absen_per_hari": "gaji_pokok / pembagi_hari_kerja",
-    "potongan_telat_per_menit": 0,
     "potongan_pulang_cepat_per_menit": 0,
-    "upah_lembur_per_jam": 0,
-    "bonus_double_shift_per_shift": 0
+    "bonus_double_shift_per_shift": 0,
+    "potongan_telat_ambang_menit": 10,
+    "potongan_telat_per_kejadian": 20000,
+    "_catatan_telat": "Telat > ambang menit = potongan flat per kejadian. Telat <= ambang tidak dipotong."
   },
   "cabang_shift_tetap": [
     "HEAD OFFICE INTERNAL",

@@ -122,11 +122,27 @@ def baca_opsional(nama):
 
 
 # ---------- hitung per hari ----------
-def hitung_hari(row, cfg, shifts):
+def aturan_lembur(lembur, cabang, tanggal, nip):
+    """Cari aturan lembur manual yang cocok (cabang '*' = semua, nip kosong = semua). Return tarif/jam atau None."""
+    if lembur is None:
+        return None
+    for _, a in lembur.iterrows():
+        if a["cabang"] not in ("*", cabang):
+            continue
+        if a.get("nip", "") not in ("", nip):
+            continue
+        awal = pd.Timestamp(a["tanggal_mulai"])
+        akhir = pd.Timestamp(a["tanggal_selesai"]) if a.get("tanggal_selesai", "") else awal
+        if awal <= pd.Timestamp(tanggal) <= akhir:
+            return float(a["tarif_per_jam"] or 0)
+    return None
+
+
+def hitung_hari(row, cfg, shifts, lembur_rules=None):
     r = {"Tanggal": row["tanggal"].date(), "Hari": row["Day"], "Nama": row["Employee Name"], "NIP": row["NIP"],
          "Cabang": row["Branch"], "Posisi": row["Post"], "Jadwal HRIS": "", "Shift Aktual": "", "Status Shift": "",
          "Check In": "", "Check Out": "", "Status": row["Attendance Code"], "Telat (mnt)": 0,
-         "Pulang Cepat (mnt)": 0, "Lembur (mnt)": 0, "Lembur Dibayar (jam)": 0.0, "Jam Kerja": 0.0,
+         "Pulang Cepat (mnt)": 0, "Lembur (mnt)": 0, "Lembur Dibayar (jam)": 0.0, "Upah Lembur (Rp)": 0, "Potongan Telat (Rp)": 0, "Jam Kerja": 0.0,
          "Double Shift": "", "Telat HRIS (mnt)": "", "Catatan": ""}
     cat = []
     code = row["Attendance Code"]
@@ -151,6 +167,8 @@ def hitung_hari(row, cfg, shifts):
         cat.append(f"REVIEW: jam absen tidak cocok dengan shift mana pun (selisih {int(bi)} mnt)")
 
     r["Telat (mnt)"] = max(0, int(ci - sh["masuk"]) - cfg["toleransi_telat_menit"])
+    if r["Telat (mnt)"] > cfg["penggajian"]["potongan_telat_ambang_menit"]:
+        r["Potongan Telat (Rp)"] = cfg["penggajian"]["potongan_telat_per_kejadian"]
 
     if co is None or co <= ci:
         cat.append("REVIEW: check-out kosong/tidak valid (cek lupa absen pulang)")
@@ -168,11 +186,17 @@ def hitung_hari(row, cfg, shifts):
             r["Pulang Cepat (mnt)"] = max(0, pc)
             lembur = int(co - sh["pulang"])
             r["Lembur (mnt)"] = max(0, lembur)
-            if lembur >= cfg["lembur"]["min_menit"] and lembur < 240 and row["Branch"] in cfg["lembur"]["cabang_berhak_lembur"]:
-                p = cfg["lembur"]["pembulatan_menit"]
-                r["Lembur Dibayar (jam)"] = (lembur // p) * p / 60
+            tarif = aturan_lembur(lembur_rules, row["Branch"], r["Tanggal"], row["NIP"])
+            if lembur >= cfg["lembur"]["min_menit"]:
+                if tarif is not None:
+                    p = cfg["lembur"]["pembulatan_menit"]
+                    r["Lembur Dibayar (jam)"] = (lembur // p) * p / 60
+                    r["Upah Lembur (Rp)"] = round(r["Lembur Dibayar (jam)"] * tarif)
+                    cat.append("lembur dibayar (aturan manual)")
+                else:
+                    cat.append("lembur terdeteksi, tidak ada aturan lembur -> tidak dibayar")
             if lembur >= 240:
-                cat.append("REVIEW: lembur >= 4 jam (tidak otomatis dibayar, konfirmasi dulu)")
+                cat.append("REVIEW: lembur >= 4 jam, pastikan jam pulang benar")
 
     if valid(row.get("Double Shift Check In At", "X")):
         r["Double Shift"] = "ya"
@@ -205,6 +229,11 @@ def rekap_karyawan(det, df, cfg, izin, master):
              "Telat (kali)": len(telat), "Telat (mnt)": int(telat["Telat (mnt)"].sum()),
              "Pulang Cepat (kali)": len(pc), "Pulang Cepat (mnt)": int(pc["Pulang Cepat (mnt)"].sum()),
              "Lembur Dibayar (jam)": float(hadir["Lembur Dibayar (jam)"].sum()),
+             "Lembur Tidak Dibayar (jam)": round(float(hadir[hadir["Lembur Dibayar (jam)"] == 0]["Lembur (mnt)"]
+                                                     .where(lambda x: x >= cfg["lembur"]["min_menit"], 0).sum()) / 60, 1),
+             "Telat > Ambang (kali)": int((hadir["Potongan Telat (Rp)"] > 0).sum()),
+             "Potongan Telat (Rp)": int(hadir["Potongan Telat (Rp)"].sum()),
+             "Upah Lembur (Rp)": int(hadir["Upah Lembur (Rp)"].sum()),
              "Double Shift": int((hadir["Double Shift"] == "ya").sum()),
              "Shift Berubah (kali)": int(hadir["Status Shift"].str.startswith("shift berubah").sum()),
              "Telat Menurut HRIS (mnt)": int(pd.to_numeric(hadir["Telat HRIS (mnt)"], errors="coerce").fillna(0).sum())}
@@ -221,13 +250,11 @@ def rekap_karyawan(det, df, cfg, izin, master):
         for c in ("gaji_pokok", "tunjangan_tetap", "uang_makan_per_hari"):
             out[c] = out[c].fillna(0)
         out["Potongan Absen"] = (out["gaji_pokok"] / pen["pembagi_hari_kerja"] * out["Absen Dipotong"]).round()
-        out["Potongan Telat"] = out["Telat (mnt)"] * pen["potongan_telat_per_menit"]
         out["Potongan Pulang Cepat"] = out["Pulang Cepat (mnt)"] * pen["potongan_pulang_cepat_per_menit"]
-        out["Upah Lembur"] = out["Lembur Dibayar (jam)"] * pen["upah_lembur_per_jam"] + \
-            out["Double Shift"] * pen["bonus_double_shift_per_shift"]
         out["Uang Makan"] = out["uang_makan_per_hari"] * out["Hadir"]
-        out["Gaji Bersih"] = (out["gaji_pokok"] + out["tunjangan_tetap"] + out["Uang Makan"] + out["Upah Lembur"]
-                              - out["Potongan Absen"] - out["Potongan Telat"] - out["Potongan Pulang Cepat"])
+        out["Gaji Bersih"] = (out["gaji_pokok"] + out["tunjangan_tetap"] + out["Uang Makan"] + out["Upah Lembur (Rp)"]
+                              + out["Double Shift"] * pen["bonus_double_shift_per_shift"]
+                              - out["Potongan Absen"] - out["Potongan Telat (Rp)"] - out["Potongan Pulang Cepat"])
     return out
 
 
@@ -279,8 +306,9 @@ def main():
     shifts = siapkan_shift(cfg)
     df = baca_export(a.export)
     izin, master = baca_opsional("izin_cuti.csv"), baca_opsional("karyawan.csv")
+    lembur_rules = baca_opsional("lembur.csv")
 
-    hasil = [hitung_hari(r, cfg, shifts) for _, r in df.iterrows()]
+    hasil = [hitung_hari(r, cfg, shifts, lembur_rules) for _, r in df.iterrows()]
     det = pd.DataFrame([h[0] for h in hasil])
     catatan = [h[1] for h in hasil]
     det["Catatan"] = ["; ".join(c) for c in catatan]
