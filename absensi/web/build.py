@@ -6,7 +6,8 @@ print('built',len(out))
 
 # ---- versi mandiri (offline, untuk laptop tim) ----
 import re
-NM='/tmp/claude-0/-home-user-CLAUDE-JOSH/a6d8469a-f2c2-5819-8d66-22aa2612478a/scratchpad/node_modules/'
+import os
+NM=os.environ.get('NODE_MODULES', os.path.expanduser('~/node_modules')) + '/'  # xlsx@0.18.5, jspdf@2.5.1, jszip@3.10.1
 libs={'xlsx/0.18.5/xlsx.full.min.js':NM+'xlsx/dist/xlsx.full.min.js','jspdf/2.5.1/jspdf.umd.min.js':NM+'jspdf/dist/jspdf.umd.min.js','jszip/3.10.1/jszip.min.js':NM+'jszip/dist/jszip.min.js'}
 sa=out
 for k,p in libs.items():
