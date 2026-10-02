@@ -1,6 +1,6 @@
 <title>Rekap Absensi Gaji</title>
 <style>
-/* Layout: bilah data di atas, lima tab. Dashboard = ringkasan dulu, lalu keputusan, lalu grafik, lalu tabel. */
+/* Layout: bilah data di atas, enam tab. Dashboard = ringkasan dulu, lalu keputusan, lalu grafik, lalu tabel. */
 :root {
   --bg: #f3f5f7;
   --surface: #ffffff;
@@ -19,6 +19,8 @@
   --warn-bar: #d48a12;
   --bad: #b3261e;
   --bad-soft: #fbe3e1;
+  --info: #1f5f9e;
+  --info-soft: #e0ecf8;
   --font-body: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
@@ -26,14 +28,15 @@
   :root:not([data-theme="light"]) {
     --bg: #11171d; --surface: #19212a; --surface-2: #222c37; --ink: #e6ebf0; --ink-2: #9aa7b4; --ink-3: #7b8896;
     --line: #2e3a47; --accent: #4cc38a; --accent-ink: #0b1a13; --accent-soft: #17382a; --bar: #45b880; --bar-track: #26313c;
-    --warn: #f0b95a; --warn-soft: #3a2c10; --warn-bar: #e0a03a; --bad: #ff8a80; --bad-soft: #3d1b19; color-scheme: dark;
+    --warn: #f0b95a; --warn-soft: #3a2c10; --warn-bar: #e0a03a; --bad: #ff8a80; --bad-soft: #3d1b19; --info: #8cc0f5; --info-soft: #172c42; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #11171d; --surface: #19212a; --surface-2: #222c37; --ink: #e6ebf0; --ink-2: #9aa7b4; --ink-3: #7b8896;
   --line: #2e3a47; --accent: #4cc38a; --accent-ink: #0b1a13; --accent-soft: #17382a; --bar: #45b880; --bar-track: #26313c;
-  --warn: #f0b95a; --warn-soft: #3a2c10; --warn-bar: #e0a03a; --bad: #ff8a80; --bad-soft: #3d1b19; color-scheme: dark;
+  --warn: #f0b95a; --warn-soft: #3a2c10; --warn-bar: #e0a03a; --bad: #ff8a80; --bad-soft: #3d1b19; --info: #8cc0f5; --info-soft: #172c42; color-scheme: dark;
 }
+*, *::before, *::after { box-sizing: border-box; }
 body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.5; }
 .wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 48px; }
 h1 { font-size: 22px; line-height: 1.2; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
@@ -132,30 +135,101 @@ td input, td select { min-width: 90px; }
 textarea { resize: vertical; min-height: 70px; font-family: var(--font-num); font-size: 12.5px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
 details > summary { cursor: pointer; font-weight: 600; }
+/* rekap per lokasi: kalender kode absensi */
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: var(--surface); padding: 7px 14px; font-weight: 600; cursor: pointer; color: var(--ink-2); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.cal { border-collapse: separate; border-spacing: 2px; font-size: 12px; }
+.cal th, .cal td { border: 0; padding: 0; white-space: nowrap; }
+.cal th { background: none; text-align: center; font-weight: 600; color: var(--ink-3); font-size: 11px; padding: 2px 0; }
+.cal th.we { color: var(--warn); }
+.cal td.nm { padding: 4px 10px 4px 0; position: sticky; left: 0; background: var(--surface); z-index: 1; min-width: 150px; }
+.cal td.nm b { display: block; font-size: 12.5px; }
+.cal td.sm { padding: 0 6px; text-align: right; font-family: var(--font-num); font-variant-numeric: tabular-nums; color: var(--ink); }
+.cal th.sm { padding: 2px 6px; }
+.cell { width: 26px; height: 26px; border: 0; border-radius: 4px; font: 600 11.5px var(--font-num); cursor: pointer; background: var(--surface-2); color: var(--ink-2); position: relative; padding: 0; }
+.cell.H { background: var(--accent-soft); color: var(--accent); }
+.cell.T { background: var(--warn-soft); color: var(--warn); }
+.cell.A { background: var(--bad-soft); color: var(--bad); }
+.cell.I, .cell.S, .cell.C { background: var(--info-soft); color: var(--info); }
+.cell.O { background: transparent; color: var(--ink-3); }
+.cell.adj::after { content: ""; position: absolute; top: 2px; right: 2px; width: 5px; height: 5px; border-radius: 50%; background: var(--ink); }
+.cell.rev { box-shadow: inset 0 0 0 2px var(--warn-bar); }
+.keys { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--ink-2); align-items: center; }
+.keys .cell { cursor: default; width: 22px; height: 22px; margin-right: 4px; vertical-align: middle; }
+/* tabel jam masuk & pulang */
+.jt { border-collapse: separate; border-spacing: 2px; font-size: 11px; }
+.jt th, .jt td { border: 0; padding: 0; white-space: nowrap; }
+.jt th { background: none; text-align: center; font-weight: 600; color: var(--ink-3); font-size: 10.5px; padding: 2px 0; }
+.jt th.we { color: var(--warn); }
+.jt td.nm { padding: 3px 10px 3px 0; position: sticky; left: 0; background: var(--surface); z-index: 1; min-width: 150px; font-size: 12px; }
+.jt td.sm { padding: 0 6px; text-align: right; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 12px; }
+.jt th.sm { padding: 2px 6px; }
+.tm { min-width: 42px; height: 24px; border: 0; border-radius: 4px; font: 500 11px var(--font-num); cursor: pointer; background: var(--surface-2); color: var(--ink); padding: 0 3px; position: relative; }
+.tm.late { background: var(--bad-soft); color: var(--bad); font-weight: 700; }
+.tm.early { background: var(--warn-soft); color: var(--warn); font-weight: 700; }
+.tm.early::before { content: "▼"; font-size: 7px; position: absolute; top: 1px; left: 2px; }
+.tm.ot { background: var(--accent-soft); color: var(--accent); }
+.tm.miss { background: transparent; box-shadow: inset 0 0 0 1.5px var(--bad); color: var(--bad); }
+.tm.abs { background: var(--bad-soft); color: var(--bad); }
+.tm.lv { background: var(--info-soft); color: var(--info); }
+.tm.off { background: transparent; color: var(--ink-3); cursor: default; }
+.tm.adj::after { content: ""; position: absolute; top: 2px; right: 2px; width: 4px; height: 4px; border-radius: 50%; background: var(--ink); }
+/* modal koreksi */
+.modal { position: fixed; inset: 0; z-index: 20; background: rgba(10, 16, 22, .45); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.modal .box { background: var(--surface); color: var(--ink); border-radius: 10px; width: min(560px, 100%); max-height: 92vh; overflow: auto; padding: 18px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px 12px; background: var(--bg); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; }
+.facts div span { display: block; color: var(--ink-2); font-size: 11.5px; }
+.facts div b { font-family: var(--font-num); font-weight: 600; }
+/* input gaji */
+.ig { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .ig { grid-template-columns: 1fr; } }
+.ig .sumbox { position: sticky; top: 12px; }
+.fs { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.fs legend { font-weight: 700; font-size: 13.5px; padding: 0; margin-bottom: 8px; }
+.fs .grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.sumline { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; font-size: 13px; }
+.sumline span:last-child { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.sumline.big { border-top: 2px solid var(--accent); margin-top: 6px; padding-top: 8px; font-weight: 700; font-size: 15px; }
+.sumline.big span:last-child { color: var(--accent); }
 /* slip gaji: kertas putih di kedua tema, seperti dokumen cetak */
-.slips { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); gap: 16px; }
-@media (max-width: 420px) { .slips { grid-template-columns: 1fr; } }
-.slip { --p-ink: #1b2430; --p-ink-2: #5d6874; --p-line: #d9dee4; --p-head: #0e7a4f; background: #ffffff; color: var(--p-ink); border: 1px solid var(--line); border-radius: 6px; padding: 18px; font-size: 12.5px; min-width: 0; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
-.slip .hd { display: flex; justify-content: space-between; gap: 10px; border-bottom: 2px solid var(--p-head); padding-bottom: 8px; margin-bottom: 10px; }
-.slip .co { font-weight: 700; font-size: 13px; overflow-wrap: anywhere; }
-.slip .ttl { text-align: right; font-weight: 700; color: var(--p-head); letter-spacing: .06em; font-size: 12px; white-space: nowrap; }
-.slip .ttl span { display: block; color: var(--p-ink-2); letter-spacing: 0; font-weight: 600; }
-.slip .id { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin-bottom: 10px; }
+.slips { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 620px), 1fr)); gap: 18px; }
+.slip { --p-ink: #1b2430; --p-ink-2: #5d6874; --p-line: #dde3e8; --p-head: #0e5c3d; --p-soft: #eef4f1; background: #ffffff; color: var(--p-ink); border: 1px solid var(--line); border-radius: 6px; font-size: 12.5px; min-width: 0; box-shadow: 0 1px 3px rgba(0,0,0,.08); overflow: hidden; }
+.slip .band { background: var(--p-head); color: #ffffff; padding: 14px 18px; display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.slip .band .co { font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
+.slip .band .co small { display: block; font-weight: 400; opacity: .85; font-size: 11.5px; }
+.slip .band .ttl { text-align: right; font-weight: 700; letter-spacing: .08em; white-space: nowrap; }
+.slip .band .ttl small { display: block; letter-spacing: 0; font-weight: 400; opacity: .9; }
+.slip .body { padding: 14px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
+.slip .id { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 18px; margin: 0; }
+.slip .id div { display: grid; grid-template-columns: 82px 1fr; gap: 6px; }
 .slip .id dt { color: var(--p-ink-2); }
 .slip .id dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
-.slip .att { display: flex; flex-wrap: wrap; gap: 4px 14px; background: #f2f5f3; border-radius: 4px; padding: 6px 8px; margin-bottom: 10px; color: var(--p-ink-2); }
-.slip .att b { color: var(--p-ink); }
-.slip .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-@media (max-width: 420px) { .slip .two { grid-template-columns: 1fr; } }
-.slip h4 { margin: 0 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--p-ink-2); }
+.slip .att { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; background: var(--p-line); border: 1px solid var(--p-line); border-radius: 6px; overflow: hidden; }
+.slip .att div { background: var(--p-soft); padding: 6px 8px; min-width: 0; }
+.slip .att b { display: block; font-family: var(--font-num); font-size: 15px; color: var(--p-ink); }
+.slip .att span { color: var(--p-ink-2); font-size: 10.5px; }
+.slip .att .bad b { color: #b3261e; }
+.slip .cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.slip h4 { margin: 0 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--p-head); border-bottom: 1px solid var(--p-head); padding-bottom: 3px; }
+.slip .sec { margin-top: 8px; font-weight: 700; font-size: 11.5px; color: var(--p-ink-2); }
+.slip .sec small { font-weight: 400; }
 .slip .ln { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
 .slip .ln span:last-child { font-family: var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.slip .sum { border-top: 1px solid var(--p-line); margin-top: 4px; padding-top: 4px; font-weight: 700; }
-.slip .net { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; border-top: 2px solid var(--p-head); margin-top: 12px; padding-top: 8px; font-weight: 700; }
-.slip .net span:last-child { font-family: var(--font-num); font-size: 17px; color: var(--p-head); }
-.slip .flag { background: #fbefd5; color: #8a5200; border-radius: 4px; padding: 6px 8px; margin-bottom: 8px; font-weight: 600; }
-.slip .acts { display: flex; justify-content: flex-end; margin-top: 10px; }
-.slip .acts .btn.ghost { color: var(--p-ink); border-color: var(--p-line); }
+.slip .ln.sub { border-top: 1px dashed var(--p-line); font-weight: 600; }
+.slip .ln.tot { border-top: 1px solid var(--p-ink); margin-top: 6px; padding-top: 4px; font-weight: 700; }
+.slip .muted { color: var(--p-ink-2); font-size: 11.5px; }
+.slip .net { background: var(--p-soft); border-radius: 6px; padding: 10px 14px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: end; }
+.slip .net div span { display: block; color: var(--p-ink-2); font-size: 11px; }
+.slip .net div b { font-family: var(--font-num); font-size: 14px; }
+.slip .net .thp b { color: var(--p-head); font-size: 18px; }
+.slip .terb { font-style: italic; color: var(--p-ink-2); }
+.slip .sign { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; text-align: center; margin-top: 4px; }
+.slip .sign .sp { height: 46px; }
+.slip .flag { background: #fbefd5; color: #8a5200; border-radius: 4px; padding: 6px 8px; font-weight: 600; }
+.slip .acts { display: flex; justify-content: flex-end; gap: 8px; }
+.slip .acts .btn.ghost { color: var(--p-ink); border-color: var(--p-line); background: #fff; }
+@media (max-width: 560px) { .slip .cols, .slip .id { grid-template-columns: 1fr; } .slip .att { grid-template-columns: repeat(3, minmax(0, 1fr)); } .slip .net { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { h1 { font-size: 19px; } .kpi .v { font-size: 19px; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -163,30 +237,35 @@ details > summary { cursor: pointer; font-weight: 600; }
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <div class="wrap">
   <header class="top">
     <div>
       <h1>Rekap Absensi &amp; Gaji</h1>
-      <p class="sub">Upload export HRIS bulanan. Dashboard, rekap karyawan, dan slip gaji langsung jadi.</p>
+      <p class="sub">Upload export Kolabo bulanan. Cek dan koreksi absensi, isi komponen gaji, lalu unduh slip.</p>
     </div>
     <div class="saved" id="saved" aria-live="polite"></div>
   </header>
   <div id="databar"></div>
   <nav class="tabs" role="tablist" id="tabs">
     <button role="tab" aria-selected="true" data-tab="dash">Dashboard</button>
-    <button role="tab" aria-selected="false" data-tab="kary">Karyawan</button>
+    <button role="tab" aria-selected="false" data-tab="rekap">Rekap Absensi</button>
+    <button role="tab" aria-selected="false" data-tab="input">Input Gaji</button>
     <button role="tab" aria-selected="false" data-tab="slip">Slip Gaji</button>
     <button role="tab" aria-selected="false" data-tab="gaji">Tarif Gaji</button>
     <button role="tab" aria-selected="false" data-tab="aturan">Aturan</button>
   </nav>
   <section id="tab-dash"></section>
-  <section id="tab-kary" hidden></section>
+  <section id="tab-rekap" hidden></section>
+  <section id="tab-input" hidden></section>
   <section id="tab-slip" hidden></section>
   <section id="tab-gaji" hidden></section>
   <section id="tab-aturan" hidden></section>
 </div>
 <div id="tip" hidden></div>
+<div id="modal"></div>
+
 
 <script>
 (function () {
@@ -205,14 +284,15 @@ details > summary { cursor: pointer; font-weight: 600; }
     ["HEAD OFFICE INTERNAL", "HUMAN RESOURCE DEPARTMENT"], ["HEAD OFFICE INTERNAL", "Legal & Compliance"],
     ["HEAD OFFICE INTERNAL", "CONTENT CREATOR INT"]
   ];
+  const TARIF_KOSONG = { gaji: 0, tunjMT: 0, tunjKin: 0, tunjAbs: 0, admin: 30000 };
   function defaultCfg() {
     return {
       shifts: [
         { nama: "Pagi 06-14", masuk: "06:00", pulang: "14:00", cabang: "", hari: "" },
         { nama: "Pagi 07-15", masuk: "07:00", pulang: "15:00", cabang: "", hari: "" },
         { nama: "Kantor 08:30-17:30", masuk: "08:30", pulang: "17:30", cabang: "HEAD OFFICE INTERNAL, Home Cleaning", hari: "" },
-        { nama: "Lapangan 09-16", masuk: "09:00", pulang: "16:00", cabang: "", hari: "" },
-        { nama: "Lapangan 09-18", masuk: "09:00", pulang: "18:00", cabang: "", hari: "" },
+        { nama: "Lapangan 09-16", masuk: "09:00", pulang: "16:00", cabang: "Tim Lapangan Gotong-Gotong", hari: "" },
+        { nama: "Lapangan 09-18", masuk: "09:00", pulang: "18:00", cabang: "Tim Lapangan Cv Bintang Harapan", hari: "" },
         { nama: "Siang 10-18", masuk: "10:00", pulang: "18:00", cabang: "", hari: "" },
         { nama: "Siang 14-22", masuk: "14:00", pulang: "22:00", cabang: "", hari: "" },
         { nama: "Sore 15-23", masuk: "15:00", pulang: "23:00", cabang: "", hari: "" },
@@ -222,22 +302,31 @@ details > summary { cursor: pointer; font-weight: 600; }
       alias: "08:30-22:00 = Kantor 08:30-17:30\n15:00-11:00 = Sore 15-23",
       tetap: "HEAD OFFICE INTERNAL\nHome Cleaning",
       tolTelat: 0, tolPulang: 10, gantiShift: 90, reviewBiaya: 120, minKerja: 120,
-      lemburMin: 60, lemburBulat: 30,
+      lemburMin: 60, lemburBulat: 30, tarifLembur: 0,
       pembagi: 26, telatAmbang: 10, telatNominal: 20000, pulangPerMenit: 0, bonusDouble: 0,
-      tarif: SEED_TARIF.map(([c, p]) => ({ cabang: c, posisi: p, gaji: 0, tunj: 0, makan: 0 })),
-      lembur: [],
-      izin: [],
-      perusahaan: "", alamat: "", ttdNama: "", ttdJabatan: "HRD"
+      dasarHarian: { gaji: true, tunjMT: true, tunjKin: false, tunjAbs: false },
+      tarif: SEED_TARIF.map(([c, p]) => Object.assign({ cabang: c, posisi: p }, TARIF_KOSONG)),
+      lembur: [], adj: {}, pegawai: {}, bulanan: {},
+      perusahaan: "", alamat: "", kota: "Makassar", ttdNama: "Joshua L.H Purba", ttdJabatan: "Direktur Operasional",
+      judulSlip: "Financial Detail Report",
+      tanpaJadwal: "Home Cleaning", metodeGaji: "potong",
+      hcTarif: [
+        { min: 1, max: 2, bagi: 20000, makan: 10000, trans: 5000 },
+        { min: 3, max: 4, bagi: 20000, makan: 15000, trans: 10000 },
+        { min: 5, max: 6, bagi: 25000, makan: 15000, trans: 10000 },
+        { min: 7, max: 8, bagi: 30000, makan: 15000, trans: 15000 },
+        { min: 9, max: 24, bagi: 35000, makan: 20000, trans: 15000 }
+      ],
+      invoice: {}, riwayat: {}
     };
   }
 
-  // ---------- state & penyimpanan ----------
+  // ---------- state ----------
   let cfg = defaultCfg();
-  let hasil = null;       // hasil hitung terakhir
-  let rawRows = null;     // baris export (disimpan agar bisa dihitung ulang)
-  let fileName = "";
-  let dbApi = null;
-  let saveTimer = null;
+  let hasil = null, rawRows = null, fileName = "", perusahaanFile = "";
+  let dbApi = null, saveTimer = null;
+  let currentTab = "dash";
+
   const $ = (s, r) => (r || document).querySelector(s);
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const rp = (n) => (n || n === 0) ? "Rp" + Math.round(n).toLocaleString("id-ID") : "—";
@@ -246,7 +335,20 @@ details > summary { cursor: pointer; font-weight: 600; }
   function mergeCfg(saved) {
     const d = defaultCfg();
     if (!saved || typeof saved !== "object") return d;
-    return Object.assign(d, saved);
+    if (saved.ttdJabatan === "HRD" && !saved.ttdNama) { delete saved.ttdJabatan; delete saved.ttdNama; }
+    delete saved.izin;
+    const c = Object.assign(d, saved);
+    c.tarif = (c.tarif || []).map((t) => {
+      const x = Object.assign({}, TARIF_KOSONG, t);
+      if (t.tunj != null && t.tunjMT == null) x.tunjMT = +t.tunj || 0;
+      delete x.tunj; delete x.makan;
+      return x;
+    });
+    ["adj", "pegawai", "bulanan", "invoice", "riwayat"].forEach((k) => { if (!c[k] || typeof c[k] !== "object") c[k] = {}; });
+    const dsh = Object.fromEntries(d.shifts.map((x) => [x.nama, x]));
+    c.shifts = (c.shifts || []).map((x) => (x.nama === "Lapangan 09-16" || x.nama === "Lapangan 09-18") && !x.cabang && dsh[x.nama] && x.masuk === dsh[x.nama].masuk && x.pulang === dsh[x.nama].pulang ? Object.assign({}, x, { cabang: dsh[x.nama].cabang }) : x);
+    c.dasarHarian = Object.assign({}, d.dasarHarian, saved.dasarHarian || {});
+    return c;
   }
   function setSaved(t) { $("#saved").textContent = t; }
   function scheduleSave() {
@@ -269,7 +371,7 @@ details > summary { cursor: pointer; font-weight: 600; }
       if (dbApi) {
         const snap = await dbApi.doc("settings/main").get();
         const d = snap && (snap.exists === true || (typeof snap.exists === "function" && snap.exists())) ? (typeof snap.data === "function" ? snap.data() : snap.data) : null;
-        if (d && d.json) { cfg = mergeCfg(JSON.parse(d.json)); renderAll(); }
+        if (d && d.json) { cfg = mergeCfg(JSON.parse(d.json)); if (rawRows) hasil = hitung(rawRows); renderAll(); }
       }
     } catch (e) { dbApi = null; }
   }
@@ -305,7 +407,7 @@ details > summary { cursor: pointer; font-weight: 600; }
   function normalisasi(json) {
     if (!json.length) throw new Error("Sheet kosong.");
     const kurang = WAJIB.filter((k) => !(k in json[0]));
-    if (kurang.length) throw new Error("Kolom tidak ditemukan: " + kurang.join(", ") + ". Format export HRIS berubah?");
+    if (kurang.length) throw new Error("Kolom tidak ditemukan: " + kurang.join(", ") + ". Format export Kolabo berubah?");
     return json.map((r) => ({
       iso: parseTgl(r["Date"]), hari: String(r["Day"]).trim(), nama: String(r["Employee Name"]).trim(),
       nip: String(r["NIP"] == null ? "" : r["NIP"]).trim(), cabang: String(r["Branch"]).trim(), posisi: String(r["Post"]).trim(),
@@ -352,7 +454,7 @@ details > summary { cursor: pointer; font-weight: 600; }
     if (!cands.length) return { sh: jad, status: "sesuai jadwal", bi: 0 };
     let best = cands[0], bb = biaya(best, ci, co);
     cands.forEach((c) => { const b = biaya(c, ci, co); if (b < bb) { best = c; bb = b; } });
-    if (!jad) return { sh: best, status: "shift ditebak (jadwal HRIS tidak valid)", bi: bb };
+    if (!jad) return { sh: best, status: "shift ditebak (jadwal Kolabo tidak valid)", bi: bb };
     const bj = biaya(jad, ci, co);
     if (best.hari.length && best.nama !== jad.nama && bb < bj) return { sh: best, status: "shift khusus hari", bi: bb };
     if (bj - bb >= cfg.gantiShift && best.nama !== jad.nama) return { sh: best, status: "shift berubah (otomatis)", bi: bb };
@@ -373,15 +475,26 @@ details > summary { cursor: pointer; font-weight: 600; }
   function hitungHari(r, shifts, alias, tetap) {
     const o = {
       Tanggal: r.iso, Hari: r.hari, Nama: r.nama, NIP: r.nip, Cabang: r.cabang, Posisi: r.posisi,
-      "Jadwal HRIS": valid(r.si) ? r.si + "-" + r.so : "", "Shift Aktual": "", "Status Shift": "",
+      "Jadwal Kolabo": valid(r.si) ? r.si + "-" + r.so : "", "Shift Aktual": "", "Status Shift": "",
       "Check In": "", "Check Out": "", Status: r.code, "Telat (mnt)": 0, "Pulang Cepat (mnt)": 0,
       "Lembur (mnt)": 0, "Lembur Dibayar (jam)": 0, "Upah Lembur (Rp)": 0, "Potongan Telat (Rp)": 0,
-      "Jam Kerja": 0, "Double Shift": "", "Telat HRIS (mnt)": 0, Catatan: [], _review: []
+      "Jam Kerja": 0, "Double Shift": "", "Telat Kolabo (mnt)": 0, Catatan: [], _review: [],
+      key: r.nama + "||" + r.nip, rawStatus: r.code, tidakCO: false, lemburTarif: tarifLembur(r.cabang, r.iso, r.nip)
     };
-    if (r.code !== "Present" || !valid(r.ci)) { if (r.code === "Present") o.Status = "Absent"; return o; }
+    if (list(cfg.tanpaJadwal).includes(r.cabang)) {
+      o.tanpaJadwal = true;
+      if (r.code !== "Present" || !valid(r.ci)) { o.Status = "Off"; o.rawStatus = "Off"; o.noOrder = true; return o; }
+      const ci0 = menit(r.ci), co0 = menit(r.co);
+      o["Check In"] = r.ci; o["Check Out"] = valid(r.co) ? r.co : "";
+      o["Shift Aktual"] = "sesuai order"; o["Status Shift"] = "tanpa jadwal tetap";
+      if (co0 == null || co0 <= ci0) { o._review.push("check-out kosong/tidak valid, jam order tidak bisa dihitung"); o.tidakCO = true; }
+      else { o["Jam Kerja"] = Math.round((co0 - ci0) / 60 * 100) / 100; o.Catatan.push("order home cleaning " + o["Jam Kerja"] + " jam"); }
+      return o;
+    }
+    if (r.code !== "Present" || !valid(r.ci)) { if (r.code === "Present") o.Status = "Absent"; o.rawStatus = o.Status; return o; }
     const ci = menit(r.ci), co = menit(r.co);
     o["Check In"] = r.ci; o["Check Out"] = valid(r.co) ? r.co : "";
-    if (valid(r.lateHris) && !isNaN(+r.lateHris)) o["Telat HRIS (mnt)"] = +r.lateHris;
+    if (valid(r.lateHris) && !isNaN(+r.lateHris)) o["Telat Kolabo (mnt)"] = +r.lateHris;
     if (r.ci.slice(6, 8) === "00") o.Catatan.push("check-in input manual");
 
     const t = tentukanShift(r, shifts, alias, tetap);
@@ -396,6 +509,7 @@ details > summary { cursor: pointer; font-weight: 600; }
 
     if (co == null || co <= ci) {
       o._review.push("check-out kosong/tidak valid (cek lupa absen pulang)");
+      o.tidakCO = true;
     } else {
       let kerja = co - ci;
       const ks = menit(r.brS), kf = menit(r.brF);
@@ -403,12 +517,13 @@ details > summary { cursor: pointer; font-weight: 600; }
       o["Jam Kerja"] = Math.round(kerja / 60 * 100) / 100;
       if (kerja < cfg.minKerja) {
         o._review.push("durasi kerja hanya " + Math.round(kerja) + " mnt (check-out salah?)");
+        o.tidakCO = true;
       } else {
         o["Pulang Cepat (mnt)"] = Math.max(0, Math.trunc(sh.pulang - co) - cfg.tolPulang);
         const lembur = Math.trunc(co - sh.pulang);
         o["Lembur (mnt)"] = Math.max(0, lembur);
         if (lembur >= cfg.lemburMin) {
-          const tarif = tarifLembur(r.cabang, r.iso, r.nip);
+          const tarif = o.lemburTarif;
           if (tarif != null) {
             const p = cfg.lemburBulat || 30;
             o["Lembur Dibayar (jam)"] = Math.floor(lembur / p) * p / 60;
@@ -420,238 +535,227 @@ details > summary { cursor: pointer; font-weight: 600; }
       }
     }
     if (valid(r.dbl)) { o["Double Shift"] = "ya"; o.Catatan.push("double shift (shift tambahan)"); }
-    if (t.status.startsWith("shift berubah")) o.Catatan.push("shift berubah dari " + o["Jadwal HRIS"]);
+    if (t.status.startsWith("shift berubah")) o.Catatan.push("shift berubah dari " + o["Jadwal Kolabo"]);
     return o;
+  }
+
+
+
+  // ---------- koreksi manual per hari ----------
+  const STATUS_ADJ = { hadir: "Present", absen: "Absent", izin: "Izin", sakit: "Sakit", cuti: "Cuti", off: "Off" };
+  const STATUS_LABEL = { Present: "Hadir", Absent: "Tanpa keterangan", Izin: "Izin (dipotong)", Sakit: "Sakit (dibayar)", Cuti: "Cuti (dibayar)", Off: "Off / libur" };
+  const isNum = (x) => x !== undefined && x !== null && x !== "" && !isNaN(+x);
+  function kodeHari(o) {
+    if (o.Status === "Present") return o["Telat (mnt)"] > cfg.telatAmbang ? "T" : "H";
+    return { Absent: "A", Izin: "I", Sakit: "S", Cuti: "C", Off: "O" }[o.Status] || "O";
+  }
+  function applyAdj(o) {
+    o.auto = { status: o.Status, telat: o["Telat (mnt)"], lembur: o["Lembur Dibayar (jam)"], lemburMnt: o["Lembur (mnt)"] };
+    const a = cfg.adj[o.key + "|" + o.Tanggal];
+    if (a) {
+      o.adj = a;
+      if (a.status && STATUS_ADJ[a.status]) {
+        const ns = STATUS_ADJ[a.status];
+        if (ns !== "Present") {
+          o["Telat (mnt)"] = 0; o["Pulang Cepat (mnt)"] = 0; o["Lembur Dibayar (jam)"] = 0; o["Upah Lembur (Rp)"] = 0; o.tidakCO = false;
+        }
+        o.Status = ns;
+      }
+      if (isNum(a.telat) && o.Status === "Present") o["Telat (mnt)"] = Math.max(0, +a.telat);
+      if (isNum(a.lembur) && o.Status === "Present") {
+        o["Lembur Dibayar (jam)"] = Math.max(0, +a.lembur);
+        o["Upah Lembur (Rp)"] = Math.round(o["Lembur Dibayar (jam)"] * (o.lemburTarif != null ? o.lemburTarif : cfg.tarifLembur));
+      }
+      if (a.co === "ok") o.tidakCO = false;
+      o.Catatan.push("dikoreksi manual" + (a.ket ? ": " + a.ket : ""));
+      o._review = [];
+    }
+    o["Potongan Telat (Rp)"] = o.Status === "Present" && o["Telat (mnt)"] > cfg.telatAmbang ? cfg.telatNominal : 0;
+    o.Kode = kodeHari(o);
+    return o;
+  }
+
+  // ---------- komponen gaji ----------
+  const F_TETAP = [
+    ["jabatan", "Jabatan / level", "text", "dl-jab"], ["status", "Status kerja", "text", "dl-status"],
+    ["oGaji", "Gaji pokok khusus"], ["oTunjMT", "Tunj. makan & transport khusus"], ["oTunjKin", "Tunj. kinerja khusus"], ["oTunjAbs", "Tunj. absensi khusus"],
+    ["benKes", "BPJS Kesehatan (dibayar perusahaan)"], ["benTK", "BPJS Ketenagakerjaan (dibayar perusahaan)"],
+    ["iuranKes", "Iuran BPJS Kesehatan (dipotong)"], ["iuranTK", "Iuran BPJS Ketenagakerjaan (dipotong)"], ["addOn", "Add-on benefit (pengganti BPJS)"]
+  ];
+  const F_BULAN = [
+    { sec: "Masa kerja bulan ini", hint: "Isi hanya jika pegawai baru masuk atau berhenti di tengah bulan. Gaji tetap dihitung prorata.", f: [["tglMasuk", "Mulai kerja tanggal", "date"], ["tglKeluar", "Berhenti tanggal", "date"]] },
+    { sec: "B. Home Cleaning", hint: "Isi jam tiap order di luar absensi, pisahkan koma (misal: 5, 8, 3). Bagi hasil, makan, dan transport dihitung dari tabel tarif home cleaning di Aturan.", f: [["hcOrders", "Order (jam per order)", "text"], ["hcBagi", "Bagi hasil tambahan"], ["hcMakan", "Tunj. makan tambahan"], ["hcTrans", "Tunj. transport tambahan"]] },
+    { sec: "C. Project", f: [["pjBagi", "Imbal bagi hasil"], ["pjMakan", "Tunjangan makan"], ["pjTrans", "Tunjangan transport"], ["pjKin", "Tunjangan kinerja"]] },
+    { sec: "D. Additional performance", f: [["jaspro", "Insentif Jaspro (referral)"], ["bonusPerf", "Bonus performance (KPI ≥ 90%)"], ["bonusZero", "Bonus zero complain"], ["bonusLain", "Bonus lain"], ["bonusKet", "Keterangan bonus lain", "text"]] },
+    { sec: "E. Lain-lain", f: [["backup", "Insentif backup"], ["lemburTambah", "Lembur tambahan (kontrak PKS)"], ["penggantiCuti", "Pengganti cuti / masuk hari off"], ["tip", "TIP dari customer"], ["lain", "Lain-lain"], ["lainKet", "Keterangan lain-lain", "text"], ["adjPlus", "Payroll adjustment (kurang bayar)"]] },
+    { sec: "Benefit lain dari perusahaan", f: [["natura", "Makan natura"], ["emergency", "Emergency fund"]] },
+    { sec: "Potongan lain", f: [["kasbonLunas", "Pelunasan kasbon"], ["kasbonCicil", "Cicilan kasbon"], ["loss", "Loss penalty (kerusakan/kerugian)"], ["penaltyResign", "Penalty resign sepihak"], ["penaltyKPI", "Penalty KPI & SLA"], ["angsuran", "Angsuran fasilitas"], ["potLain", "Potongan lain"], ["potKet", "Keterangan potongan lain", "text"], ["adjMinus", "Payroll adjustment (lebih bayar)"]] },
+    { sec: "Keterangan di slip", f: [["mengganti", "Mengganti rekan (kali)"], ["performance", "Nilai performance", "text"], ["catatan", "Catatan", "text"]] }
+  ];
+  const tarifRow = (c, p) => cfg.tarif.find((t) => t.cabang === c && t.posisi === p);
+  function bulanIni(key) { const b = cfg.bulanan[hasil ? hasil.periode : ""] || {}; return b[key] || {}; }
+
+  function hcRate(j) { return cfg.hcTarif.find((t) => j >= +t.min && j <= +t.max) || cfg.hcTarif[cfg.hcTarif.length - 1] || { bagi: 0, makan: 0, trans: 0 }; }
+  function hitungGaji(r, periode) {
+    const t = tarifRow(r.Cabang, r.Posisi) || TARIF_KOSONG;
+    const P = cfg.pegawai[r.key] || {}, M = (cfg.bulanan[periode] || {})[r.key] || {};
+    const v = (x) => +x || 0, ov = (o, b) => isNum(o) ? +o : v(b);
+    const g = { gaji: ov(P.oGaji, t.gaji), tunjMT: ov(P.oTunjMT, t.tunjMT), tunjKin: ov(P.oTunjKin, t.tunjKin), tunjAbs: ov(P.oTunjAbs, t.tunjAbs) };
+    const tanpaJadwal = list(cfg.tanpaJadwal).includes(r.Cabang);
+    // order home cleaning: dari absensi (lokasi tanpa jadwal) + order manual
+    const orders = (tanpaJadwal ? r.detail.filter((d) => d.Status === "Present" && d["Jam Kerja"] > 0).map((d) => Math.max(1, Math.round(d["Jam Kerja"]))) : [])
+      .concat(String(M.hcOrders || "").split(/[,;\s]+/).map((x) => Math.round(+x.replace(",", "."))).filter((x) => x > 0));
+    const hc = orders.reduce((a, j) => { const k = hcRate(j); a.jam += j; a.bagi += j * (+k.bagi || 0); a.makan += +k.makan || 0; a.trans += +k.trans || 0; return a; }, { jam: 0, bagi: 0, makan: 0, trans: 0 });
+    // masa kerja & prorata
+    const inMasa = (d) => (!M.tglMasuk || d.Tanggal >= M.tglMasuk) && (!M.tglKeluar || d.Tanggal <= M.tglKeluar);
+    const jadwal = r.detail.filter((d) => d.Status !== "Off");
+    const jadwalMasa = jadwal.filter(inMasa);
+    const absenMasa = jadwalMasa.filter((d) => d.Status === "Absent").length, izinMasa = jadwalMasa.filter((d) => d.Status === "Izin").length;
+    const dibayar = jadwalMasa.filter((d) => ["Present", "Sakit", "Cuti"].includes(d.Status)).length;
+    const prorata = cfg.metodeGaji === "prorata" && !tanpaJadwal;
+    let faktor = 1, ketProrata = "";
+    if (jadwal.length && prorata) { faktor = Math.min(1, dibayar / jadwal.length); ketProrata = `prorata ${dibayar}/${jadwal.length} hari`; }
+    else if (jadwal.length && (M.tglMasuk || M.tglKeluar)) { faktor = jadwalMasa.length / jadwal.length; ketProrata = `prorata masa kerja ${jadwalMasa.length}/${jadwal.length} hari`; }
+    const ada = g.gaji > 0 || tanpaJadwal;
+    const d = cfg.dasarHarian || {};
+    const harian = ((d.gaji ? g.gaji : 0) + (d.tunjMT ? g.tunjMT : 0) + (d.tunjKin ? g.tunjKin : 0) + (d.tunjAbs ? g.tunjAbs : 0)) / (cfg.pembagi || 26);
+    const fx = (x) => Math.round(x * faktor);
+    const pend = [
+      { sec: "A. Penempatan", info: faktor < 1 ? ketProrata : "", items: [["Gaji pokok", fx(g.gaji)], ["Tunjangan makan & transport", fx(g.tunjMT)], ["Tunjangan kinerja", fx(g.tunjKin)], ["Tunjangan absensi", fx(g.tunjAbs)]] },
+      { sec: "B. Home Cleaning", info: orders.length ? `${orders.length} order · ${hc.jam} jam` : "", items: [["Imbal bagi hasil", hc.bagi + v(M.hcBagi)], ["Tunjangan makan", hc.makan + v(M.hcMakan)], ["Tunjangan transport", hc.trans + v(M.hcTrans)]] },
+      { sec: "C. Project", items: [["Imbal bagi hasil", v(M.pjBagi)], ["Tunjangan makan", v(M.pjMakan)], ["Tunjangan transport", v(M.pjTrans)], ["Tunjangan kinerja", v(M.pjKin)]] },
+      { sec: "D. Additional performance", items: [["Insentif Jaspro", v(M.jaspro)], ["Bonus performance", v(M.bonusPerf)], ["Bonus zero complain", v(M.bonusZero)], [M.bonusKet ? `Bonus lain (${M.bonusKet})` : "Bonus lain", v(M.bonusLain)]] },
+      { sec: "E. Lain-lain", items: [["Insentif backup", v(M.backup)], [`Lembur (${jam(r.LemburJam)})`, r.LemburUpah], ["Lembur tambahan (PKS)", v(M.lemburTambah)],
+        [`Insentif mengganti (${r.Double}× double shift)`, r.Double * cfg.bonusDouble], ["Add-on benefit", v(P.addOn)], ["Pengganti cuti", v(M.penggantiCuti)],
+        ["TIP dari customer", v(M.tip)], [M.lainKet ? `Lain-lain (${M.lainKet})` : "Lain-lain", v(M.lain)], ["Payroll adjustment (kurang bayar)", v(M.adjPlus)]] }
+    ];
+    pend.forEach((x) => { x.total = x.items.reduce((a2, it) => a2 + it[1], 0); });
+    const pot = [
+      ["Iuran BPJS Kesehatan", v(P.iuranKes)], ["Iuran BPJS Ketenagakerjaan", v(P.iuranTK)],
+      ["Pelunasan kasbon", v(M.kasbonLunas)], ["Cicilan kasbon", v(M.kasbonCicil)],
+      [`Keterlambatan (${r.TelatKenaKali}×)`, r.TelatPot], [`Pulang cepat (${r.PcMnt} mnt)`, r.PcMnt * cfg.pulangPerMenit],
+      [`Wanprestasi / tanpa keterangan (${absenMasa} hari)`, ada && !prorata ? harian * absenMasa : 0], [`Off di luar tanggungan / izin (${izinMasa} hari)`, ada && !prorata ? harian * izinMasa : 0],
+      ["Loss penalty", v(M.loss)], ["Admin & payroll", ada ? v(t.admin) : 0], ["Penalty resign sepihak", v(M.penaltyResign)],
+      ["Penalty KPI & SLA", v(M.penaltyKPI)], ["Angsuran fasilitas", v(M.angsuran)], [M.potKet ? `Potongan lain (${M.potKet})` : "Potongan lain", v(M.potLain)], ["Payroll adjustment (lebih bayar)", v(M.adjMinus)]
+    ].map((x) => [x[0], Math.round(x[1])]);
+    const ben = [["BPJS Kesehatan", v(P.benKes)], ["BPJS Ketenagakerjaan", v(P.benTK)], ["Makan natura", v(M.natura)], ["Emergency fund", v(M.emergency)]];
+    const bruto = pend.reduce((a2, x) => a2 + x.total, 0), potongan = pot.reduce((a2, x) => a2 + x[1], 0), benefit = ben.reduce((a2, x) => a2 + x[1], 0);
+    return { g, ada, harian, pend, pot, ben, bruto, potongan, benefit, thp: bruto - potongan, P, M, admin: v(t.admin), faktor, ketProrata, orders, hc, tanpaJadwal };
   }
 
   // ---------- hitung bulanan ----------
   function hitung(rows) {
     const shifts = prepShifts(), alias = aliasMap(), tetap = list(cfg.tetap);
-    const det = rows.map((r) => hitungHari(r, shifts, alias, tetap));
+    const det = rows.map((r) => applyAdj(hitungHari(r, shifts, alias, tetap)));
     det.sort((a, b) => a.Nama.localeCompare(b.Nama) || a.Tanggal.localeCompare(b.Tanggal));
+    const tglList = [...new Set(det.map((d) => d.Tanggal))].sort();
+    const periode = tglList[0].slice(0, 7);
 
     const grup = new Map();
-    det.forEach((d) => { const k = d.Nama + "||" + d.NIP; if (!grup.has(k)) grup.set(k, []); grup.get(k).push(d); });
-
+    det.forEach((d) => { if (!grup.has(d.key)) grup.set(d.key, []); grup.get(d.key).push(d); });
     const rekap = [];
-    grup.forEach((g) => {
-      const f = g[0];
-      const hadir = g.filter((d) => d.Status === "Present");
-      const absen = g.filter((d) => d.Status === "Absent");
-      const izin = cfg.izin.filter((z) => z.tanggal && ((z.nip && z.nip.trim() === f.NIP) || (z.nama && z.nama.trim().toLowerCase() === f.Nama.toLowerCase())));
-      const tgIzin = new Map(izin.map((z) => [z.tanggal, z.dibayar === "ya"]));
-      const absenIzin = absen.filter((d) => tgIzin.has(d.Tanggal));
-      const izinBayar = absenIzin.filter((d) => tgIzin.get(d.Tanggal)).length;
+    grup.forEach((gr, key) => {
+      const f = gr[0];
+      const st = (s) => gr.filter((d) => d.Status === s);
+      const hadir = st("Present");
       const telat = hadir.filter((d) => d["Telat (mnt)"] > 0), pc = hadir.filter((d) => d["Pulang Cepat (mnt)"] > 0);
       const sum = (arr, k) => arr.reduce((s, d) => s + (+d[k] || 0), 0);
-      const t = cfg.tarif.find((x) => x.cabang === f.Cabang && x.posisi === f.Posisi);
       const r = {
-        Nama: f.Nama, NIP: f.NIP, Cabang: f.Cabang, Posisi: f.Posisi,
-        Terjadwal: hadir.length + absen.length, Libur: g.filter((d) => d.Status === "Off").length,
-        Hadir: hadir.length, Absen: absen.length, Izin: absenIzin.length, AbsenDipotong: absen.length - izinBayar,
-        TelatKali: telat.length, TelatMnt: sum(telat, "Telat (mnt)"),
-        TelatPot: sum(hadir, "Potongan Telat (Rp)"), TelatKenaKali: hadir.filter((d) => d["Potongan Telat (Rp)"] > 0).length,
+        key, Nama: f.Nama, NIP: f.NIP, Cabang: f.Cabang, Posisi: f.Posisi, detail: gr,
+        Hadir: hadir.length, Absen: st("Absent").length, Izin: st("Izin").length, Sakit: st("Sakit").length, Cuti: st("Cuti").length, Off: st("Off").length,
+        TidakCI: gr.filter((d) => d.rawStatus === "Absent").length, TidakCO: hadir.filter((d) => d.tidakCO).length,
+        TelatKali: telat.length, TelatMnt: sum(telat, "Telat (mnt)"), TelatKenaKali: hadir.filter((d) => d["Potongan Telat (Rp)"] > 0).length, TelatPot: sum(hadir, "Potongan Telat (Rp)"),
         PcKali: pc.length, PcMnt: sum(pc, "Pulang Cepat (mnt)"),
         LemburJam: sum(hadir, "Lembur Dibayar (jam)"), LemburUpah: sum(hadir, "Upah Lembur (Rp)"),
-        LemburTakDibayarJam: hadir.filter((d) => d["Lembur Dibayar (jam)"] === 0 && d["Lembur (mnt)"] >= cfg.lemburMin).reduce((s, d) => s + d["Lembur (mnt)"], 0) / 60,
+        LemburTakDibayarJam: hadir.filter((d) => d["Lembur Dibayar (jam)"] === 0 && d["Lembur (mnt)"] >= cfg.lemburMin && !(d.adj && isNum(d.adj.lembur))).reduce((s, d) => s + d["Lembur (mnt)"], 0) / 60,
         Double: hadir.filter((d) => d["Double Shift"] === "ya").length,
         ShiftBerubah: hadir.filter((d) => d["Status Shift"].startsWith("shift berubah")).length,
-        TelatHris: sum(hadir, "Telat HRIS (mnt)"),
-        adaTarif: !!(t && +t.gaji > 0), gaji: t ? +t.gaji || 0 : 0, tunj: t ? +t.tunj || 0 : 0, makan: t ? +t.makan || 0 : 0,
-        detail: g
+        TelatHris: sum(hadir, "Telat Kolabo (mnt)"), Dikoreksi: gr.filter((d) => d.adj).length
       };
-      r.PotAbsen = r.gaji / (cfg.pembagi || 26) * r.AbsenDipotong;
-      r.PotPc = r.PcMnt * cfg.pulangPerMenit;
-      r.UangMakan = r.makan * r.Hadir;
-      r.BonusDouble = r.Double * cfg.bonusDouble;
-      r.Pendapatan = r.gaji + r.tunj + r.UangMakan + r.LemburUpah + r.BonusDouble;
-      r.Potongan = r.PotAbsen + r.TelatPot + r.PotPc;
-      r.GajiBersih = r.adaTarif ? Math.max(0, r.Pendapatan - r.Potongan) : null;
-      r.PersenHadir = r.Terjadwal ? r.Hadir / r.Terjadwal : 0;
+      r.Terjadwal = r.Hadir + r.Absen + r.Izin + r.Sakit + r.Cuti;
+      const s = hitungGaji(r, periode);
+      r.slip = s;
+      r.adaTarif = s.ada; r.gaji = s.g.gaji; r.Pendapatan = s.bruto; r.Potongan = s.potongan;
+      r.PotAbsen = s.ada ? s.harian * (r.Absen + r.Izin) : 0;
+      r.GajiBersih = s.ada ? Math.max(0, s.thp) : null; r.Minus = s.ada && s.thp < 0;
+      r.Mengganti = r.Double + (+s.M.mengganti || 0);
+      r.Jabatan = s.P.jabatan || r.Posisi; r.StatusKerja = s.P.status || "";
+      r.Biaya = s.bruto + s.benefit; r.Benefit = s.benefit; r.TanpaJadwal = s.tanpaJadwal; r.Order = s.orders.length; r.OrderJam = s.hc.jam;
       rekap.push(r);
     });
 
     const review = [];
-    det.forEach((d) => { if (d._review.length) review.push({ Tanggal: d.Tanggal, Nama: d.Nama, NIP: d.NIP, Cabang: d.Cabang, "Jadwal HRIS": d["Jadwal HRIS"], "Check In": d["Check In"], "Check Out": d["Check Out"], Alasan: d._review.join("; ") }); });
-    rekap.forEach((r) => { if (r.Terjadwal && r.Hadir === 0) review.push({ Tanggal: "", Nama: r.Nama, NIP: r.NIP, Cabang: r.Cabang, "Jadwal HRIS": "", "Check In": "", "Check Out": "", Alasan: "Tidak pernah absen sebulan penuh (" + r.Absen + " hari Absent): resign, belum pakai aplikasi, atau izin?" }); });
+    det.forEach((d) => { if (d._review.length) review.push({ key: d.key, Tanggal: d.Tanggal, Nama: d.Nama, NIP: d.NIP, Cabang: d.Cabang, "Jadwal Kolabo": d["Jadwal Kolabo"], "Check In": d["Check In"], "Check Out": d["Check Out"], Alasan: d._review.join("; ") }); });
+    rekap.forEach((r) => { if (r.Hadir === 0 && r.Absen > 0) review.push({ key: r.key, Tanggal: "", Nama: r.Nama, NIP: r.NIP, Cabang: r.Cabang, "Jadwal Kolabo": "", "Check In": "", "Check Out": "", Alasan: "Tidak pernah hadir sebulan penuh (" + r.Absen + " hari tanpa keterangan): resign, belum pakai aplikasi, atau cuti?" }); });
     const nipNama = new Map();
     rows.forEach((r) => { if (!nipNama.has(r.nip)) nipNama.set(r.nip, new Set()); nipNama.get(r.nip).add(r.nama); });
     nipNama.forEach((v, nip) => {
-      if (nip && nip !== "0" && v.size > 1) review.push({ Tanggal: "", Nama: [...v].join(", "), NIP: nip, Cabang: "", "Jadwal HRIS": "", "Check In": "", "Check Out": "", Alasan: "NIP dipakai lebih dari satu orang, rapikan di HRIS" });
-      if (!nip || nip === "0") v.forEach((n) => review.push({ Tanggal: "", Nama: n, NIP: nip, Cabang: "", "Jadwal HRIS": "", "Check In": "", "Check Out": "", Alasan: "NIP kosong/0, lengkapi di HRIS" }));
+      if (nip && nip !== "0" && v.size > 1) review.push({ Tanggal: "", Nama: [...v].join(", "), NIP: nip, Cabang: "", "Jadwal Kolabo": "", "Check In": "", "Check Out": "", Alasan: "NIP dipakai lebih dari satu orang, rapikan di Kolabo" });
+      if (!nip || nip === "0") v.forEach((n) => review.push({ Tanggal: "", Nama: n, NIP: nip, Cabang: "", "Jadwal Kolabo": "", "Check In": "", "Check Out": "", Alasan: "NIP kosong/0, lengkapi di Kolabo" }));
     });
-
-    const tglList = det.map((d) => d.Tanggal).sort();
-    return { det, rekap, review, periode: tglList[0].slice(0, 7), dari: tglList[0], sampai: tglList[tglList.length - 1] };
+    return { det, rekap, review, periode, tanggal: tglList, dari: tglList[0], sampai: tglList[tglList.length - 1] };
   }
 
-  // ---------- render: umum ----------
-  function branchList() {
-    const s = new Set(cfg.tarif.map((t) => t.cabang));
-    if (rawRows) rawRows.forEach((r) => s.add(r.cabang));
-    return [...s].filter(Boolean).sort();
-  }
-  function postList() {
-    const s = new Set(cfg.tarif.map((t) => t.posisi));
-    if (rawRows) rawRows.forEach((r) => s.add(r.posisi));
-    return [...s].filter(Boolean).sort();
-  }
-  function dl(id, arr) { return '<datalist id="' + id + '">' + arr.map((x) => '<option value="' + esc(x) + '">').join("") + "</datalist>"; }
-  function bulanLabel(p) {
-    const [y, m] = p.split("-");
-    return ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"][+m - 1] + " " + y;
+  function terbilang(n) {
+    const s = ["", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas"];
+    const f = (x) => x < 12 ? s[x] : x < 20 ? f(x - 10) + " belas" : x < 100 ? f(Math.floor(x / 10)) + " puluh " + f(x % 10)
+      : x < 200 ? "seratus " + f(x - 100) : x < 1000 ? f(Math.floor(x / 100)) + " ratus " + f(x % 100)
+      : x < 2000 ? "seribu " + f(x - 1000) : x < 1e6 ? f(Math.floor(x / 1000)) + " ribu " + f(x % 1000)
+      : x < 1e9 ? f(Math.floor(x / 1e6)) + " juta " + f(x % 1e6) : f(Math.floor(x / 1e9)) + " miliar " + f(x % 1e9);
+    const t = f(Math.floor(Math.abs(n))).replace(/\s+/g, " ").trim();
+    return t ? t[0].toUpperCase() + t.slice(1) + " rupiah" : "Nol rupiah";
   }
 
 
-  // ---------- render: tab Tarif Gaji ----------
-  function renderGaji() {
-    const el = $("#tab-gaji");
-    let h = '<div class="stack"><div class="panel"><h2>Tarif gaji per cabang dan posisi</h2><p class="sub">Gaji tiap cabang berbeda, dan PIC berbeda dengan CSO. Isi satu baris untuk tiap kombinasi cabang + posisi. Setelah upload, kombinasi baru dari file ditambahkan otomatis dengan nilai kosong.</p></div>';
-    h += dl("dl-cab", branchList()) + dl("dl-pos", postList());
-    h += '<div class="scroll"><table><thead><tr><th>Cabang</th><th>Posisi</th><th>Gaji pokok (Rp / bulan)</th><th>Tunjangan tetap (Rp)</th><th>Uang makan (Rp / hari hadir)</th><th></th></tr></thead><tbody>';
-    cfg.tarif.forEach((t, i) => {
-      h += "<tr><td><input type='text' list='dl-cab' data-p='tarif' data-i='" + i + "' data-f='cabang' value='" + esc(t.cabang) + "' aria-label='Cabang'></td>" +
-        "<td><input type='text' list='dl-pos' data-p='tarif' data-i='" + i + "' data-f='posisi' value='" + esc(t.posisi) + "' aria-label='Posisi'></td>" +
-        "<td><input type='number' min='0' step='1000' inputmode='numeric' data-p='tarif' data-i='" + i + "' data-f='gaji' value='" + (t.gaji || "") + "' placeholder='0' aria-label='Gaji pokok'></td>" +
-        "<td><input type='number' min='0' step='1000' inputmode='numeric' data-p='tarif' data-i='" + i + "' data-f='tunj' value='" + (t.tunj || "") + "' placeholder='0' aria-label='Tunjangan'></td>" +
-        "<td><input type='number' min='0' step='1000' inputmode='numeric' data-p='tarif' data-i='" + i + "' data-f='makan' value='" + (t.makan || "") + "' placeholder='0' aria-label='Uang makan'></td>" +
-        "<td><button class='btn ghost small' data-del='tarif' data-i='" + i + "'>Hapus</button></td></tr>";
-    });
-    h += '</tbody></table></div><div><button class="btn ghost" data-add="tarif">Tambah baris</button></div>';
-    h += '<p class="hint">Gaji bersih tidak pernah di bawah Rp0. Potongan absen per hari = gaji pokok ÷ ' + cfg.pembagi + ' (pembagi hari kerja, bisa diubah di tab Aturan). Gaji bersih = gaji pokok + tunjangan + uang makan + lembur − potongan absen − potongan telat − potongan pulang cepat.</p></div>';
-    el.innerHTML = h;
-    bindEdits(el);
-  }
-
-  // ---------- render: tab Aturan ----------
-  function renderAturan() {
-    const el = $("#tab-aturan");
-    const f = (label, key, extra) => '<div class="field"><label for="c-' + key + '">' + label + '</label><input type="number" id="c-' + key + '" data-cfg="' + key + '" value="' + cfg[key] + '" min="0" ' + (extra || "") + "></div>";
-    let h = '<div class="stack">';
-    const t = (label, key, ph) => '<div class="field"><label for="c-' + key + '">' + label + '</label><input type="text" id="c-' + key + '" data-cfg="' + key + '" value="' + esc(cfg[key]) + '" placeholder="' + esc(ph || "") + '"></div>';
-    h += '<div class="panel stack"><div><h2>Identitas di slip gaji</h2><p class="sub">Muncul di kepala dan tanda tangan setiap slip. Nama perusahaan kosong = diambil dari file export.</p></div><div class="grid">' +
-      t("Nama perusahaan", "perusahaan", perusahaanFile || "Nama perusahaan") + t("Alamat (opsional)", "alamat", "") + t("Nama penandatangan", "ttdNama", "") + t("Jabatan penandatangan", "ttdJabatan", "HRD") + "</div></div>";
-    h += '<div class="panel stack"><div><h2>Potongan dan perhitungan</h2><p class="sub">Telat lebih dari ambang dipotong sebesar nominal tetap per kejadian. Telat sampai ambang tidak dipotong.</p></div><div class="grid">' +
-      f("Ambang telat (menit)", "telatAmbang") + f("Potongan per kejadian telat (Rp)", "telatNominal", 'step="1000"') +
-      f("Potongan pulang cepat (Rp / menit)", "pulangPerMenit") + f("Bonus double shift (Rp / shift)", "bonusDouble", 'step="1000"') +
-      f("Pembagi hari kerja (potongan absen)", "pembagi") + f("Toleransi telat (menit)", "tolTelat") + f("Toleransi pulang cepat (menit)", "tolPulang") +
-      f("Lembur minimal (menit)", "lemburMin") + f("Pembulatan lembur (menit)", "lemburBulat") + "</div></div>";
-
-    h += '<div class="panel stack"><div><h2>Lembur</h2><p class="sub">Lembur hanya dibayar bila ada baris di sini yang cocok dengan cabang dan tanggalnya. Isi cabang dengan * untuk semua cabang. Tanggal selesai kosong berarti satu hari. NIP kosong berarti semua karyawan di cabang itu.</p></div>' + dl("dl-cab", branchList());
-    h += '<div class="scroll"><table><thead><tr><th>Cabang</th><th>Tanggal mulai</th><th>Tanggal selesai</th><th>Tarif / jam (Rp)</th><th>NIP (opsional)</th><th>Keterangan</th><th></th></tr></thead><tbody>';
-    if (!cfg.lembur.length) h += '<tr><td colspan="7" class="empty">Belum ada aturan lembur. Semua lembur ditampilkan sebagai info dan tidak dibayar.</td></tr>';
-    cfg.lembur.forEach((a, i) => {
-      h += "<tr><td><input type='text' list='dl-cab' data-p='lembur' data-i='" + i + "' data-f='cabang' value='" + esc(a.cabang) + "' aria-label='Cabang'></td>" +
-        "<td><input type='date' data-p='lembur' data-i='" + i + "' data-f='mulai' value='" + esc(a.mulai) + "' aria-label='Tanggal mulai'></td>" +
-        "<td><input type='date' data-p='lembur' data-i='" + i + "' data-f='selesai' value='" + esc(a.selesai) + "' aria-label='Tanggal selesai'></td>" +
-        "<td><input type='number' min='0' step='1000' data-p='lembur' data-i='" + i + "' data-f='tarif' value='" + (a.tarif || "") + "' aria-label='Tarif per jam'></td>" +
-        "<td><input type='text' data-p='lembur' data-i='" + i + "' data-f='nip' value='" + esc(a.nip) + "' aria-label='NIP'></td>" +
-        "<td><input type='text' data-p='lembur' data-i='" + i + "' data-f='ket' value='" + esc(a.ket) + "' aria-label='Keterangan'></td>" +
-        "<td><button class='btn ghost small' data-del='lembur' data-i='" + i + "'>Hapus</button></td></tr>";
-    });
-    h += '</tbody></table></div><div><button class="btn ghost" data-add="lembur">Tambah aturan lembur</button></div></div>';
-
-    h += '<div class="panel stack"><div><h2>Izin, sakit, cuti</h2><p class="sub">Hari yang di HRIS tercatat Absent bisa diubah di sini. Jika dibayar = ya, tidak ada potongan absen. Cocokkan lewat NIP atau nama.</p></div><div class="scroll"><table><thead><tr><th>Nama</th><th>NIP</th><th>Tanggal</th><th>Jenis</th><th>Dibayar</th><th></th></tr></thead><tbody>';
-    if (!cfg.izin.length) h += '<tr><td colspan="6" class="empty">Belum ada data izin.</td></tr>';
-    cfg.izin.forEach((z, i) => {
-      h += "<tr><td><input type='text' data-p='izin' data-i='" + i + "' data-f='nama' value='" + esc(z.nama) + "' aria-label='Nama'></td>" +
-        "<td><input type='text' data-p='izin' data-i='" + i + "' data-f='nip' value='" + esc(z.nip) + "' aria-label='NIP'></td>" +
-        "<td><input type='date' data-p='izin' data-i='" + i + "' data-f='tanggal' value='" + esc(z.tanggal) + "' aria-label='Tanggal'></td>" +
-        "<td><select data-p='izin' data-i='" + i + "' data-f='jenis' aria-label='Jenis'>" + ["Sakit", "Izin", "Cuti"].map((j) => "<option" + (z.jenis === j ? " selected" : "") + ">" + j + "</option>").join("") + "</select></td>" +
-        "<td><select data-p='izin' data-i='" + i + "' data-f='dibayar' aria-label='Dibayar'><option value='ya'" + (z.dibayar === "ya" ? " selected" : "") + ">Ya</option><option value='tidak'" + (z.dibayar !== "ya" ? " selected" : "") + ">Tidak</option></select></td>" +
-        "<td><button class='btn ghost small' data-del='izin' data-i='" + i + "'>Hapus</button></td></tr>";
-    });
-    h += '</tbody></table></div><div><button class="btn ghost" data-add="izin">Tambah izin</button></div></div>';
-
-    h += '<details class="panel"><summary>Daftar shift dan penebakan shift</summary><div class="stack" style="margin-top:12px"><p class="sub">Jadwal di HRIS sering tidak sama dengan shift yang dijalankan. Sistem memilih shift dari daftar ini yang paling cocok dengan jam check-in/out. Tambahkan shift baru jika ada pola jam baru. Kolom cabang dan hari boleh kosong (berlaku untuk semua), pisahkan dengan koma.</p>';
-    h += '<div class="scroll"><table><thead><tr><th>Nama shift</th><th>Masuk</th><th>Pulang</th><th>Hanya cabang</th><th>Hanya hari</th><th></th></tr></thead><tbody>';
-    cfg.shifts.forEach((s, i) => {
-      h += "<tr><td><input type='text' data-p='shifts' data-i='" + i + "' data-f='nama' value='" + esc(s.nama) + "' aria-label='Nama shift'></td>" +
-        "<td><input type='text' data-p='shifts' data-i='" + i + "' data-f='masuk' value='" + esc(s.masuk) + "' placeholder='06:00' aria-label='Masuk'></td>" +
-        "<td><input type='text' data-p='shifts' data-i='" + i + "' data-f='pulang' value='" + esc(s.pulang) + "' placeholder='14:00' aria-label='Pulang'></td>" +
-        "<td><input type='text' data-p='shifts' data-i='" + i + "' data-f='cabang' value='" + esc(s.cabang) + "' aria-label='Cabang'></td>" +
-        "<td><input type='text' data-p='shifts' data-i='" + i + "' data-f='hari' value='" + esc(s.hari) + "' placeholder='Sabtu' aria-label='Hari'></td>" +
-        "<td><button class='btn ghost small' data-del='shifts' data-i='" + i + "'>Hapus</button></td></tr>";
-    });
-    h += '</tbody></table></div><div><button class="btn ghost" data-add="shifts">Tambah shift</button></div>' +
-      '<div class="grid"><div class="field"><label for="c-alias">Jadwal HRIS yang salah setting (jadwal = nama shift)</label><textarea id="c-alias" data-cfg="alias">' + esc(cfg.alias) + '</textarea></div>' +
-      '<div class="field"><label for="c-tetap">Cabang dengan shift tetap (tidak ditebak), satu per baris</label><textarea id="c-tetap" data-cfg="tetap">' + esc(cfg.tetap) + "</textarea></div></div>" +
-      '<div class="grid">' + f("Ganti shift jika lebih cocok (selisih menit)", "gantiShift") + f("Tandai review jika selisih melebihi (menit)", "reviewBiaya") + f("Durasi kerja minimal valid (menit)", "minKerja") + "</div></div></details>";
-    h += '<div><button class="btn ghost small" data-reset="1">Kembalikan semua pengaturan ke bawaan</button></div></div>';
-    el.innerHTML = h;
-    bindEdits(el);
-  }
-
-  // ---------- edit pengaturan ----------
-  const NEW_ROW = {
-    tarif: () => ({ cabang: "", posisi: "", gaji: 0, tunj: 0, makan: 0 }),
-    lembur: () => ({ cabang: "", mulai: "", selesai: "", tarif: 0, nip: "", ket: "" }),
-    izin: () => ({ nama: "", nip: "", tanggal: "", jenis: "Sakit", dibayar: "ya" }),
-    shifts: () => ({ nama: "", masuk: "", pulang: "", cabang: "", hari: "" })
-  };
-  function afterEdit(rerenderTab) {
-    scheduleSave();
-    hitungUlang();
-    renderData();
-    if (rerenderTab) renderAll(true);
-  }
-  function bindEdits(root) {
-    root.querySelectorAll("[data-p]").forEach((inp) => {
-      inp.addEventListener("change", () => {
-        const row = cfg[inp.dataset.p][+inp.dataset.i];
-        let v = inp.value;
-        if (inp.type === "number") v = +v || 0;
-        row[inp.dataset.f] = v;
-        afterEdit(false);
-      });
-    });
-    root.querySelectorAll("[data-cfg]").forEach((inp) => {
-      inp.addEventListener("change", () => {
-        cfg[inp.dataset.cfg] = inp.type === "number" ? (+inp.value || 0) : inp.value;
-        afterEdit(false);
-      });
-    });
-    root.querySelectorAll("[data-add]").forEach((b) => b.addEventListener("click", () => { cfg[b.dataset.add].push(NEW_ROW[b.dataset.add]()); afterEdit(true); }));
-    root.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => { cfg[b.dataset.del].splice(+b.dataset.i, 1); afterEdit(true); }));
-    root.querySelectorAll("[data-reset]").forEach((b) => b.addEventListener("click", () => {
-      if (b.dataset.armed) { cfg = defaultCfg(); afterEdit(true); } else { b.dataset.armed = "1"; b.textContent = "Klik lagi untuk menghapus semua pengaturan"; }
-    }));
-  }
-
-
-  // ---------- state tampilan ----------
-  let perusahaanFile = "";
-  let filterCabang = "", filterCari = "", terbuka = new Set();
-  let slipCabang = "", slipCari = "";
+  // ---------- util tampilan ----------
   const AMBANG_HADIR = 0.85;
   const pct = (x) => (x * 100).toFixed(1).replace(".", ",") + "%";
   const jam = (x) => (Math.round(x * 10) / 10).toLocaleString("id-ID") + " jam";
   const namaPT = () => cfg.perusahaan || perusahaanFile || "Nama perusahaan";
-  const keyOf = (r) => r.Nama + "||" + r.NIP;
   const sumBy = (arr, f) => arr.reduce((s, x) => s + (+f(x) || 0), 0);
+  const BLN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+  const HR = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+  function bulanLabel(p) { const [y, m] = p.split("-"); return BLN[+m - 1] + " " + y; }
+  function tglPanjang(d) { return d.getDate() + " " + BLN[d.getMonth()] + " " + d.getFullYear(); }
+  const tglPendek = (iso) => +iso.slice(8) + " " + BLN[+iso.slice(5, 7) - 1].slice(0, 3);
+  const hariDari = (iso) => HR[new Date(iso + "T00:00:00Z").getUTCDay()];
+  function branchList() { const s = new Set(cfg.tarif.map((t) => t.cabang)); if (rawRows) rawRows.forEach((r) => s.add(r.cabang)); return [...s].filter(Boolean).sort(); }
+  function postList() { const s = new Set(cfg.tarif.map((t) => t.posisi)); if (rawRows) rawRows.forEach((r) => s.add(r.posisi)); return [...s].filter(Boolean).sort(); }
+  function dl(id, arr) { return `<datalist id="${id}">${arr.map((x) => `<option value="${esc(x)}">`).join("")}</datalist>`; }
+  const POSISI_LABEL = { CSO: "Custodian Service Officer (CSO)", PIC: "Person in Charge (PIC)", MANPOWER: "Manpower" };
+  const cabangOpts = (sel, semua) => (semua ? `<option value="">Semua lokasi</option>` : "") + [...new Set(hasil.rekap.map((r) => r.Cabang))].sort().map((c) => `<option${c === sel ? " selected" : ""} value="${esc(c)}">${esc(c)}</option>`).join("");
 
+  // ---------- tab ----------
+  const DATA_TABS = { dash: () => renderDash(), rekap: () => renderRekap(), input: () => renderInput(), slip: () => renderSlip() };
   function showTab(name) {
+    currentTab = name;
     document.querySelectorAll("#tabs button").forEach((x) => x.setAttribute("aria-selected", x.dataset.tab === name ? "true" : "false"));
-    ["dash", "kary", "slip", "gaji", "aturan"].forEach((t) => { $("#tab-" + t).hidden = t !== name; });
+    Object.keys(DATA_TABS).concat(["gaji", "aturan"]).forEach((t) => { $("#tab-" + t).hidden = t !== name; });
+    if (DATA_TABS[name]) DATA_TABS[name]();
+    if (name === "gaji") renderGaji();
+    if (name === "aturan") renderAturan();
   }
-  function renderData() { renderBar(); renderDash(); renderKary(); renderSlip(); updateTabCounts(); }
-  function renderAll(keepTab) { renderGaji(); renderAturan(); if (!keepTab) renderData(); else updateTabCounts(); }
-
+  function renderAll() { renderBar(); updateTabCounts(); showTab(currentTab); }
+  function recompute(keepInput) {
+    if (rawRows) { hasil = hitung(rawRows); simpanRiwayat(); }
+    renderBar(); updateTabCounts();
+    if (currentTab === "input" && keepInput) renderInputSummary();
+    else if (DATA_TABS[currentTab]) DATA_TABS[currentTab]();
+  }
   function updateTabCounts() {
     const set = (tab, n) => {
       const b = $('#tabs button[data-tab="' + tab + '"]');
       const old = b.querySelector(".count"); if (old) old.remove();
       if (n) { const s = document.createElement("span"); s.className = "count"; s.textContent = n; b.appendChild(s); }
     };
-    set("kary", hasil ? hasil.review.length : 0);
-    set("gaji", hasil ? new Set(hasil.rekap.filter((r) => !r.adaTarif && r.Hadir > 0).map((r) => r.Cabang + r.Posisi)).size : cfg.tarif.filter((t) => !(+t.gaji > 0)).length);
+    set("rekap", hasil ? hasil.review.length : 0);
+    set("gaji", hasil ? new Set(hasil.rekap.filter((r) => !r.adaTarif && r.Hadir > 0).map((r) => r.Cabang + r.Posisi)).size : 0);
   }
-
-  // ---------- bilah data ----------
   function renderBar() {
     const el = $("#databar");
     if (!hasil) { el.innerHTML = ""; return; }
-    el.innerHTML = `<div class="databar"><div class="meta"><b>${bulanLabel(hasil.periode)}</b> <span class="sub">· ${esc(namaPT())} · ${hasil.rekap.length} karyawan · ${hasil.dari} s/d ${hasil.sampai}</span><div class="hint">${esc(fileName)}</div></div>
+    const kor = Object.keys(cfg.adj).filter((k) => k.slice(-10).startsWith(hasil.periode)).length;
+    el.innerHTML = `<div class="databar"><div class="meta"><b>${bulanLabel(hasil.periode)}</b> <span class="sub">· ${esc(namaPT())} · ${hasil.rekap.length} pegawai · ${hasil.dari} s/d ${hasil.sampai}${kor ? ` · ${kor} koreksi manual` : ""}</span><div class="hint">${esc(fileName)}</div></div>
       <div class="row"><button class="btn ghost small" id="ganti">Ganti file</button><button class="btn small" id="unduh">Unduh Excel</button></div></div>`;
     $("#ganti").onclick = () => $("#file").click();
     $("#unduh").onclick = unduhExcel;
@@ -661,11 +765,11 @@ details > summary { cursor: pointer; font-weight: 600; }
   function uploadPanel() {
     const nTarif = cfg.tarif.length, isi = cfg.tarif.filter((t) => +t.gaji > 0).length;
     return `<div class="stack"><div class="panel"><div class="steps">
-      <div class="step ${isi ? "done" : ""}"><div class="no">1</div><div><b>Isi tarif gaji</b><span class="sub">${isi} dari ${nTarif} kombinasi cabang + posisi sudah diisi. <a href="#" data-go="gaji">Buka Tarif Gaji</a></span></div></div>
-      <div class="step ${cfg.lembur.length ? "done" : ""}"><div class="no">2</div><div><b>Atur lembur &amp; izin</b><span class="sub">${cfg.lembur.length} aturan lembur, ${cfg.izin.length} data izin. Boleh dilewati. <a href="#" data-go="aturan">Buka Aturan</a></span></div></div>
-      <div class="step"><div class="no">3</div><div><b>Upload export bulan ini</b><span class="sub">Dashboard, rekap, dan slip gaji langsung jadi.</span></div></div>
+      <div class="step ${isi ? "done" : ""}"><div class="no">1</div><div><b>Isi tarif gaji</b><span class="sub">${isi} dari ${nTarif} kombinasi lokasi + posisi sudah diisi. <a href="#" data-go="gaji">Buka Tarif Gaji</a></span></div></div>
+      <div class="step"><div class="no">2</div><div><b>Upload export bulan ini</b><span class="sub">Absensi dihitung otomatis, termasuk shift yang berubah.</span></div></div>
+      <div class="step"><div class="no">3</div><div><b>Cek, koreksi, unduh slip</b><span class="sub">Koreksi absensi per lokasi, isi komponen variabel, lalu unduh slip PDF.</span></div></div>
     </div></div>
-    <div class="drop" id="drop"><h2>Upload export absensi dari HRIS</h2><p class="sub">File .xlsx persis seperti hasil download. Data dihitung di browser Anda dan tidak dikirim ke mana pun.</p>
+    <div class="drop" id="drop"><h2>Upload export absensi dari Kolabo</h2><p class="sub">File .xlsx persis seperti hasil download. Data dihitung di browser Anda dan tidak dikirim ke mana pun.</p>
       <button class="btn" id="pick">Pilih file .xlsx</button><p class="hint">atau tarik file ke kotak ini</p><div id="err"></div></div></div>`;
   }
   function bindUpload(root) {
@@ -685,89 +789,517 @@ details > summary { cursor: pointer; font-weight: 600; }
       rawRows = normalisasi(json);
       fileName = f.name;
       perusahaanFile = (rawRows.find((r) => r.pt) || {}).pt || "";
-      tambahKombinasiBaru();
-      hasil = hitung(rawRows);
-      terbuka.clear(); filterCabang = filterCari = slipCabang = slipCari = "";
-      renderAll();
-      showTab("dash");
+      let baru = 0;
+      rawRows.forEach((r) => { if (!tarifRow(r.cabang, r.posisi)) { cfg.tarif.push(Object.assign({ cabang: r.cabang, posisi: r.posisi }, TARIF_KOSONG)); baru++; } });
+      if (baru) scheduleSave();
+      hasil = hitung(rawRows); simpanRiwayat();
+      rekapCabang = ""; inputKey = ""; filterCari = slipCari = ""; slipCabang = ""; terbuka.clear();
+      renderBar(); updateTabCounts(); showTab("dash");
     } catch (e) {
       const err = $("#err");
-      const msg = esc(e.message || e);
-      if (err) err.innerHTML = '<div class="banner bad">' + msg + "</div>"; else setSaved(e.message || String(e));
+      if (err) err.innerHTML = '<div class="banner bad">' + esc(e.message || e) + "</div>"; else setSaved(e.message || String(e));
     }
   }
-  function tambahKombinasiBaru() {
-    let baru = 0;
-    rawRows.forEach((r) => {
-      if (!cfg.tarif.some((t) => t.cabang === r.cabang && t.posisi === r.posisi)) { cfg.tarif.push({ cabang: r.cabang, posisi: r.posisi, gaji: 0, tunj: 0, makan: 0 }); baru++; }
-    });
-    if (baru) scheduleSave();
-  }
-  function hitungUlang() { if (rawRows) hasil = hitung(rawRows); }
   function kosong(teks) {
     return `<div class="panel empty"><p>${teks}</p><p style="margin-top:10px"><button class="btn" data-go="dash">Upload file di Dashboard</button></p></div>`;
   }
 
-  // ---------- agregasi untuk dashboard ----------
+  // ---------- tab Rekap Absensi ----------
+  let rekapMode = "lokasi", rekapCabang = "", filterCari = "", filterCabang = "", terbuka = new Set();
+  const KODE_KET = [["H", "Hadir"], ["T", `Telat > ${"{a}"} mnt`], ["A", "Tanpa keterangan"], ["I", "Izin"], ["S", "Sakit"], ["C", "Cuti"], ["O", "Off / tidak ada order"]];
+  function legendaKode() {
+    return `<div class="keys">${KODE_KET.map(([k, l]) => `<span><span class="cell ${k}">${k === "O" ? "·" : k}</span>${l.replace("{a}", cfg.telatAmbang)}</span>`).join("")}
+      <span><span class="cell H adj">H</span>sudah dikoreksi</span><span><span class="cell H rev">H</span>perlu dicek</span></div>`;
+  }
+  function tipHari(d) {
+    const p = [`${d.Hari} ${tglPendek(d.Tanggal)}`, STATUS_LABEL[d.Status]];
+    if (d["Check In"]) p.push(`${d["Check In"].slice(0, 5)}–${(d["Check Out"] || "?").slice(0, 5)} (shift ${d["Shift Aktual"]})`);
+    if (d["Telat (mnt)"]) p.push(`telat ${d["Telat (mnt)"]} mnt`);
+    if (d["Lembur Dibayar (jam)"]) p.push(`lembur ${d["Lembur Dibayar (jam)"]} jam`);
+    if (d._review.length) p.push("perlu dicek: " + d._review.join("; "));
+    if (d.adj) p.push("dikoreksi" + (d.adj.ket ? ": " + d.adj.ket : ""));
+    return p.join(" · ");
+  }
+  function cellHTML(d) {
+    return `<button class="cell ${d.Kode}${d.adj ? " adj" : ""}${d._review.length ? " rev" : ""}" data-k="${esc(d.key)}" data-t="${d.Tanggal}" data-tip="${esc(tipHari(d))}" aria-label="${esc(d.Nama + ", " + tipHari(d))}">${d.Kode === "O" ? "·" : d.Kode}</button>`;
+  }
+  function renderRekap() {
+    const el = $("#tab-rekap");
+    if (!hasil) { el.innerHTML = kosong("Belum ada data. Upload export absensi dulu."); bindUpload(el); return; }
+    let h = `<div class="stack"><div class="panel"><div class="row between"><div><h2>Rekap absensi ${bulanLabel(hasil.periode)}</h2>
+      <p class="sub">Klik kotak tanggal atau tombol Koreksi untuk mengubah status, menit telat, atau jam lembur. Gaji dan slip langsung ikut berubah.</p></div>
+      <div class="seg" role="group" aria-label="Tampilan rekap"><button data-mode="lokasi" aria-pressed="${rekapMode === "lokasi"}">Kode per lokasi</button><button data-mode="jam" aria-pressed="${rekapMode === "jam"}">Jam masuk &amp; pulang</button><button data-mode="pegawai" aria-pressed="${rekapMode === "pegawai"}">Per pegawai</button></div></div>
+      <div style="margin-top:12px">${rekapMode === "jam" ? legendaJam() : legendaKode()}</div></div>`;
+    h += rekapMode === "lokasi" ? rekapLokasiHTML() : rekapMode === "jam" ? rekapJamHTML() : rekapPegawaiHTML();
+    el.innerHTML = h + "</div>";
+    el.querySelectorAll("[data-mode]").forEach((b) => b.onclick = () => { rekapMode = b.dataset.mode; renderRekap(); });
+    el.querySelectorAll("[data-k][data-t]").forEach((b) => b.onclick = (e) => { e.stopPropagation(); bukaKoreksi(b.dataset.k, b.dataset.t); });
+    const sc = $("#rcab"); if (sc) sc.onchange = (e) => { rekapCabang = e.target.value; renderRekap(); };
+    const jc = $("#jcab"); if (jc) jc.onchange = (e) => { jamCabang = e.target.value; renderRekap(); };
+    const fc = $("#fcab"); if (fc) fc.onchange = (e) => { filterCabang = e.target.value; renderRekap(); };
+    const cari = $("#fcari");
+    if (cari) cari.oninput = (e) => { filterCari = e.target.value; clearTimeout(cari._t); cari._t = setTimeout(() => { renderRekap(); const n = $("#fcari"); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); };
+    el.querySelectorAll("tr.emp").forEach((tr) => {
+      const toggle = () => { const k = tr.dataset.row; terbuka.has(k) ? terbuka.delete(k) : terbuka.add(k); renderRekap(); };
+      tr.onclick = toggle;
+      tr.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } };
+    });
+    el.querySelectorAll("[data-goemp]").forEach((b) => b.onclick = () => { rekapMode = "pegawai"; filterCari = ""; filterCabang = ""; terbuka = new Set([b.dataset.goemp]); renderRekap(); const tr = document.querySelector(`tr.emp[data-row="${CSS.escape(b.dataset.goemp)}"]`); if (tr) tr.scrollIntoView({ block: "start" }); });
+  }
+
+  // ---------- rekap jam masuk & pulang (kalender sebulan) ----------
+  let jamCabang = "";
+  function hariBulan() {
+    const [y, m] = hasil.periode.split("-").map(Number), n = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    return Array.from({ length: n }, (_, i) => hasil.periode + "-" + String(i + 1).padStart(2, "0"));
+  }
+  function legendaJam() {
+    return `<div class="keys"><span><span class="tm late">09:41</span> masuk terlambat</span><span><span class="tm early">14:10</span> pulang lebih cepat dari shift</span>
+      <span><span class="tm ot">20:05</span> lewat jam pulang ≥ ${cfg.lemburMin} mnt</span><span><span class="tm miss">?</span> tidak check-out</span>
+      <span><span class="tm abs">A</span> tanpa keterangan</span><span><span class="tm lv">S</span> izin / sakit / cuti</span><span><span class="tm off">off</span> libur / tidak ada order</span><span><span class="tm adj">08:00</span> sudah dikoreksi</span></div>`;
+  }
+  function jamCell(d, jenis) {
+    if (!d) return "";
+    const base = `data-k="${esc(d.key)}" data-t="${d.Tanggal}" data-tip="${esc(tipHari(d))}"`;
+    const adj = d.adj ? " adj" : "";
+    if (d.Status === "Off") return `<button class="tm off${adj}" ${base} aria-label="${esc(d.Nama)} ${d.Tanggal} libur">off</button>`;
+    if (d.Status === "Absent") return `<button class="tm abs${adj}" ${base}>A</button>`;
+    if (d.Status !== "Present") return `<button class="tm lv${adj}" ${base}>${d.Kode}</button>`;
+    if (jenis === "in") {
+      const t = (d["Check In"] || "").slice(0, 5) || "—";
+      return `<button class="tm${d["Telat (mnt)"] > 0 ? " late" : ""}${adj}" ${base} aria-label="${esc(d.Nama)} masuk ${t}${d["Telat (mnt)"] ? ", telat " + d["Telat (mnt)"] + " menit" : ""}">${t}</button>`;
+    }
+    if (d.tidakCO || !d["Check Out"]) return `<button class="tm miss${adj}" ${base} aria-label="${esc(d.Nama)} tidak check-out">?</button>`;
+    const t = d["Check Out"].slice(0, 5), cls = d["Pulang Cepat (mnt)"] > 0 ? " early" : d["Lembur (mnt)"] >= cfg.lemburMin ? " ot" : "";
+    return `<button class="tm${cls}${adj}" ${base} aria-label="${esc(d.Nama)} pulang ${t}${d["Pulang Cepat (mnt)"] ? ", pulang cepat " + d["Pulang Cepat (mnt)"] + " menit" : ""}">${t}</button>`;
+  }
+  function rekapJamHTML() {
+    const cabs = [...new Set(hasil.rekap.map((r) => r.Cabang))].sort();
+    if (jamCabang && !cabs.includes(jamCabang)) jamCabang = "";
+    const rk = hasil.rekap.filter((r) => !jamCabang || r.Cabang === jamCabang).sort((a, b) => a.Cabang.localeCompare(b.Cabang) || a.Nama.localeCompare(b.Nama));
+    const days = hariBulan();
+    const headDays = days.map((t) => { const hr = hariDari(t); return `<th class="${hr === "Min" ? "we" : ""}">${+t.slice(8)}<br>${hr.slice(0, 2)}</th>`; }).join("");
+    const tabel = (jenis) => {
+      let h = `<div class="scroll" style="border:0"><table class="jt"><thead><tr><th style="text-align:left">Pegawai</th>${headDays}${jenis === "in" ? '<th class="sm">Telat</th><th class="sm">Menit</th>' : '<th class="sm">Pulang cepat</th><th class="sm">Tidak CO</th>'}</tr></thead><tbody>`;
+      let cab = "";
+      rk.forEach((r) => {
+        if (!jamCabang && r.Cabang !== cab) { cab = r.Cabang; h += `<tr><td class="nm" colspan="3" style="padding-top:10px"><b>${esc(cab)}</b></td></tr>`; }
+        const m = new Map(r.detail.map((d) => [d.Tanggal, d]));
+        h += `<tr><td class="nm">${esc(r.Nama)}<br><span class="sub">${esc(r.Jabatan)}</span></td>${days.map((t) => `<td>${jamCell(m.get(t), jenis)}</td>`).join("")}
+          ${jenis === "in" ? `<td class="sm">${r.TelatKali ? `<span class="neg">${r.TelatKali}×</span>` : "0"}</td><td class="sm">${r.TelatMnt}</td>` : `<td class="sm">${r.PcKali ? `<span style="color:var(--warn)">${r.PcKali}×</span>` : "0"}</td><td class="sm">${r.TidakCO ? `<span class="neg">${r.TidakCO}</span>` : "0"}</td>`}</tr>`;
+      });
+      return h + "</tbody></table></div>";
+    };
+    return `<div class="panel stack"><div class="row between"><div class="row"><label class="sub" for="jcab">Lokasi</label><select id="jcab" style="width:auto"><option value="">Semua lokasi</option>${cabs.map((c) => `<option${c === jamCabang ? " selected" : ""} value="${esc(c)}">${esc(c)}</option>`).join("")}</select></div>
+      <span class="hint">Telat dan pulang cepat dihitung dari shift yang benar-benar dijalankan. Klik jam untuk mengoreksi.</span></div>
+      <div><h3>Check-in (jam masuk)</h3>${tabel("in")}</div><div><h3>Check-out (jam pulang)</h3>${tabel("out")}</div></div>`;
+  }
+  function rekapLokasiHTML() {
+    const cabs = [...new Set(hasil.rekap.map((r) => r.Cabang))].sort();
+    if (!cabs.includes(rekapCabang)) rekapCabang = cabs[0];
+    const rk = hasil.rekap.filter((r) => r.Cabang === rekapCabang).sort((a, b) => a.Nama.localeCompare(b.Nama));
+    const hadir = sumBy(rk, (r) => r.Hadir), terj = sumBy(rk, (r) => r.Terjadwal);
+    const days = hasil.tanggal;
+    let h = `<div class="panel stack"><div class="row between"><div class="row"><label class="sub" for="rcab">Lokasi</label><select id="rcab" style="width:auto">${cabangOpts(rekapCabang)}</select></div>
+      <div class="row sub"><span><b>${rk.length}</b> pegawai</span><span>kehadiran <b>${pct(terj ? hadir / terj : 0)}</b></span><span><b>${sumBy(rk, (r) => r.TelatKenaKali)}</b>× telat dipotong</span><span><b>${sumBy(rk, (r) => r.Absen)}</b> hari tanpa keterangan</span></div></div>`;
+    h += `<div class="scroll" style="border:0"><table class="cal"><thead><tr><th style="text-align:left">Pegawai</th>${days.map((t) => { const hr = hariDari(t); return `<th class="${hr === "Min" ? "we" : ""}">${+t.slice(8)}<br>${hr.slice(0, 2)}</th>`; }).join("")}
+      <th class="sm">H</th><th class="sm">T</th><th class="sm">A</th><th class="sm">I/S/C</th><th class="sm">O</th><th class="sm">Telat</th><th class="sm">Pot. telat</th><th class="sm">Lembur</th></tr></thead><tbody>`;
+    rk.forEach((r) => {
+      const map = new Map(r.detail.map((d) => [d.Tanggal, d]));
+      h += `<tr><td class="nm"><b>${esc(r.Nama)}</b><span class="sub">${esc(r.Jabatan)}</span></td>${days.map((t) => `<td>${map.has(t) ? cellHTML(map.get(t)) : ""}</td>`).join("")}
+        <td class="sm">${r.Hadir - r.TelatKenaKali}</td><td class="sm">${r.TelatKenaKali}</td><td class="sm">${r.Absen ? `<span class="neg">${r.Absen}</span>` : 0}</td><td class="sm">${r.Izin + r.Sakit + r.Cuti}</td><td class="sm">${r.Off}</td>
+        <td class="sm">${r.TelatMnt} mnt</td><td class="sm">${r.TelatPot ? rp(r.TelatPot) : "—"}</td><td class="sm">${r.LemburJam ? jam(r.LemburJam) : "—"}</td></tr>`;
+    });
+    h += "</tbody></table></div>";
+    const rv = hasil.review.filter((v) => v.Cabang === rekapCabang && v.Tanggal);
+    h += `<div><h3>Perlu dicek di lokasi ini (${rv.length})</h3>` + (rv.length ? `<div class="scroll" style="margin-top:8px"><table><thead><tr><th>Tanggal</th><th>Nama</th><th>Masuk</th><th>Pulang</th><th>Alasan</th><th></th></tr></thead><tbody>${rv.map((v) => `<tr><td>${tglPendek(v.Tanggal)}</td><td>${esc(v.Nama)}</td><td>${esc(v["Check In"])}</td><td>${esc(v["Check Out"])}</td><td class="wrap">${esc(v.Alasan)}</td><td><button class="btn ghost small" data-k="${esc(v.key)}" data-t="${v.Tanggal}">Koreksi</button></td></tr>`).join("")}</tbody></table></div>` : '<p class="hint" style="margin-top:4px">Tidak ada.</p>') + "</div>";
+    return h + "</div>";
+  }
+  function rekapPegawaiHTML() {
+    const rk = hasil.rekap.filter((r) => (!filterCabang || r.Cabang === filterCabang) && (!filterCari || (r.Nama + " " + r.NIP).toLowerCase().includes(filterCari.toLowerCase())));
+    const tot = (k) => sumBy(rk, (r) => r[k]);
+    let h = `<div class="filters"><div class="row"><select id="fcab" aria-label="Filter lokasi">${cabangOpts(filterCabang, true)}</select>
+      <input type="text" id="fcari" placeholder="Cari nama / NIP" value="${esc(filterCari)}" aria-label="Cari pegawai"></div><span class="hint">Klik baris untuk melihat dan mengoreksi absensi harian.</span></div>`;
+    h += `<div class="scroll"><table><thead><tr><th>Pegawai</th><th>Lokasi / Posisi</th><th class="n">Hadir</th><th class="n">Telat</th><th class="n">Tanpa ket.</th><th class="n">Izin/Sakit/Cuti</th><th class="n">Off</th><th class="n">Tidak check-out</th><th class="n">Lembur</th><th class="n">Pot. telat</th><th class="n">Koreksi</th><th class="n">Gaji diterima</th></tr></thead><tbody>`;
+    if (!rk.length) h += '<tr><td colspan="12" class="empty">Tidak ada pegawai yang cocok.</td></tr>';
+    rk.forEach((r) => {
+      const open = terbuka.has(r.key);
+      h += `<tr class="emp" data-row="${esc(r.key)}" tabindex="0" aria-expanded="${open}"><td><b>${esc(r.Nama)}</b><br><span class="sub">${esc(r.NIP || "NIP kosong")}</span></td>
+        <td class="wrap">${esc(r.Cabang)}<br><span class="sub">${esc(r.Jabatan)}</span></td>
+        <td class="n">${r.Hadir}/${r.Terjadwal}</td><td class="n">${r.TelatKali}×<br><span class="sub">${r.TelatMnt} mnt</span></td>
+        <td class="n">${r.Absen ? `<span class="neg">${r.Absen}</span>` : 0}</td><td class="n">${r.Izin}/${r.Sakit}/${r.Cuti}</td><td class="n">${r.Off}</td><td class="n">${r.TidakCO}</td>
+        <td class="n">${r.LemburJam ? jam(r.LemburJam) : "—"}</td><td class="n">${r.TelatPot ? rp(r.TelatPot) : "—"}</td><td class="n">${r.Dikoreksi || "—"}</td>
+        <td class="n"><b>${r.GajiBersih == null ? '<span class="pill warn">tarif kosong</span>' : rp(r.GajiBersih)}</b></td></tr>`;
+      if (open) h += `<tr class="detail"><td colspan="12">${detailTabel(r)}</td></tr>`;
+    });
+    h += `<tr class="tot"><td colspan="2">Total${filterCabang || filterCari ? " (terfilter)" : ""}</td><td class="n">${num(tot("Hadir"))}</td><td class="n">${num(tot("TelatKali"))}×</td><td class="n">${num(tot("Absen"))}</td><td class="n">${num(tot("Izin") + tot("Sakit") + tot("Cuti"))}</td><td class="n">${num(tot("Off"))}</td><td class="n">${num(tot("TidakCO"))}</td><td class="n">${jam(tot("LemburJam"))}</td><td class="n">${rp(tot("TelatPot"))}</td><td class="n">${num(tot("Dikoreksi"))}</td><td class="n">${rp(sumBy(rk, (r) => r.GajiBersih || 0))}</td></tr></tbody></table></div>`;
+    const rvAll = hasil.review.filter((v) => !v.Tanggal);
+    if (rvAll.length) h += `<div class="panel"><h3>Catatan data pegawai</h3><ul class="sub" style="margin:8px 0 0;padding-left:18px">${rvAll.map((v) => `<li><b>${esc(v.Nama)}</b>: ${esc(v.Alasan)}</li>`).join("")}</ul></div>`;
+    return h;
+  }
+  function detailTabel(r) {
+    let h = '<div class="scroll"><table><thead><tr><th>Tanggal</th><th>Status</th><th>Jadwal Kolabo</th><th>Shift aktual</th><th>Masuk</th><th>Pulang</th><th class="n">Telat</th><th class="n">Pot. telat</th><th class="n">Pulang cepat</th><th class="n">Lembur</th><th>Catatan</th><th></th></tr></thead><tbody>';
+    r.detail.forEach((d) => {
+      const pill = { H: "ok", T: "warn", A: "bad" }[d.Kode] || "";
+      h += `<tr><td>${d.Hari} ${tglPendek(d.Tanggal)}</td><td><span class="pill ${pill}">${STATUS_LABEL[d.Status]}${d.Kode === "T" ? ", telat" : ""}</span>${d.adj ? ' <span class="pill">dikoreksi</span>' : ""}</td>
+        <td>${esc(d["Jadwal Kolabo"])}</td><td>${esc(d["Shift Aktual"])}${d["Status Shift"].startsWith("shift berubah") ? ' <span class="pill warn">berubah</span>' : ""}</td><td>${esc(d["Check In"])}</td><td>${esc(d["Check Out"])}</td>
+        <td class="n">${d["Telat (mnt)"] || ""}</td><td class="n">${d["Potongan Telat (Rp)"] ? rp(d["Potongan Telat (Rp)"]) : ""}</td><td class="n">${d["Pulang Cepat (mnt)"] || ""}</td>
+        <td class="n">${d["Lembur Dibayar (jam)"] ? jam(d["Lembur Dibayar (jam)"]) : d["Lembur (mnt)"] >= cfg.lemburMin ? `<span class="sub">${d["Lembur (mnt)"]} mnt, belum dibayar</span>` : ""}</td>
+        <td class="wrap">${esc(d.Catatan.concat(d._review).join("; "))}</td><td><button class="btn ghost small" data-k="${esc(d.key)}" data-t="${d.Tanggal}">Koreksi</button></td></tr>`;
+    });
+    return h + "</tbody></table></div>";
+  }
+
+  // ---------- modal koreksi ----------
+  function tutupModal() { $("#modal").innerHTML = ""; document.removeEventListener("keydown", escModal); }
+  function escModal(e) { if (e.key === "Escape") tutupModal(); }
+  function bukaKoreksi(key, tgl) {
+    const d = hasil.det.find((x) => x.key === key && x.Tanggal === tgl);
+    if (!d) return;
+    const a = d.adj || {}, au = d.auto;
+    const tarifL = d.lemburTarif != null ? d.lemburTarif : cfg.tarifLembur;
+    const opt = (v, l) => `<option value="${v}"${(a.status || "") === v ? " selected" : ""}>${l}</option>`;
+    $("#modal").innerHTML = `<div class="modal" id="mbg"><form class="box" id="mform" aria-labelledby="mtitle">
+      <div><h2 id="mtitle">Koreksi absensi</h2><p class="sub">${esc(d.Nama)} · ${esc(d.Cabang)} · ${d.Hari} ${tglPendek(d.Tanggal)} ${hasil.periode.slice(0, 4)}</p></div>
+      <div class="facts"><div><span>Status Kolabo</span><b>${d.rawStatus === "Present" ? "Hadir" : d.rawStatus === "Absent" ? "Tidak check-in" : "Off"}</b></div><div><span>Jadwal Kolabo</span><b>${esc(d["Jadwal Kolabo"] || "—")}</b></div>
+        <div><span>Shift aktual</span><b>${esc(d["Shift Aktual"] || "—")}</b></div><div><span>Masuk</span><b>${esc(d["Check In"] || "—")}</b></div><div><span>Pulang</span><b>${esc(d["Check Out"] || "—")}</b></div>
+        <div><span>Telat (sistem)</span><b>${au.telat} mnt</b></div><div><span>Lewat jam pulang</span><b>${au.lemburMnt} mnt</b></div></div>
+      ${d.Catatan.length || d._review.length ? `<p class="hint">${esc(d.Catatan.filter((c) => !c.startsWith("dikoreksi")).concat(d._review).join("; "))}</p>` : ""}
+      <div class="field"><label for="m-status">Status hari ini</label><select id="m-status">${opt("", "Otomatis (sistem: " + STATUS_LABEL[au.status] + ")")}${opt("hadir", "Hadir")}${opt("absen", "Tanpa keterangan (dipotong)")}${opt("izin", "Izin (dipotong)")}${opt("sakit", "Sakit (dibayar)")}${opt("cuti", "Cuti (dibayar)")}${opt("off", "Off / libur")}</select></div>
+      <div class="grid"><div class="field"><label for="m-telat">Menit telat yang dihitung</label><input type="number" id="m-telat" min="0" inputmode="numeric" value="${isNum(a.telat) ? a.telat : ""}" placeholder="otomatis: ${au.telat}"><span class="hint">Isi 0 untuk memaafkan telat. Telat &gt; ${cfg.telatAmbang} mnt dipotong ${rp(cfg.telatNominal)}.</span></div>
+        <div class="field"><label for="m-lembur">Jam lembur dibayar</label><input type="number" id="m-lembur" min="0" step="0.5" value="${isNum(a.lembur) ? a.lembur : ""}" placeholder="otomatis: ${au.lembur}"><span class="hint">Tarif ${rp(tarifL)}/jam${d.lemburTarif != null ? " (aturan lembur lokasi)" : " (tarif lembur bawaan)"}.</span></div></div>
+      ${d.tidakCO || a.co ? `<label class="row"><input type="checkbox" id="m-co"${a.co === "ok" ? " checked" : ""}> Check-out sudah dikonfirmasi (tidak dihitung "tidak check-out")</label>` : ""}
+      <div class="field"><label for="m-ket">Alasan koreksi</label><input type="text" id="m-ket" value="${esc(a.ket || "")}" placeholder="misal: tukar shift disetujui PIC"></div>
+      <div class="row between"><div>${d.adj ? '<button type="button" class="btn ghost" id="m-reset">Kembalikan ke otomatis</button>' : ""}</div>
+        <div class="row"><button type="button" class="btn ghost" id="m-batal">Batal</button><button type="submit" class="btn">Simpan koreksi</button></div></div>
+    </form></div>`;
+    document.addEventListener("keydown", escModal); $("#tip").hidden = true;
+    $("#mbg").onclick = (e) => { if (e.target.id === "mbg") tutupModal(); };
+    $("#m-batal").onclick = tutupModal;
+    const k = key + "|" + tgl;
+    if ($("#m-reset")) $("#m-reset").onclick = () => { delete cfg.adj[k]; tutupModal(); scheduleSave(); recompute(); };
+    $("#mform").onsubmit = (e) => {
+      e.preventDefault();
+      const n = {};
+      const s = $("#m-status").value, t = $("#m-telat").value, l = $("#m-lembur").value, ket = $("#m-ket").value.trim();
+      if (s) n.status = s;
+      if (t !== "") n.telat = +t;
+      if (l !== "") n.lembur = +l;
+      if ($("#m-co") && $("#m-co").checked) n.co = "ok";
+      if (Object.keys(n).length) { if (ket) n.ket = ket; cfg.adj[k] = n; } else delete cfg.adj[k];
+      tutupModal(); scheduleSave(); recompute();
+    };
+    $("#m-status").focus();
+  }
+
+  // ---------- tab Input Gaji ----------
+  let inputKey = "";
+  function fieldHTML(scope, key, f, val) {
+    const [id, label, type, list] = f;
+    const t = type === "text" ? "text" : type === "date" ? "date" : "number";
+    return `<div class="field"><label for="in-${scope}-${id}">${label}</label><input type="${t}" id="in-${scope}-${id}" data-scope="${scope}" data-f="${id}" ${list ? `list="${list}"` : ""} ${t === "number" ? 'min="0" step="1000" inputmode="numeric"' : ""} value="${esc(val == null ? "" : val)}"></div>`;
+  }
+  function renderInput() {
+    const el = $("#tab-input");
+    if (!hasil) { el.innerHTML = kosong("Komponen gaji diisi per pegawai setelah data absensi diupload."); bindUpload(el); return; }
+    const rk = [...hasil.rekap].sort((a, b) => a.Cabang.localeCompare(b.Cabang) || a.Nama.localeCompare(b.Nama));
+    if (!rk.some((r) => r.key === inputKey)) inputKey = rk[0].key;
+    const r = rk.find((x) => x.key === inputKey), idx = rk.indexOf(r);
+    const P = cfg.pegawai[r.key] || {}, M = bulanIni(r.key), t = tarifRow(r.Cabang, r.Posisi) || TARIF_KOSONG;
+    const groups = [...new Set(rk.map((x) => x.Cabang))];
+    let h = `<div class="stack"><div class="panel row between"><div class="row"><label class="sub" for="in-emp">Pegawai</label>
+      <select id="in-emp" style="width:auto;max-width:100%">${groups.map((g) => `<optgroup label="${esc(g)}">${rk.filter((x) => x.Cabang === g).map((x) => `<option value="${esc(x.key)}"${x.key === inputKey ? " selected" : ""}>${esc(x.Nama)}</option>`).join("")}</optgroup>`).join("")}</select>
+      <button class="btn ghost small" id="in-prev" ${idx ? "" : "disabled"}>Sebelumnya</button><button class="btn ghost small" id="in-next" ${idx < rk.length - 1 ? "" : "disabled"}>Berikutnya</button></div>
+      <span class="hint">${idx + 1} dari ${rk.length} pegawai · tersimpan otomatis</span></div>`;
+    const opsiMassal = F_BULAN.filter((x) => x.sec !== "Masa kerja bulan ini" && x.sec !== "Keterangan di slip").flatMap((x) => x.f.filter((f) => !f[2]).map((f) => `<option value="${f[0]}">${esc(x.sec.replace(/^[A-E]\. /, ""))}: ${esc(f[1])}</option>`)).join("");
+    h += `<details class="panel"><summary>Isi sekaligus untuk banyak pegawai (bonus, insentif, potongan)</summary><div class="row" style="margin-top:10px;align-items:flex-end">
+      <div class="field"><label for="mb-f">Komponen</label><select id="mb-f">${opsiMassal}</select></div>
+      <div class="field"><label for="mb-v">Nilai (Rp)</label><input type="number" id="mb-v" min="0" step="1000" style="width:150px"></div>
+      <div class="field"><label for="mb-c">Untuk</label><select id="mb-c"><option value="">Semua pegawai</option>${[...new Set(hasil.rekap.map((x) => x.Cabang))].sort().map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("")}</select></div>
+      <button class="btn" id="mb-go">Terapkan</button></div><p class="hint" id="mb-msg" style="margin-top:6px">Mengganti nilai komponen itu untuk bulan ${bulanLabel(hasil.periode)}. Isi 0 untuk menghapus.</p></details>`;
+    h += dl("dl-jab", ["CSO - JUNIOR", "CSO - SENIOR", "PIC - PERCOBAAN", "PIC - JUNIOR", "PIC - SENIOR", "INTERNAL", "MANPOWER"]) + dl("dl-status", ["MITRA KERJA", "PROBATION", "KONTRAK", "PERMANEN"]);
+    h += `<div class="ig"><div class="stack">
+      <div class="panel"><fieldset class="fs"><legend>Data tetap ${esc(r.Nama)} <span class="sub">(berlaku untuk bulan-bulan berikutnya)</span></legend>
+        <p class="hint">Tarif ${esc(r.Cabang)} / ${esc(r.Posisi)}: gaji pokok ${rp(t.gaji)}, tunj. makan & transport ${rp(t.tunjMT)}, kinerja ${rp(t.tunjKin)}, absensi ${rp(t.tunjAbs)}. Isi kolom "khusus" hanya jika pegawai ini berbeda dari tarif (misal PIC senior).</p>
+        <div class="grid">${F_TETAP.map((f) => fieldHTML("tetap", r.key, f, P[f[0]])).join("")}</div></fieldset></div>`;
+    F_BULAN.forEach((s) => {
+      h += `<div class="panel"><fieldset class="fs"><legend>${s.sec} <span class="sub">· ${bulanLabel(hasil.periode)}</span></legend>${s.hint ? `<p class="hint">${s.hint}</p>` : ""}<div class="grid">${s.f.map((f) => fieldHTML("bulan", r.key, f, M[f[0]])).join("")}</div></fieldset></div>`;
+    });
+    h += `</div><div class="panel sumbox" id="in-sum"></div></div>`;
+    h += `<div class="stack" style="gap:8px"><h2>Semua pegawai bulan ini</h2><div class="scroll" id="in-all"></div></div></div>`;
+    el.innerHTML = h;
+    renderInputSummary();
+    $("#in-emp").onchange = (e) => { inputKey = e.target.value; renderInput(); };
+    $("#mb-go").onclick = () => {
+      const f = $("#mb-f").value, val = +$("#mb-v").value || 0, c = $("#mb-c").value;
+      const b = cfg.bulanan[hasil.periode] = cfg.bulanan[hasil.periode] || {};
+      const target = hasil.rekap.filter((x) => !c || x.Cabang === c);
+      target.forEach((x) => { const o = b[x.key] = b[x.key] || {}; if (val) o[f] = val; else delete o[f]; });
+      scheduleSave(); recompute(true); renderInput();
+      $("#mb-msg").textContent = `Diterapkan ke ${target.length} pegawai.`; $("#mb-msg").closest("details").open = true;
+    };
+    $("#in-prev").onclick = () => { inputKey = rk[idx - 1].key; renderInput(); };
+    $("#in-next").onclick = () => { inputKey = rk[idx + 1].key; renderInput(); };
+    el.querySelectorAll("input[data-scope]").forEach((inp) => inp.addEventListener("change", () => {
+      const f = inp.dataset.f, val = inp.type === "number" ? (inp.value === "" ? "" : +inp.value) : inp.value.trim();
+      let obj;
+      if (inp.dataset.scope === "tetap") obj = cfg.pegawai[inputKey] = cfg.pegawai[inputKey] || {};
+      else { const b = cfg.bulanan[hasil.periode] = cfg.bulanan[hasil.periode] || {}; obj = b[inputKey] = b[inputKey] || {}; }
+      if (val === "") delete obj[f]; else obj[f] = val;
+      scheduleSave(); recompute(true);
+    }));
+  }
+  function renderInputSummary() {
+    const box = $("#in-sum");
+    if (!box || !hasil) return;
+    const r = hasil.rekap.find((x) => x.key === inputKey);
+    const s = r.slip;
+    box.innerHTML = `<h3>${esc(r.Nama)}</h3><p class="sub">${esc(r.Jabatan)} · ${esc(r.Cabang)}</p>
+      <p class="hint" style="margin:8px 0">Hadir ${r.Hadir}/${r.Terjadwal} · tanpa ket. ${r.Absen} · izin ${r.Izin} · telat dipotong ${r.TelatKenaKali}× · lembur ${jam(r.LemburJam)}</p>
+      ${s.ada ? "" : '<div class="banner warn" style="margin-bottom:8px">Gaji pokok belum ada. Isi di Tarif Gaji atau kolom gaji pokok khusus.</div>'}
+      ${s.pend.filter((x) => x.total).map((x) => `<div class="sumline"><span>${esc(x.sec)}</span><span>${rp(x.total)}</span></div>`).join("")}
+      <div class="sumline" style="font-weight:700"><span>Pendapatan bruto</span><span>${rp(s.bruto)}</span></div>
+      <div class="sumline"><span>Potongan</span><span class="neg">−${rp(s.potongan)}</span></div>
+      <div class="sumline big"><span>Gaji diterima</span><span>${s.ada ? rp(Math.max(0, s.thp)) : "—"}</span></div>
+      ${r.Minus ? '<p class="hint neg">Potongan melebihi pendapatan; gaji diterima dibulatkan ke Rp0.</p>' : ""}
+      <p style="margin-top:12px"><button class="btn ghost small" id="in-lihat">Lihat slip</button></p>`;
+    $("#in-lihat").onclick = () => { slipCari = r.Nama; slipCabang = ""; showTab("slip"); };
+    const all = $("#in-all");
+    const rk = [...hasil.rekap].sort((a, b) => a.Cabang.localeCompare(b.Cabang) || a.Nama.localeCompare(b.Nama));
+    all.innerHTML = `<table><thead><tr><th>Pegawai</th><th>Lokasi</th><th>Jabatan</th><th class="n">Pendapatan bruto</th><th class="n">Potongan</th><th class="n">Gaji diterima</th><th></th></tr></thead><tbody>${rk.map((x) => `<tr${x.key === inputKey ? ' style="background:var(--accent-soft)"' : ""}><td>${esc(x.Nama)}</td><td>${esc(x.Cabang)}</td><td>${esc(x.Jabatan)}</td><td class="n">${rp(x.Pendapatan)}</td><td class="n">${rp(x.Potongan)}</td><td class="n"><b>${x.GajiBersih == null ? '<span class="pill warn">tarif kosong</span>' : rp(x.GajiBersih)}</b></td><td><button class="btn ghost small" data-isi="${esc(x.key)}">Isi</button></td></tr>`).join("")}
+      <tr class="tot"><td colspan="3">Total</td><td class="n">${rp(sumBy(rk, (x) => x.Pendapatan))}</td><td class="n">${rp(sumBy(rk, (x) => x.Potongan))}</td><td class="n">${rp(sumBy(rk, (x) => x.GajiBersih || 0))}</td><td></td></tr></tbody></table>`;
+    all.querySelectorAll("[data-isi]").forEach((b) => b.onclick = () => { inputKey = b.dataset.isi; renderInput(); window.scrollTo({ top: 0 }); });
+  }
+
+
+  // ---------- tab Slip Gaji ----------
+  let slipCabang = "", slipCari = "";
+  function attItems(r) {
+    return [["Hari kerja", r.Terjadwal], ["Hadir", r.Hadir], ["Off day", r.Off], ["Tanpa keterangan", r.Absen, r.Absen > 0], ["Izin", r.Izin],
+      ["Sakit", r.Sakit], ["Tidak check-in", r.TidakCI], ["Tidak check-out", r.TidakCO, r.TidakCO > 0], ["Terlambat", r.TelatKenaKali + "×", r.TelatKenaKali > 0], ["Mengganti", r.Mengganti + "×"]];
+  }
+  function slipData(r) {
+    const s = r.slip;
+    const pend = s.pend.map((x, i) => Object.assign({}, x, { items: x.items.filter((it) => it[1] || (i === 0 && it[0] === "Gaji pokok")) })).filter((x, i) => i === 0 || x.total);
+    const pot = s.pot.filter((x) => x[1]);
+    const ben = s.ben.filter((x) => x[1]);
+    return { pend, pot, ben };
+  }
+  function slipHTML(r) {
+    const s = r.slip, d = slipData(r);
+    const ln = (a, cls) => `<div class="ln${cls ? " " + cls : ""}"><span>${esc(a[0])}</span><span>${rp(a[1])}</span></div>`;
+    const thp = s.ada ? Math.max(0, s.thp) : 0;
+    return `<article class="slip" aria-label="Slip gaji ${esc(r.Nama)}">
+      <div class="band"><div class="co">${esc(namaPT())}${cfg.alamat ? `<small>${esc(cfg.alamat)}</small>` : ""}</div><div class="ttl">SLIP GAJI<small>${bulanLabel(hasil.periode)}</small></div></div>
+      <div class="body">
+        ${s.ada ? "" : '<div class="flag">Gaji pokok belum diisi untuk pegawai ini. Slip tidak ikut diunduh.</div>'}
+        <div class="muted">${esc(cfg.judulSlip)} · ${esc(POSISI_LABEL[r.Posisi] || r.Posisi)}</div>
+        <dl class="id">
+          <div><dt>Nama</dt><dd>${esc(r.Nama)}</dd></div><div><dt>NIP</dt><dd>${esc(r.NIP || "-")}</dd></div>
+          <div><dt>Jabatan</dt><dd>${esc(r.Jabatan)}</dd></div><div><dt>Penempatan</dt><dd>${esc(r.Cabang)}</dd></div>
+          <div><dt>Status</dt><dd>${esc(r.StatusKerja || "-")}</dd></div><div><dt>Performance</dt><dd>${esc(s.M.performance || "-")}</dd></div>
+        </dl>
+        <div class="att">${attItems(r).map((a) => `<div class="${a[2] ? "bad" : ""}"><b>${a[1]}</b><span>${a[0]}</span></div>`).join("")}</div>
+        <div class="cols">
+          <div><h4>Pendapatan</h4>${d.pend.map((x) => `<div class="sec">${esc(x.sec)}${x.info ? ` <small>(${esc(x.info)})</small>` : ""}</div>${x.items.map((it) => ln(it)).join("")}${x.items.length > 1 ? ln(["Subtotal", x.total], "sub") : ""}`).join("")}
+            ${ln(["Total pendapatan bruto", s.bruto], "tot")}</div>
+          <div><h4>Potongan</h4>${d.pot.length ? d.pot.map((x) => ln(x)).join("") : '<div class="ln"><span>Tidak ada potongan</span><span>Rp0</span></div>'}${ln(["Total potongan", s.potongan], "tot")}
+            ${d.ben.length ? `<h4 style="margin-top:14px">Benefit dari perusahaan</h4>${d.ben.map((x) => ln(x)).join("")}${ln(["Total benefit", s.benefit], "tot")}<div class="muted" style="margin-top:4px">Dibayarkan perusahaan ke BPJS/penyedia, tidak diterima tunai.</div>` : ""}</div>
+        </div>
+        <div class="net"><div><span>Total pendapatan</span><b>${rp(s.bruto)}</b></div><div><span>Total potongan</span><b>−${rp(s.potongan)}</b></div><div class="thp"><span>Gaji diterima (take home pay)</span><b>${s.ada ? rp(thp) : "—"}</b></div></div>
+        ${s.ada ? `<div class="terb">Terbilang: ${terbilang(thp)}</div>` : ""}
+        ${s.M.catatan ? `<div><b>Catatan:</b> ${esc(s.M.catatan)}</div>` : ""}
+        <div class="sign"><div>Penerima<div class="sp"></div><b>${esc(r.Nama)}</b></div><div>${esc(cfg.kota)}, ${tglPanjang(new Date())}<div class="sp"></div><b>${esc(cfg.ttdNama || "(........................)")}</b><div>${esc(cfg.ttdJabatan)}</div></div></div>
+        ${s.ada ? `<div class="acts"><button class="btn ghost small" data-pdf="${esc(r.key)}">Unduh PDF</button></div>` : ""}
+      </div></article>`;
+  }
+  function renderSlip() {
+    const el = $("#tab-slip");
+    if (!hasil) { el.innerHTML = kosong("Slip gaji dibuat dari data absensi. Upload export dulu."); bindUpload(el); return; }
+    const list = hasil.rekap.filter((r) => (!slipCabang || r.Cabang === slipCabang) && (!slipCari || (r.Nama + " " + r.NIP).toLowerCase().includes(slipCari.toLowerCase())));
+    const siap = list.filter((r) => r.adaTarif && r.Pendapatan > 0), nol = list.filter((r) => r.adaTarif && !r.Pendapatan).length, belum = list.length - siap.length - nol;
+    let h = `<div class="stack"><div class="panel"><div class="row between"><div><h2>Slip gaji ${bulanLabel(hasil.periode)}</h2><p class="sub">${siap.length} slip siap${belum ? `, ${belum} menunggu gaji pokok` : ""}${nol ? `, ${nol} tanpa pendapatan bulan ini (tidak diunduh)` : ""}. Unduh semua slip yang tampil: satu PDF (satu halaman per pegawai) atau ZIP berisi PDF terpisah per pegawai, dikelompokkan per lokasi.</p></div>
+      <div class="row"><button class="btn ghost" id="zipAll" ${siap.length ? "" : "disabled"}>ZIP: 1 file per pegawai</button><button class="btn" id="pdfAll" ${siap.length ? "" : "disabled"}>Unduh ${siap.length} slip (1 PDF)</button></div></div>
+      <div class="filters" style="margin-top:12px"><div class="row"><select id="scab" aria-label="Filter lokasi">${cabangOpts(slipCabang, true)}</select>
+      <input type="text" id="scari" placeholder="Cari nama / NIP" value="${esc(slipCari)}" aria-label="Cari slip"></div><span class="hint">Komponen variabel (home cleaning, bonus, kasbon, dll) diisi di tab Input Gaji.</span></div></div>`;
+    if (belum) h += `<div class="banner warn">${belum} pegawai belum punya gaji pokok. <a href="#" data-go="gaji">Isi Tarif Gaji</a> atau isi gaji pokok khusus di Input Gaji.</div>`;
+    h += list.length ? `<div class="slips">${list.map(slipHTML).join("")}</div>` : '<p class="empty">Tidak ada pegawai yang cocok.</p>';
+    el.innerHTML = h + "</div>";
+    bindUpload(el);
+    $("#scab").onchange = (e) => { slipCabang = e.target.value; renderSlip(); };
+    const cari = $("#scari");
+    cari.oninput = (e) => { slipCari = e.target.value; clearTimeout(cari._t); cari._t = setTimeout(() => { renderSlip(); const n = $("#scari"); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); };
+    const nmFile = "Slip_Gaji_" + hasil.periode + (slipCabang ? "_" + slipCabang.replace(/[^\w]+/g, "_") : "");
+    $("#pdfAll").onclick = () => unduhPDF(siap, nmFile + ".pdf");
+    $("#zipAll").onclick = () => unduhZIP(siap, nmFile + ".zip");
+    el.querySelectorAll("[data-pdf]").forEach((b) => b.onclick = () => {
+      const r = hasil.rekap.find((x) => x.key === b.dataset.pdf);
+      unduhPDF([r], "Slip_Gaji_" + hasil.periode + "_" + r.Nama.replace(/[^\w]+/g, "_") + ".pdf");
+    });
+  }
+
+  // ---------- PDF slip (A4) ----------
+  function gambarSlip(doc, r) {
+    const G = [14, 92, 61], INK = [27, 36, 48], MUTED = [93, 104, 116], SOFT = [238, 244, 241], LINE = [221, 227, 232], RED = [179, 38, 30];
+    const s = r.slip, d = slipData(r), thp = Math.max(0, s.thp);
+    const rpT = (n) => "Rp" + Math.round(n || 0).toLocaleString("id-ID");
+    const X0 = 14, X1 = 196, W = X1 - X0;
+    // kepala
+    doc.setFillColor(...G); doc.rect(0, 0, 210, 30, "F");
+    doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(14);
+    doc.text(doc.splitTextToSize(namaPT(), 120)[0], X0, 13);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+    doc.text(doc.splitTextToSize(cfg.alamat || "", 120)[0] || "", X0, 19);
+    doc.text(cfg.judulSlip + " · " + (POSISI_LABEL[r.Posisi] || r.Posisi), X0, 24);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.text("SLIP GAJI", X1, 14, { align: "right" });
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("Periode " + bulanLabel(hasil.periode), X1, 21, { align: "right" });
+    let y = 40;
+    // identitas
+    const idf = [["Nama", r.Nama, "NIP", r.NIP || "-"], ["Jabatan", r.Jabatan, "Penempatan", r.Cabang], ["Status", r.StatusKerja || "-", "Performance", s.M.performance || "-"]];
+    doc.setFontSize(9.5);
+    idf.forEach((p) => {
+      doc.setTextColor(...MUTED); doc.text(p[0], X0, y); doc.text(p[2], 107, y);
+      doc.setTextColor(...INK); doc.setFont("helvetica", "bold");
+      doc.text(doc.splitTextToSize(String(p[1]), 62)[0], X0 + 24, y); doc.text(doc.splitTextToSize(String(p[3]), 62)[0], 107 + 24, y);
+      doc.setFont("helvetica", "normal"); y += 6;
+    });
+    // kehadiran
+    y += 1;
+    const att = attItems(r), cw = W / 5;
+    att.forEach((a, i) => {
+      const cx = X0 + (i % 5) * cw, cy = y + Math.floor(i / 5) * 13;
+      doc.setFillColor(...SOFT); doc.rect(cx + 0.4, cy, cw - 0.8, 12, "F");
+      doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(...(a[2] ? RED : INK)); doc.text(String(a[1]), cx + 3, cy + 5.5);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...MUTED); doc.text(a[0], cx + 3, cy + 10);
+    });
+    y += 33;
+    // dua kolom
+    const CW = 86, XL = X0, XR = X0 + W - CW;
+    const head = (t, x, yy) => { doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...G); doc.text(t.toUpperCase(), x, yy); doc.setDrawColor(...G); doc.setLineWidth(0.4); doc.line(x, yy + 1.5, x + CW, yy + 1.5); return yy + 7; };
+    const line = (a, x, yy, bold) => {
+      doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(9); doc.setTextColor(...INK);
+      doc.text(doc.splitTextToSize(a[0], CW - 28)[0], x, yy); doc.text(rpT(a[1]), x + CW, yy, { align: "right" }); return yy + 5;
+    };
+    const total = (a, x, yy) => { doc.setDrawColor(...INK); doc.setLineWidth(0.3); doc.line(x, yy - 3.4, x + CW, yy - 3.4); return line(a, x, yy + 0.6, true) + 1; };
+    let yl = head("Pendapatan", XL, y);
+    d.pend.forEach((sec) => {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.setTextColor(...MUTED);
+      doc.text(sec.sec + (sec.info ? "  (" + sec.info + ")" : ""), XL, yl); yl += 4.6;
+      sec.items.forEach((it) => { yl = line(it, XL + 2, yl); });
+      if (sec.items.length > 1) { doc.setDrawColor(...LINE); doc.setLineWidth(0.2); doc.line(XL + 2, yl - 3.4, XL + CW, yl - 3.4); doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.setTextColor(...MUTED); doc.text("Subtotal", XL + 2, yl); doc.text(rpT(sec.total), XL + CW, yl, { align: "right" }); yl += 5; }
+      yl += 1.5;
+    });
+    yl = total(["Total pendapatan bruto", s.bruto], XL, yl + 1);
+    let yr = head("Potongan", XR, y);
+    (d.pot.length ? d.pot : [["Tidak ada potongan", 0]]).forEach((x) => { yr = line(x, XR, yr); });
+    yr = total(["Total potongan", s.potongan], XR, yr + 1);
+    if (d.ben.length) {
+      yr = head("Benefit dari perusahaan", XR, yr + 5);
+      d.ben.forEach((x) => { yr = line(x, XR, yr); });
+      yr = total(["Total benefit", s.benefit], XR, yr + 1);
+      doc.setFont("helvetica", "italic"); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
+      doc.text("Dibayarkan perusahaan ke BPJS/penyedia, tidak diterima tunai.", XR, yr); yr += 4;
+    }
+    y = Math.max(yl, yr) + 5;
+    // ringkasan
+    doc.setFillColor(...SOFT); doc.rect(X0, y, W, 20, "F");
+    const sx = [X0 + 4, X0 + 64, X0 + 120];
+    [["Total pendapatan", rpT(s.bruto)], ["Total potongan", "-" + rpT(s.potongan)], ["Gaji diterima (take home pay)", rpT(thp)]].forEach((a, i) => {
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text(a[0], sx[i], y + 7);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(i === 2 ? 15 : 11); doc.setTextColor(...(i === 2 ? G : INK)); doc.text(a[1], sx[i], y + 15);
+    });
+    y += 26;
+    doc.setFont("helvetica", "italic"); doc.setFontSize(9); doc.setTextColor(...MUTED);
+    const tb = doc.splitTextToSize("Terbilang: " + terbilang(thp), W); doc.text(tb, X0, y); y += tb.length * 4.5 + 2;
+    if (s.M.catatan) { doc.setFont("helvetica", "normal"); doc.setTextColor(...INK); const c = doc.splitTextToSize("Catatan: " + s.M.catatan, W); doc.text(c, X0, y); y += c.length * 4.5 + 2; }
+    // tanda tangan
+    y = Math.max(y + 6, 240);
+    if (y > 262) { doc.addPage(); y = 30; }
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(...INK);
+    doc.text("Penerima", 50, y, { align: "center" }); doc.text(cfg.kota + ", " + tglPanjang(new Date()), 160, y, { align: "center" });
+    doc.setFont("helvetica", "bold");
+    doc.text(r.Nama, 50, y + 24, { align: "center" }); doc.text(cfg.ttdNama || "(........................)", 160, y + 24, { align: "center" });
+    doc.setFont("helvetica", "normal"); doc.text(cfg.ttdJabatan || "", 160, y + 29, { align: "center" });
+    doc.setFontSize(7.5); doc.setTextColor(...MUTED);
+    doc.text(`Dihitung dari data absensi Kolabo ${hasil.dari} s/d ${hasil.sampai}. Dokumen ini dibuat otomatis.`, X0, 290);
+  }
+
+
+  // ---------- agregasi ----------
   function perCabang() {
-    const m = new Map();
+    const m = new Map(), inv = cfg.invoice[hasil.periode] || {};
     hasil.rekap.forEach((r) => {
-      if (!m.has(r.Cabang)) m.set(r.Cabang, { cabang: r.Cabang, n: 0, hadir: 0, terjadwal: 0, absen: 0, telat: 0, telatPot: 0, lembur: 0, lemburTak: 0, gaji: 0, tarifKurang: 0, berubah: 0 });
+      if (!m.has(r.Cabang)) m.set(r.Cabang, { cabang: r.Cabang, n: 0, hadir: 0, terjadwal: 0, absen: 0, telat: 0, telatPot: 0, lembur: 0, lemburTak: 0, gaji: 0, biaya: 0, tarifKurang: 0, berubah: 0, tanpaJadwal: r.TanpaJadwal, order: 0, orderJam: 0 });
       const c = m.get(r.Cabang);
       c.n++; c.hadir += r.Hadir; c.terjadwal += r.Terjadwal; c.absen += r.Absen; c.telat += r.TelatKali; c.telatPot += r.TelatPot;
-      c.lembur += r.LemburUpah; c.lemburTak += r.LemburTakDibayarJam; c.gaji += r.GajiBersih || 0; c.berubah += r.ShiftBerubah;
+      c.lembur += r.LemburUpah; c.lemburTak += r.LemburTakDibayarJam; c.gaji += r.GajiBersih || 0; c.biaya += r.adaTarif ? r.Biaya : 0; c.berubah += r.ShiftBerubah;
+      c.order += r.Order; c.orderJam += r.OrderJam;
       if (!r.adaTarif && r.Hadir > 0) c.tarifKurang++;
     });
-    return [...m.values()].map((c) => Object.assign(c, { persen: c.terjadwal ? c.hadir / c.terjadwal : 0 }));
+    return [...m.values()].map((c) => Object.assign(c, { persen: c.terjadwal ? c.hadir / c.terjadwal : (c.tanpaJadwal ? 1 : 0), invoice: +inv[c.cabang] || 0 }));
   }
   function perHari() {
     const m = new Map();
     hasil.det.forEach((d) => {
+      if (d.tanpaJadwal) return;
       if (!m.has(d.Tanggal)) m.set(d.Tanggal, { tgl: d.Tanggal, hari: d.Hari, hadir: 0, terjadwal: 0 });
       const x = m.get(d.Tanggal);
-      if (d.Status === "Present") { x.hadir++; x.terjadwal++; } else if (d.Status === "Absent") x.terjadwal++;
+      if (d.Status === "Present") { x.hadir++; x.terjadwal++; } else if (d.Status !== "Off") x.terjadwal++;
     });
     return [...m.values()].sort((a, b) => a.tgl.localeCompare(b.tgl)).map((x) => Object.assign(x, { persen: x.terjadwal ? x.hadir / x.terjadwal : 0 }));
+  }
+  function simpanRiwayat() {
+    if (!hasil) return;
+    const cab = perCabang(), rk = hasil.rekap;
+    const snap = { biaya: Math.round(sumBy(cab, (c) => c.biaya)), thp: Math.round(sumBy(rk, (r) => r.GajiBersih || 0)), invoice: Math.round(sumBy(cab, (c) => c.invoice)),
+      pegawai: rk.length, hadir: sumBy(rk, (r) => r.Hadir), terjadwal: sumBy(rk, (r) => r.Terjadwal), telatPot: sumBy(rk, (r) => r.TelatPot),
+      cab: Object.fromEntries(cab.map((c) => [c.cabang, { biaya: Math.round(c.biaya), invoice: c.invoice }])) };
+    if (JSON.stringify(cfg.riwayat[hasil.periode]) !== JSON.stringify(snap)) { cfg.riwayat[hasil.periode] = snap; scheduleSave(); }
   }
 
   function insights(cab) {
     const out = [], rk = hasil.rekap;
-    const nol = rk.filter((r) => r.Terjadwal && r.Hadir === 0);
+    const rugi = cab.filter((c) => c.invoice && c.biaya > c.invoice).sort((a, b) => (a.invoice - a.biaya) - (b.invoice - b.biaya));
+    if (rugi.length) out.push({ sev: "bad", what: `Biaya gaji melebihi invoice di ${rugi.length} lokasi`,
+      act: rugi.map((c) => `${c.cabang}: biaya ${rp(c.biaya)}, invoice ${rp(c.invoice)}, rugi ${rp(c.biaya - c.invoice)}`).join("; ") + ". Cek kembali nilai kontrak, jumlah personel, dan lembur di lokasi ini." });
+    const tipis = cab.filter((c) => c.invoice && c.biaya <= c.invoice && (c.invoice - c.biaya) / c.invoice < 0.1);
+    if (tipis.length) out.push({ sev: "warn", what: `Margin di bawah 10% di ${tipis.length} lokasi`, act: tipis.map((c) => `${c.cabang} (${pct((c.invoice - c.biaya) / c.invoice)})`).join("; ") + "." });
+    const tanpaInv = cab.filter((c) => !c.invoice && c.biaya);
+    if (tanpaInv.length) out.push({ sev: "info", what: `${tanpaInv.length} lokasi belum diisi nilai invoice-nya`, act: "Isi di tabel Biaya vs invoice agar untung/rugi per lokasi terlihat: " + tanpaInv.map((c) => c.cabang).join(", ") + "." });
+    const nol = rk.filter((r) => r.Hadir === 0 && r.Absen > 0);
     if (nol.length) {
       const g = sumBy(nol, (r) => r.gaji);
-      out.push({ sev: "bad", what: `${nol.length} karyawan tidak pernah hadir sebulan penuh`,
-        act: `${nol.map((r) => r.Nama).join(", ")}. Pastikan statusnya (resign, belum pakai aplikasi, atau cuti panjang). Jika sudah tidak aktif, nonaktifkan di HRIS.` + (g ? ` Gaji pokok mereka yang masih tercatat ${rp(g)} per bulan.` : "") });
+      out.push({ sev: "bad", what: `${nol.length} pegawai tidak pernah hadir sebulan penuh`,
+        act: `${nol.map((r) => r.Nama).join(", ")}. Pastikan statusnya (resign, belum pakai Kolabo, atau cuti). Jika sudah tidak aktif, nonaktifkan di Kolabo.` + (g ? ` Gaji pokok yang masih tercatat ${rp(g)} per bulan.` : "") });
     }
-    const rendah = cab.filter((c) => c.terjadwal && c.persen < AMBANG_HADIR).sort((a, b) => a.persen - b.persen);
-    if (rendah.length) out.push({ sev: rendah[0].persen < 0.7 ? "bad" : "warn", what: `Kehadiran di bawah ${Math.round(AMBANG_HADIR * 100)}% di ${rendah.length} cabang`,
-      act: rendah.map((c) => `${c.cabang} (${pct(c.persen)}, ${c.absen} hari absen)`).join("; ") + ". Cek kecukupan personel dan apakah jadwal di HRIS sesuai kenyataan." });
+    const rendah = cab.filter((c) => !c.tanpaJadwal && c.terjadwal && c.persen < AMBANG_HADIR).sort((a, b) => a.persen - b.persen);
+    if (rendah.length) out.push({ sev: rendah[0].persen < 0.7 ? "bad" : "warn", what: `Kehadiran di bawah ${Math.round(AMBANG_HADIR * 100)}% di ${rendah.length} lokasi`,
+      act: rendah.map((c) => `${c.cabang} (${pct(c.persen)}, ${c.absen} hari tanpa keterangan)`).join("; ") + ". Cek kecukupan personel dan apakah jadwal di Kolabo sesuai kenyataan." });
     const kena = rk.filter((r) => r.TelatKenaKali > 0).sort((a, b) => b.TelatKenaKali - a.TelatKenaKali || b.TelatMnt - a.TelatMnt);
     if (kena.length) out.push({ sev: "warn", what: `Telat lebih dari ${cfg.telatAmbang} menit terjadi ${sumBy(kena, (r) => r.TelatKenaKali)} kali, potongan ${rp(sumBy(kena, (r) => r.TelatPot))}`,
-      act: "Paling sering: " + kena.slice(0, 3).map((r) => `${r.Nama} (${r.TelatKenaKali}×, ${r.TelatMnt} mnt)`).join(", ") + ". Pertimbangkan teguran atau evaluasi jam shift mereka." });
+      act: "Paling sering: " + kena.slice(0, 3).map((r) => `${r.Nama} (${r.TelatKenaKali}×, ${r.TelatMnt} mnt)`).join(", ") + ". Jika ada yang telat karena tukar shift resmi, koreksi di Rekap Absensi." });
     const hadir = sumBy(rk, (r) => r.Hadir), berubah = sumBy(rk, (r) => r.ShiftBerubah);
     if (hadir && berubah / hadir > 0.1) {
       const top = [...cab].sort((a, b) => b.berubah - a.berubah).slice(0, 3).filter((c) => c.berubah);
-      out.push({ sev: "warn", what: `${pct(berubah / hadir)} hari kerja dijalankan di shift yang berbeda dari jadwal HRIS`,
-        act: "Paling banyak di " + top.map((c) => `${c.cabang} (${c.berubah} hari)`).join(", ") + ". Perbarui jadwal di HRIS agar angka telat dari HRIS bisa dipercaya. Sistem ini sudah menyesuaikan otomatis." });
+      out.push({ sev: "warn", what: `${pct(berubah / hadir)} hari kerja dijalankan di shift yang berbeda dari jadwal Kolabo`,
+        act: "Paling banyak di " + top.map((c) => `${c.cabang} (${c.berubah} hari)`).join(", ") + ". Perbarui jadwal di Kolabo. Sistem ini sudah menyesuaikan telat otomatis." });
     }
     const tak = sumBy(rk, (r) => r.LemburTakDibayarJam);
     if (tak >= 1) {
       const top = [...cab].sort((a, b) => b.lemburTak - a.lemburTak).slice(0, 3).filter((c) => c.lemburTak >= 0.5);
-      out.push({ sev: "info", what: `${jam(tak)} lembur terdeteksi, belum dibayar karena belum ada aturan lembur`,
-        act: "Terbanyak di " + top.map((c) => `${c.cabang} (${jam(c.lemburTak)})`).join(", ") + ". Jika memang lembur yang disetujui, tambahkan aturan per cabang dan tanggal di tab Aturan." });
+      out.push({ sev: "info", what: `${jam(tak)} lewat jam pulang belum dibayar sebagai lembur`,
+        act: "Terbanyak di " + top.map((c) => `${c.cabang} (${jam(c.lemburTak)})`).join(", ") + ". Jika lembur disetujui, tambahkan aturan lembur di Aturan atau koreksi per hari di Rekap Absensi." });
     }
+    const hc = cab.filter((c) => c.tanpaJadwal);
+    hc.forEach((c) => out.push({ sev: "info", what: `${c.cabang}: ${c.order} order, ${c.orderJam} jam kerja`, act: `Dihitung dari check-in Kolabo (tanpa jadwal tetap), dibayar sesuai tabel tarif home cleaning. Biaya ${rp(c.biaya)}.` }));
     const tk = rk.filter((r) => !r.adaTarif && r.Hadir > 0);
-    if (tk.length) out.push({ sev: "warn", what: `${tk.length} karyawan belum punya tarif gaji, slip dan total biaya belum lengkap`,
-      act: "Isi di tab Tarif Gaji: " + [...new Set(tk.map((r) => r.Cabang + " / " + r.Posisi))].join("; ") + "." });
-    const totGaji = sumBy(cab, (c) => c.gaji);
-    if (totGaji) {
-      const b = [...cab].sort((a, b) => b.gaji - a.gaji)[0];
-      out.push({ sev: "info", what: `Biaya gaji terbesar: ${b.cabang}, ${rp(b.gaji)} (${pct(b.gaji / totGaji)} dari total)`, act: `Rata-rata ${rp(b.gaji / Math.max(1, b.n))} per karyawan (${b.n} orang).` });
-    }
+    if (tk.length) out.push({ sev: "warn", what: `${tk.length} pegawai belum punya gaji pokok, slip dan total biaya belum lengkap`,
+      act: "Isi di Tarif Gaji: " + [...new Set(tk.map((r) => r.Cabang + " / " + r.Posisi))].join("; ") + "." });
     const dq = hasil.review.filter((v) => v.Alasan.startsWith("NIP"));
-    if (dq.length) out.push({ sev: "info", what: `${dq.length} masalah data NIP di HRIS`, act: dq.map((v) => `${v.Nama}: ${v.Alasan}`).join("; ") + "." });
-    if (!out.length) out.push({ sev: "ok", what: "Tidak ada masalah besar bulan ini", act: "Kehadiran, keterlambatan, dan lembur dalam batas wajar." });
-    return out;
+    if (dq.length) out.push({ sev: "info", what: `${dq.length} masalah data NIP di Kolabo`, act: dq.map((v) => `${v.Nama}: ${v.Alasan}`).join("; ") + "." });
+    if (!out.length) out.push({ sev: "ok", what: "Tidak ada masalah besar bulan ini", act: "Kehadiran, keterlambatan, biaya, dan lembur dalam batas wajar." });
+    const order = { bad: 0, warn: 1, info: 2, ok: 3 };
+    return out.sort((a, b) => order[a.sev] - order[b.sev]);
   }
 
   // ---------- grafik ----------
@@ -775,6 +1307,13 @@ details > summary { cursor: pointer; font-weight: 600; }
     const max = Math.max(...items.map((x) => x.v), opts && opts.max || 0) || 1;
     return '<div class="hbars">' + items.map((x) =>
       `<div class="hbar" data-tip="${esc(x.tip || "")}"><div class="nm">${esc(x.label)}</div><div class="tr"><div class="fl ${x.warn ? "warn" : ""}" style="width:${Math.max(0.5, x.v / max * 100)}%"></div></div><div class="vl">${fmt(x.v)}</div></div>`).join("") + "</div>";
+  }
+  function pairBars(cab) {
+    const max = Math.max(...cab.map((c) => Math.max(c.biaya, c.invoice))) || 1;
+    return '<div class="hbars">' + cab.map((c) => {
+      const tip = `${c.cabang}: biaya ${rp(c.biaya)}` + (c.invoice ? `, invoice ${rp(c.invoice)}, ${c.invoice >= c.biaya ? "margin" : "rugi"} ${rp(Math.abs(c.invoice - c.biaya))}` : ", invoice belum diisi");
+      return `<div class="hbar" data-tip="${esc(tip)}"><div class="nm">${esc(c.cabang)}</div><div style="display:flex;flex-direction:column;gap:3px"><div class="tr" style="height:10px"><div class="fl ${c.invoice && c.biaya > c.invoice ? "warn" : ""}" style="width:${Math.max(0.5, c.biaya / max * 100)}%"></div></div><div class="tr" style="height:10px"><div class="fl" style="background:var(--info);width:${c.invoice ? Math.max(0.5, c.invoice / max * 100) : 0}%"></div></div></div><div class="vl">${c.invoice ? (c.invoice >= c.biaya ? "+" : "−") + pct(Math.abs(c.invoice - c.biaya) / c.invoice) : "—"}</div></div>`;
+    }).join("") + `</div><div class="legend"><span><i style="background:var(--bar)"></i>Biaya tenaga kerja</span><span><i style="background:var(--warn-bar)"></i>Biaya melebihi invoice</span><span><i style="background:var(--info)"></i>Invoice</span><span>Angka kanan: margin terhadap invoice</span></div>`;
   }
   function kolomHarian(hr) {
     const W = 760, H = 210, L = 38, R = 8, T = 10, B = 26, n = hr.length;
@@ -785,7 +1324,7 @@ details > summary { cursor: pointer; font-weight: 600; }
     s += "</g>";
     hr.forEach((d, i) => {
       const x = L + i * cw + (cw - bw) / 2, top = y(d.persen), hgt = Math.max(0, y(0) - top);
-      const tip = `${d.hari} ${d.tgl.slice(8)}/${d.tgl.slice(5, 7)}: ${d.hadir} hadir dari ${d.terjadwal} terjadwal (${pct(d.persen)})`;
+      const tip = `${d.hari} ${tglPendek(d.tgl)}: ${d.hadir} hadir dari ${d.terjadwal} terjadwal (${pct(d.persen)})`;
       s += `<g class="c" data-tip="${esc(tip)}"><rect class="hit" x="${L + i * cw}" y="${T}" width="${cw}" height="${H - T - B}"></rect><rect class="col ${d.persen < AMBANG_HADIR ? "warn" : ""}" x="${x}" y="${top}" width="${bw}" height="${hgt}" rx="${Math.min(3, bw / 2)}"></rect></g>`;
       if (i === 0 || (+d.tgl.slice(8)) % 5 === 0) s += `<text x="${x + bw / 2}" y="${H - 8}" text-anchor="middle">${+d.tgl.slice(8)}</text>`;
     });
@@ -797,245 +1336,273 @@ details > summary { cursor: pointer; font-weight: 600; }
   function renderDash() {
     const el = $("#tab-dash");
     if (!hasil) { el.innerHTML = uploadPanel(); bindUpload(el); return; }
-    const rk = hasil.rekap, cab = perCabang().sort((a, b) => a.persen - b.persen), hr = perHari();
-    const hadir = sumBy(rk, (r) => r.Hadir), terj = sumBy(rk, (r) => r.Terjadwal), adaTarif = rk.filter((r) => r.adaTarif).length;
-    const totGaji = sumBy(rk, (r) => r.GajiBersih || 0);
+    const rk = hasil.rekap, cab = perCabang(), hr = perHari();
+    const hadir = sumBy(rk, (r) => r.Hadir), terj = sumBy(rk, (r) => r.Terjadwal);
+    const biaya = sumBy(cab, (c) => c.biaya), thp = sumBy(rk, (r) => r.GajiBersih || 0), inv = sumBy(cab, (c) => c.invoice);
+    const invCab = cab.filter((c) => c.invoice), biayaInv = sumBy(invCab, (c) => c.biaya), margin = inv - biayaInv;
     const sev = { bad: ["bad", "Kritis"], warn: ["warn", "Perhatian"], info: ["", "Info"], ok: ["ok", "Baik"] };
-    let h = '<div class="stack">';
-    h += `<div class="kpis">
-      <div class="kpi"><div class="l">Total gaji dibayar</div><div class="v">${adaTarif ? rp(totGaji) : "—"}</div><div class="s">${adaTarif} dari ${rk.length} karyawan sudah ada tarif</div></div>
-      <div class="kpi"><div class="l">Tingkat kehadiran</div><div class="v">${pct(terj ? hadir / terj : 0)}</div><div class="s">${num(hadir)} hadir · ${num(terj - hadir)} absen</div></div>
-      <div class="kpi"><div class="l">Telat &gt; ${cfg.telatAmbang} menit</div><div class="v">${num(sumBy(rk, (r) => r.TelatKenaKali))}×</div><div class="s">potongan ${rp(sumBy(rk, (r) => r.TelatPot))}</div></div>
-      <div class="kpi"><div class="l">Lembur dibayar</div><div class="v">${rp(sumBy(rk, (r) => r.LemburUpah))}</div><div class="s">${jam(sumBy(rk, (r) => r.LemburJam))} · ${jam(sumBy(rk, (r) => r.LemburTakDibayarJam))} belum diputuskan</div></div>
-      <div class="kpi"><div class="l">Perlu dicek manual</div><div class="v">${hasil.review.length}</div><div class="s">kasus, lihat tab Karyawan</div></div>
+    const per = Object.keys(cfg.riwayat).sort(), prevP = per.filter((p) => p < hasil.periode).pop(), prev = prevP ? cfg.riwayat[prevP] : null;
+    const delta = (now, old) => old ? `${now >= old ? "naik" : "turun"} ${pct(Math.abs(now - old) / (old || 1))} dari ${bulanLabel(prevP)}` : "";
+    // progres kerja bulanan
+    const tarifKurang = rk.filter((r) => !r.adaTarif && r.Hadir > 0).length, bul = cfg.bulanan[hasil.periode] || {};
+    const steps = [
+      [true, "Data Kolabo diupload", `${rk.length} pegawai, ${hasil.det.length} baris absensi`, ""],
+      [!hasil.review.length, "Absensi dicek", hasil.review.length ? `${hasil.review.length} kasus perlu dicek` : "semua kasus sudah dicek", "rekap"],
+      [!tarifKurang, "Tarif gaji lengkap", tarifKurang ? `${tarifKurang} pegawai belum ada gaji pokok` : "semua pegawai punya tarif", "gaji"],
+      [Object.keys(bul).length > 0, "Komponen variabel diisi", `${Object.keys(bul).length} pegawai punya input bulan ini (bonus, HC, kasbon)`, "input"],
+      [invCab.length === cab.length, "Invoice per lokasi diisi", `${invCab.length} dari ${cab.length} lokasi`, "#inv"],
+      [rk.filter((r) => r.adaTarif && r.Pendapatan > 0).length > 0, "Slip siap diunduh", `${rk.filter((r) => r.adaTarif && r.Pendapatan > 0).length} slip siap`, "slip"]
+    ];
+    let h = `<div class="stack"><div class="panel"><h2>Progres rekap gaji ${bulanLabel(hasil.periode)}</h2><div class="steps" style="margin-top:12px">${steps.map((s, i) => `<div class="step ${s[0] ? "done" : ""}"><div class="no">${s[0] ? "✓" : i + 1}</div><div><b>${s[1]}</b><span class="sub">${s[2]}${s[3] ? ` · ${s[3].startsWith("#") ? `<a href="${s[3]}">isi</a>` : `<a href="#" data-go="${s[3]}">buka</a>`}` : ""}</span></div></div>`).join("")}</div></div>`;
+    h += `<h2>Penggajian</h2><div class="kpis">
+      <div class="kpi"><div class="l">Biaya tenaga kerja</div><div class="v">${rp(biaya)}</div><div class="s">pendapatan bruto + benefit perusahaan${prev ? "<br>" + delta(biaya, prev.biaya) : ""}</div></div>
+      <div class="kpi"><div class="l">Gaji ditransfer</div><div class="v">${rp(thp)}</div><div class="s">total take home pay ${rk.filter((r) => r.adaTarif).length} pegawai</div></div>
+      <div class="kpi"><div class="l">Total invoice</div><div class="v">${inv ? rp(inv) : "—"}</div><div class="s">${invCab.length} dari ${cab.length} lokasi diisi</div></div>
+      <div class="kpi"><div class="l">${margin >= 0 ? "Margin" : "Rugi"} (lokasi ber-invoice)</div><div class="v" style="color:${!inv ? "inherit" : margin >= 0 ? "var(--accent)" : "var(--bad)"}">${inv ? rp(Math.abs(margin)) : "—"}</div><div class="s">${inv ? pct(Math.abs(margin) / inv) + " dari invoice" : "isi invoice di tabel bawah"}</div></div>
+      <div class="kpi"><div class="l">Potongan terkumpul</div><div class="v">${rp(sumBy(rk, (r) => r.Potongan))}</div><div class="s">telat ${rp(sumBy(rk, (r) => r.TelatPot))} · BPJS, kasbon, dll</div></div>
     </div>`;
     h += '<div class="panel"><h2>Yang perlu diputuskan bulan ini</h2><p class="sub">Disusun otomatis dari data, urut dari yang paling penting.</p><div class="insights" style="margin-top:6px">' +
       insights(cab).map((x) => `<div class="ins"><div><span class="pill ${sev[x.sev][0]}">${sev[x.sev][1]}</span></div><div><div class="what">${esc(x.what)}</div><div class="act">${esc(x.act)}</div></div></div>`).join("") + "</div></div>";
+    // biaya vs invoice
+    const cabB = [...cab].sort((a, b) => b.biaya - a.biaya);
+    h += `<div class="panel stack" id="inv"><div><h2>Biaya gaji vs invoice per lokasi</h2><p class="sub">Isi nilai invoice yang dikirim ke klien bulan ini. Selisih merah berarti biaya gaji lebih besar dari tagihan.</p></div>${pairBars(cabB)}
+      <div class="scroll"><table><thead><tr><th>Lokasi</th><th class="n">Pegawai</th><th class="n">Gaji ditransfer</th><th class="n">Benefit perusahaan</th><th class="n">Biaya tenaga kerja</th><th class="n">Invoice (Rp)</th><th class="n">Selisih</th><th class="n">Margin</th></tr></thead><tbody>
+      ${cabB.map((c, i) => { const sel = c.invoice - c.biaya; const ben = sumBy(rk.filter((r) => r.Cabang === c.cabang && r.adaTarif), (r) => r.Benefit); return `<tr><td>${esc(c.cabang)}${c.tarifKurang ? ` <span class="pill warn">${c.tarifKurang} tanpa tarif</span>` : ""}</td><td class="n">${c.n}</td><td class="n">${rp(c.gaji)}</td><td class="n">${rp(ben)}</td><td class="n"><b>${rp(c.biaya)}</b></td>
+        <td class="n"><input type="number" id="inv-${i}" data-inv="${esc(c.cabang)}" value="${c.invoice || ""}" min="0" step="100000" placeholder="0" style="width:150px;text-align:right" aria-label="Invoice ${esc(c.cabang)}"></td>
+        <td class="n">${c.invoice ? `<span style="color:${sel >= 0 ? "var(--accent)" : "var(--bad)"}">${sel >= 0 ? "+" : "−"}${rp(Math.abs(sel))}</span>` : "—"}</td><td class="n">${c.invoice ? (sel < 0 ? '<span class="pill bad">rugi ' : sel / c.invoice < 0.1 ? '<span class="pill warn">' : '<span class="pill ok">') + pct(sel / c.invoice) + "</span>" : "—"}</td></tr>`; }).join("")}
+      <tr class="tot"><td>Total</td><td class="n">${rk.length}</td><td class="n">${rp(thp)}</td><td class="n">${rp(sumBy(rk, (r) => r.adaTarif ? r.Benefit : 0))}</td><td class="n">${rp(biaya)}</td><td class="n">${rp(inv)}</td><td class="n">${inv ? (margin >= 0 ? "+" : "−") + rp(Math.abs(margin)) : "—"}</td><td class="n">${inv ? pct(margin / inv) : "—"}</td></tr></tbody></table></div></div>`;
+    // komposisi biaya
+    const komp = [["Gaji pokok", (r) => r.slip.pend[0].items[0][1]], ["Tunjangan tetap", (r) => r.slip.pend[0].total - r.slip.pend[0].items[0][1]], ["Home cleaning", (r) => r.slip.pend[1].total],
+      ["Project", (r) => r.slip.pend[2].total], ["Bonus & insentif", (r) => r.slip.pend[3].total + r.slip.pend[4].items[0][1]], ["Lembur", (r) => r.slip.pend[4].items[1][1] + r.slip.pend[4].items[2][1]],
+      ["Lain-lain & adjustment", (r) => r.slip.pend[4].total - r.slip.pend[4].items[0][1] - r.slip.pend[4].items[1][1] - r.slip.pend[4].items[2][1]], ["Benefit perusahaan (BPJS dll)", (r) => r.Benefit]]
+      .map(([l, f]) => ({ label: l, v: sumBy(rk.filter((r) => r.adaTarif), f) })).filter((x) => x.v > 0);
     h += '<div class="cols2">';
-    h += '<div class="panel"><h2>Kehadiran per cabang</h2><p class="sub">Hari hadir dibanding hari terjadwal. Terendah di atas.</p>' +
-      hbars(cab.map((c) => ({ label: c.cabang, v: c.persen, warn: c.persen < AMBANG_HADIR, tip: `${c.cabang}: ${c.hadir} hadir dari ${c.terjadwal} hari terjadwal, ${c.n} karyawan` })), pct, { max: 1 }) + legenda() + "</div>";
-    if (totGaji) {
-      const byG = [...cab].sort((a, b) => b.gaji - a.gaji);
-      h += '<div class="panel"><h2>Biaya gaji per cabang</h2><p class="sub">Gaji bersih yang dibayar (karyawan dengan tarif terisi).</p>' +
-        hbars(byG.map((c) => ({ label: c.cabang, v: c.gaji, tip: `${c.cabang}: ${rp(c.gaji)} untuk ${c.n} karyawan` + (c.tarifKurang ? `, ${c.tarifKurang} belum ada tarif` : "") })), rp) + "</div>";
-    } else {
-      h += '<div class="panel"><h2>Biaya gaji per cabang</h2><p class="sub" style="margin-top:8px">Muncul setelah tarif gaji diisi.</p><p style="margin-top:12px"><button class="btn ghost" data-go="gaji">Isi Tarif Gaji</button></p></div>';
+    h += `<div class="panel"><h2>Komposisi biaya tenaga kerja</h2><p class="sub">Dari mana biaya gaji bulan ini berasal.</p>${komp.length ? hbars(komp.map((x) => Object.assign(x, { tip: `${x.label}: ${rp(x.v)} (${pct(x.v / (biaya || 1))} dari biaya)` })), rp) : '<p class="empty">Isi tarif gaji dulu.</p>'}</div>`;
+    const byG = [...cab].sort((a, b) => b.biaya - a.biaya);
+    h += `<div class="panel"><h2>Biaya per pegawai per lokasi</h2><p class="sub">Rata-rata biaya tenaga kerja per orang. Berguna untuk menghitung harga kontrak.</p>${hbars(byG.filter((c) => c.biaya).map((c) => ({ label: c.cabang, v: c.biaya / c.n, tip: `${c.cabang}: ${rp(c.biaya)} untuk ${c.n} pegawai` })), rp)}</div>`;
+    h += "</div>";
+    // tren
+    if (per.length > 1) {
+      h += `<div class="stack" style="gap:8px"><h2>Tren bulanan</h2><div class="scroll"><table><thead><tr><th>Bulan</th><th class="n">Pegawai</th><th class="n">Kehadiran</th><th class="n">Biaya tenaga kerja</th><th class="n">Gaji ditransfer</th><th class="n">Invoice</th><th class="n">Margin</th><th class="n">Potongan telat</th></tr></thead><tbody>${per.map((p) => { const x = cfg.riwayat[p]; return `<tr${p === hasil.periode ? ' style="font-weight:700"' : ""}><td>${bulanLabel(p)}</td><td class="n">${x.pegawai}</td><td class="n">${pct(x.terjadwal ? x.hadir / x.terjadwal : 0)}</td><td class="n">${rp(x.biaya)}</td><td class="n">${rp(x.thp)}</td><td class="n">${x.invoice ? rp(x.invoice) : "—"}</td><td class="n">${x.invoice ? pct((x.invoice - Object.values(x.cab).filter((c) => c.invoice).reduce((a, c) => a + c.biaya, 0)) / x.invoice) : "—"}</td><td class="n">${rp(x.telatPot)}</td></tr>`; }).join("")}</tbody></table></div></div>`;
     }
-    h += "</div>";
-    h += `<div class="panel chart"><div class="row between"><div><h2>Kehadiran harian</h2><p class="sub">Persentase karyawan terjadwal yang hadir tiap tanggal. Arahkan kursor ke batang untuk detail.</p></div></div>${kolomHarian(hr)}${legenda()}
-      <details style="margin-top:10px"><summary class="hint">Lihat sebagai tabel</summary><div class="scroll" style="margin-top:8px"><table><thead><tr><th>Tanggal</th><th>Hari</th><th class="n">Hadir</th><th class="n">Terjadwal</th><th class="n">Kehadiran</th></tr></thead><tbody>${hr.map((d) => `<tr><td>${d.tgl}</td><td>${esc(d.hari)}</td><td class="n">${d.hadir}</td><td class="n">${d.terjadwal}</td><td class="n">${pct(d.persen)}</td></tr>`).join("")}</tbody></table></div></details></div>`;
-    const telat = [...rk].filter((r) => r.TelatMnt > 0).sort((a, b) => b.TelatMnt - a.TelatMnt).slice(0, 8);
-    const absen = [...rk].filter((r) => r.Absen > 0).sort((a, b) => b.Absen - a.Absen).slice(0, 8);
+    // absensi
+    const cabA = cab.filter((c) => !c.tanpaJadwal).sort((a, b) => a.persen - b.persen);
+    h += `<h2 style="margin-top:8px">Absensi</h2><div class="kpis">
+      <div class="kpi"><div class="l">Tingkat kehadiran</div><div class="v">${pct(terj ? hadir / terj : 0)}</div><div class="s">${num(hadir)} hadir dari ${num(terj)} hari terjadwal${prev && prev.terjadwal ? "<br>" + bulanLabel(prevP) + ": " + pct(prev.hadir / prev.terjadwal) : ""}</div></div>
+      <div class="kpi"><div class="l">Tanpa keterangan</div><div class="v">${num(sumBy(rk, (r) => r.Absen))} hari</div><div class="s">izin ${sumBy(rk, (r) => r.Izin)} · sakit ${sumBy(rk, (r) => r.Sakit)} · cuti ${sumBy(rk, (r) => r.Cuti)}</div></div>
+      <div class="kpi"><div class="l">Telat &gt; ${cfg.telatAmbang} menit</div><div class="v">${num(sumBy(rk, (r) => r.TelatKenaKali))}×</div><div class="s">potongan ${rp(sumBy(rk, (r) => r.TelatPot))}</div></div>
+      <div class="kpi"><div class="l">Lembur dibayar</div><div class="v">${rp(sumBy(rk, (r) => r.LemburUpah))}</div><div class="s">${jam(sumBy(rk, (r) => r.LemburJam))} · ${jam(sumBy(rk, (r) => r.LemburTakDibayarJam))} belum diputuskan</div></div>
+      <div class="kpi"><div class="l">Perlu dicek</div><div class="v">${hasil.review.length}</div><div class="s">kasus, <a href="#" data-go="rekap">buka Rekap Absensi</a></div></div>
+    </div>`;
     h += '<div class="cols2">';
-    h += '<div class="panel"><h2>Paling banyak telat</h2><p class="sub">Total menit telat dalam sebulan, dihitung dari shift yang benar-benar dijalankan.</p>' +
+    h += '<div class="panel"><h2>Kehadiran per lokasi</h2><p class="sub">Hari hadir dibanding hari terjadwal. Terendah di atas. Lokasi tanpa jadwal tetap tidak dihitung.</p>' +
+      hbars(cabA.map((c) => ({ label: c.cabang, v: c.persen, warn: c.persen < AMBANG_HADIR, tip: `${c.cabang}: ${c.hadir} hadir dari ${c.terjadwal} hari terjadwal, ${c.n} pegawai` })), pct, { max: 1 }) + legenda() + "</div>";
+    const telat = [...rk].filter((r) => r.TelatMnt > 0).sort((a, b) => b.TelatMnt - a.TelatMnt).slice(0, 8);
+    h += '<div class="panel"><h2>Paling banyak telat</h2><p class="sub">Total menit telat, dihitung dari shift yang benar-benar dijalankan.</p>' +
       (telat.length ? hbars(telat.map((r) => ({ label: r.Nama, v: r.TelatMnt, tip: `${r.Nama} (${r.Cabang}): ${r.TelatKali}× telat, ${r.TelatKenaKali}× kena potongan ${rp(r.TelatPot)}` })), (v) => num(v) + " mnt") : '<p class="empty">Tidak ada yang telat.</p>') + "</div>";
-    h += '<div class="panel"><h2>Paling banyak absen</h2><p class="sub">Hari terjadwal tanpa check-in (belum termasuk izin yang dicatat).</p>' +
-      (absen.length ? hbars(absen.map((r) => ({ label: r.Nama, v: r.Absen, warn: r.Hadir === 0, tip: `${r.Nama} (${r.Cabang}): ${r.Absen} absen dari ${r.Terjadwal} hari terjadwal` + (r.Izin ? `, ${r.Izin} izin` : "") })), (v) => v + " hari") +
-        '<div class="legend"><span><i style="background:var(--warn-bar)"></i>tidak pernah hadir sebulan</span></div>' : '<p class="empty">Tidak ada yang absen.</p>') + "</div>";
     h += "</div>";
-    const cabNama = [...cab].sort((a, b) => a.cabang.localeCompare(b.cabang));
-    h += '<div class="stack" style="gap:8px"><h2>Ringkasan per cabang</h2><div class="scroll"><table><thead><tr><th>Cabang</th><th class="n">Karyawan</th><th class="n">Kehadiran</th><th class="n">Absen</th><th class="n">Telat</th><th class="n">Pot. telat</th><th class="n">Lembur</th><th class="n">Lembur belum diputuskan</th><th class="n">Total gaji</th></tr></thead><tbody>' +
-      cabNama.map((c) => `<tr><td>${esc(c.cabang)}</td><td class="n">${c.n}</td><td class="n">${c.persen < AMBANG_HADIR ? '<span class="pill warn">' + pct(c.persen) + "</span>" : pct(c.persen)}</td><td class="n">${c.absen}</td><td class="n">${c.telat}×</td><td class="n">${rp(c.telatPot)}</td><td class="n">${rp(c.lembur)}</td><td class="n">${c.lemburTak >= 0.1 ? jam(c.lemburTak) : "—"}</td><td class="n">${c.gaji ? rp(c.gaji) : "—"}${c.tarifKurang ? ' <span class="pill warn">' + c.tarifKurang + " tanpa tarif</span>" : ""}</td></tr>`).join("") +
-      `<tr class="tot"><td>Total</td><td class="n">${rk.length}</td><td class="n">${pct(terj ? hadir / terj : 0)}</td><td class="n">${num(terj - hadir)}</td><td class="n">${num(sumBy(rk, (r) => r.TelatKali))}×</td><td class="n">${rp(sumBy(rk, (r) => r.TelatPot))}</td><td class="n">${rp(sumBy(rk, (r) => r.LemburUpah))}</td><td class="n">${jam(sumBy(rk, (r) => r.LemburTakDibayarJam))}</td><td class="n">${rp(totGaji)}</td></tr></tbody></table></div></div>`;
+    h += `<div class="panel chart"><h2>Kehadiran harian</h2><p class="sub">Persentase pegawai terjadwal yang hadir tiap tanggal. Arahkan kursor ke batang untuk detail.</p>${kolomHarian(hr)}${legenda()}
+      <details style="margin-top:10px"><summary class="hint">Lihat sebagai tabel</summary><div class="scroll" style="margin-top:8px"><table><thead><tr><th>Tanggal</th><th>Hari</th><th class="n">Hadir</th><th class="n">Terjadwal</th><th class="n">Kehadiran</th></tr></thead><tbody>${hr.map((d) => `<tr><td>${d.tgl}</td><td>${esc(d.hari)}</td><td class="n">${d.hadir}</td><td class="n">${d.terjadwal}</td><td class="n">${pct(d.persen)}</td></tr>`).join("")}</tbody></table></div></details></div>`;
     h += "</div>";
     el.innerHTML = h;
     bindUpload(el);
+    el.querySelectorAll("[data-inv]").forEach((inp) => inp.addEventListener("change", () => {
+      const b = cfg.invoice[hasil.periode] = cfg.invoice[hasil.periode] || {};
+      if (inp.value === "" || +inp.value === 0) delete b[inp.dataset.inv]; else b[inp.dataset.inv] = +inp.value;
+      scheduleSave();
+      setTimeout(() => { const next = document.activeElement && document.activeElement.id; const y0 = window.scrollY; renderDash(); simpanRiwayat(); window.scrollTo(0, y0); if (next && $("#" + next)) $("#" + next).focus(); }, 0);
+    }));
   }
 
-  // ---------- tab Karyawan ----------
-  function renderKary() {
-    const el = $("#tab-kary");
-    if (!hasil) { el.innerHTML = kosong("Belum ada data. Upload export absensi dulu."); bindUpload(el); return; }
-    const rk = hasil.rekap.filter((r) => (!filterCabang || r.Cabang === filterCabang) && (!filterCari || (r.Nama + " " + r.NIP).toLowerCase().includes(filterCari.toLowerCase())));
-    const tot = (k) => rk.reduce((s, r) => s + (+r[k] || 0), 0);
-    const cabangs = [...new Set(hasil.rekap.map((r) => r.Cabang))].sort();
+
+  // ---------- tab Tarif Gaji ----------
+  function inpRow(p, i, f, val, type, extra) {
+    const t = type || "number";
+    return `<td><input type="${t}" data-p="${p}" data-i="${i}" data-f="${f}" value="${esc(val == null ? "" : val)}" ${t === "number" ? 'min="0" step="1000" inputmode="numeric" placeholder="0"' : ""} ${extra || ""} aria-label="${f}"></td>`;
+  }
+  function renderGaji() {
+    const el = $("#tab-gaji");
+    let h = `<div class="stack"><div class="panel"><h2>Tarif gaji per lokasi dan posisi</h2><p class="sub">Komponen tetap bulanan sesuai slip (bagian A. Penempatan). Satu baris untuk tiap kombinasi lokasi + posisi Kolabo. Pegawai yang berbeda dari tarif (misal PIC senior) diisi di Input Gaji, kolom "khusus".</p></div>`;
+    h += dl("dl-cab", branchList()) + dl("dl-pos", postList());
+    h += '<div class="scroll"><table><thead><tr><th>Lokasi</th><th>Posisi</th><th>Gaji pokok</th><th>Tunj. makan &amp; transport</th><th>Tunj. kinerja</th><th>Tunj. absensi</th><th>Admin &amp; payroll (potong)</th><th></th></tr></thead><tbody>';
+    cfg.tarif.forEach((t, i) => {
+      h += `<tr>${inpRow("tarif", i, "cabang", t.cabang, "text", 'list="dl-cab"')}${inpRow("tarif", i, "posisi", t.posisi, "text", 'list="dl-pos"')}${inpRow("tarif", i, "gaji", t.gaji || "")}${inpRow("tarif", i, "tunjMT", t.tunjMT || "")}${inpRow("tarif", i, "tunjKin", t.tunjKin || "")}${inpRow("tarif", i, "tunjAbs", t.tunjAbs || "")}${inpRow("tarif", i, "admin", t.admin)}<td><button class="btn ghost small" data-del="tarif" data-i="${i}">Hapus</button></td></tr>`;
+    });
+    h += `</tbody></table></div><div><button class="btn ghost" data-add="tarif">Tambah baris</button></div>
+      <p class="hint">Lokasi tanpa jadwal tetap (${esc(list(cfg.tanpaJadwal).join(", ") || "tidak ada")}) boleh bergaji pokok 0; pendapatannya dari order home cleaning.</p></div>`;
+    el.innerHTML = h;
+    bindEdits(el);
+  }
+
+  // ---------- tab Aturan ----------
+  function renderAturan() {
+    const el = $("#tab-aturan");
+    const f = (label, key, extra) => `<div class="field"><label for="c-${key}">${label}</label><input type="number" id="c-${key}" data-cfg="${key}" value="${cfg[key]}" min="0" ${extra || ""}></div>`;
+    const t = (label, key, ph) => `<div class="field"><label for="c-${key}">${label}</label><input type="text" id="c-${key}" data-cfg="${key}" value="${esc(cfg[key])}" placeholder="${esc(ph || "")}"></div>`;
+    const chk = (k, l) => `<label class="row" style="gap:6px"><input type="checkbox" data-dasar="${k}"${cfg.dasarHarian[k] ? " checked" : ""}> ${l}</label>`;
     let h = '<div class="stack">';
-    h += `<div class="filters"><div class="row"><select id="fcab" aria-label="Filter cabang"><option value="">Semua cabang</option>${cabangs.map((c) => `<option${c === filterCabang ? " selected" : ""} value="${esc(c)}">${esc(c)}</option>`).join("")}</select>
-      <input type="text" id="fcari" placeholder="Cari nama / NIP" value="${esc(filterCari)}" aria-label="Cari karyawan"></div><span class="hint">Klik baris untuk melihat absensi harian.</span></div>`;
-    h += '<div class="scroll"><table><thead><tr><th>Karyawan</th><th>Cabang / Posisi</th><th class="n">Hadir</th><th class="n">Absen</th><th class="n">Telat</th><th class="n">Pot. telat</th><th class="n">Pot. absen</th><th class="n">Pulang cepat</th><th class="n">Lembur</th><th class="n">Gaji pokok</th><th class="n">Gaji diterima</th></tr></thead><tbody>';
-    if (!rk.length) h += '<tr><td colspan="11" class="empty">Tidak ada karyawan yang cocok.</td></tr>';
-    rk.forEach((r) => {
-      const key = keyOf(r), open = terbuka.has(key);
-      h += `<tr class="emp" data-k="${esc(key)}" tabindex="0" aria-expanded="${open}"><td><b>${esc(r.Nama)}</b><br><span class="sub">${esc(r.NIP || "NIP kosong")}</span></td>
-        <td class="wrap">${esc(r.Cabang)}<br><span class="sub">${esc(r.Posisi)}</span></td>
-        <td class="n">${r.Hadir}</td><td class="n">${r.Absen ? '<span class="neg">' + r.Absen + "</span>" : 0}${r.Izin ? '<br><span class="sub">izin ' + r.Izin + "</span>" : ""}</td>
-        <td class="n">${r.TelatKali}×<br><span class="sub">${r.TelatMnt} mnt</span></td>
-        <td class="n">${r.TelatPot ? rp(r.TelatPot) : "—"}</td><td class="n">${r.adaTarif && r.PotAbsen ? rp(r.PotAbsen) : "—"}</td>
-        <td class="n">${r.PcKali}×<br><span class="sub">${r.PcMnt} mnt</span></td>
-        <td class="n">${r.LemburJam ? jam(r.LemburJam) + "<br><span class='sub'>" + rp(r.LemburUpah) + "</span>" : "—"}</td>
-        <td class="n">${r.adaTarif ? rp(r.gaji) : '<span class="pill warn">belum diisi</span>'}</td><td class="n"><b>${r.GajiBersih == null ? "—" : rp(r.GajiBersih)}</b></td></tr>`;
-      if (open) h += `<tr class="detail"><td colspan="11">${detailTabel(r)}</td></tr>`;
-    });
-    h += `<tr class="tot"><td colspan="2">Total${filterCabang || filterCari ? " (terfilter)" : ""}</td><td class="n">${num(tot("Hadir"))}</td><td class="n">${num(tot("Absen"))}</td><td class="n">${num(tot("TelatKali"))}×</td><td class="n">${rp(tot("TelatPot"))}</td><td class="n">${rp(rk.reduce((s, r) => s + (r.adaTarif ? r.PotAbsen : 0), 0))}</td><td class="n">${num(tot("PcKali"))}×</td><td class="n">${rp(tot("LemburUpah"))}</td><td class="n">${rp(rk.reduce((s, r) => s + (r.adaTarif ? r.gaji : 0), 0))}</td><td class="n">${rp(rk.reduce((s, r) => s + (r.GajiBersih || 0), 0))}</td></tr></tbody></table></div>`;
-    h += `<details class="panel"${hasil.review.length ? " open" : ""}><summary>Perlu dicek manual (${hasil.review.length})</summary><p class="hint" style="margin:6px 0 10px">Kasus yang tidak bisa diputuskan otomatis. Hanya bagian ini yang perlu Anda periksa.</p>`;
-    h += hasil.review.length ? '<div class="scroll"><table><thead><tr><th>Tanggal</th><th>Nama</th><th>Cabang</th><th>Masuk</th><th>Pulang</th><th>Alasan</th></tr></thead><tbody>' +
-      hasil.review.map((v) => `<tr><td>${esc(v.Tanggal)}</td><td>${esc(v.Nama)}</td><td>${esc(v.Cabang)}</td><td>${esc(v["Check In"])}</td><td>${esc(v["Check Out"])}</td><td class="wrap">${esc(v.Alasan)}</td></tr>`).join("") + "</tbody></table></div>" : '<p class="empty">Tidak ada.</p>';
-    h += "</details></div>";
+    h += `<div class="panel stack"><div><h2>Identitas di slip gaji</h2><p class="sub">Nama perusahaan kosong = diambil dari file Kolabo.</p></div><div class="grid">
+      ${t("Nama perusahaan", "perusahaan", perusahaanFile || "Nama perusahaan")}${t("Alamat / keterangan", "alamat", "")}${t("Judul slip", "judulSlip", "Financial Detail Report")}
+      ${t("Kota tanda tangan", "kota", "Makassar")}${t("Nama penandatangan", "ttdNama", "")}${t("Jabatan penandatangan", "ttdJabatan", "")}</div></div>`;
+    h += `<div class="panel stack"><div><h2>Cara menghitung gaji</h2></div>
+      <div class="field"><label for="c-metode">Metode untuk hari tidak masuk</label><select id="c-metode" data-cfgsel="metodeGaji">
+        <option value="potong"${cfg.metodeGaji === "potong" ? " selected" : ""}>Gaji penuh, dipotong per hari tanpa keterangan / izin (seperti slip sekarang)</option>
+        <option value="prorata"${cfg.metodeGaji === "prorata" ? " selected" : ""}>Prorata: komponen tetap × hari dibayar ÷ hari terjadwal</option></select>
+        <span class="hint">Hari dibayar = hadir + sakit + cuti. Pegawai yang masuk/berhenti di tengah bulan selalu prorata (isi tanggalnya di Input Gaji).</span></div>
+      <div class="field"><label>Dasar potongan per hari (metode potong) = jumlah komponen ini ÷ ${cfg.pembagi}</label><div class="row">${chk("gaji", "Gaji pokok")}${chk("tunjMT", "Tunj. makan & transport")}${chk("tunjKin", "Tunj. kinerja")}${chk("tunjAbs", "Tunj. absensi")}</div></div>
+      <div class="grid">${f("Ambang telat (menit)", "telatAmbang")}${f("Potongan per kejadian telat (Rp)", "telatNominal", 'step="1000"')}${f("Pembagi hari kerja", "pembagi")}
+      ${f("Tarif lembur bawaan (Rp / jam)", "tarifLembur", 'step="1000"')}${f("Potongan pulang cepat (Rp / menit)", "pulangPerMenit")}${f("Insentif mengganti / double shift (Rp)", "bonusDouble", 'step="1000"')}
+      ${f("Toleransi telat (menit)", "tolTelat")}${f("Toleransi pulang cepat (menit)", "tolPulang")}${f("Lembur minimal (menit)", "lemburMin")}${f("Pembulatan lembur (menit)", "lemburBulat")}</div></div>`;
+    h += `<div class="panel stack"><div><h2>Home cleaning (tanpa jadwal tetap)</h2><p class="sub">Lokasi di bawah ini bekerja sesuai order: hari tanpa check-in dianggap tidak ada order (bukan absen), tidak ada hitungan telat. Tiap check-in dihitung satu order; jam dibulatkan ke jam terdekat.</p></div>
+      <div class="field"><label for="c-tanpaJadwal">Lokasi tanpa jadwal tetap (satu per baris)</label><textarea id="c-tanpaJadwal" data-cfg="tanpaJadwal">${esc(cfg.tanpaJadwal)}</textarea></div>
+      <div class="scroll"><table><thead><tr><th>Jam order dari</th><th>sampai</th><th>Bagi hasil per jam</th><th>Makan per order</th><th>Transport per order</th><th></th></tr></thead><tbody>
+      ${cfg.hcTarif.map((x, i) => `<tr>${inpRow("hcTarif", i, "min", x.min, "number", 'step="1"')}${inpRow("hcTarif", i, "max", x.max, "number", 'step="1"')}${inpRow("hcTarif", i, "bagi", x.bagi)}${inpRow("hcTarif", i, "makan", x.makan)}${inpRow("hcTarif", i, "trans", x.trans)}<td><button class="btn ghost small" data-del="hcTarif" data-i="${i}">Hapus</button></td></tr>`).join("")}
+      </tbody></table></div><div><button class="btn ghost" data-add="hcTarif">Tambah baris</button></div>
+      <p class="hint">Contoh dari slip Agustus: order 5 jam = 5 × Rp25.000 bagi hasil + Rp15.000 makan + Rp10.000 transport.</p></div>`;
+    h += `<div class="panel stack"><div><h2>Aturan lembur per lokasi</h2><p class="sub">Lembur dari absensi dibayar otomatis jika lokasi dan tanggalnya cocok. Isi lokasi dengan * untuk semua lokasi. Tanggal selesai kosong = satu hari. Lembur per hari juga bisa disetujui satu-satu di Rekap Absensi.</p></div>${dl("dl-cab", branchList())}
+      <div class="scroll"><table><thead><tr><th>Lokasi</th><th>Tanggal mulai</th><th>Tanggal selesai</th><th>Tarif / jam</th><th>NIP (opsional)</th><th>Keterangan</th><th></th></tr></thead><tbody>
+      ${cfg.lembur.length ? "" : '<tr><td colspan="7" class="empty">Belum ada aturan lembur.</td></tr>'}
+      ${cfg.lembur.map((a, i) => `<tr>${inpRow("lembur", i, "cabang", a.cabang, "text", 'list="dl-cab"')}${inpRow("lembur", i, "mulai", a.mulai, "date")}${inpRow("lembur", i, "selesai", a.selesai, "date")}${inpRow("lembur", i, "tarif", a.tarif || "")}${inpRow("lembur", i, "nip", a.nip, "text")}${inpRow("lembur", i, "ket", a.ket, "text")}<td><button class="btn ghost small" data-del="lembur" data-i="${i}">Hapus</button></td></tr>`).join("")}
+      </tbody></table></div><div><button class="btn ghost" data-add="lembur">Tambah aturan lembur</button></div></div>`;
+    h += `<details class="panel"><summary>Daftar shift dan penebakan shift</summary><div class="stack" style="margin-top:12px"><p class="sub">Jadwal di Kolabo sering tidak sama dengan shift yang dijalankan. Sistem memilih shift dari daftar ini yang paling cocok dengan jam check-in/out. Kolom lokasi dan hari boleh kosong (berlaku untuk semua), pisahkan dengan koma.</p>
+      <div class="scroll"><table><thead><tr><th>Nama shift</th><th>Masuk</th><th>Pulang</th><th>Hanya lokasi</th><th>Hanya hari</th><th></th></tr></thead><tbody>
+      ${cfg.shifts.map((s, i) => `<tr>${inpRow("shifts", i, "nama", s.nama, "text")}${inpRow("shifts", i, "masuk", s.masuk, "text", 'placeholder="06:00"')}${inpRow("shifts", i, "pulang", s.pulang, "text", 'placeholder="14:00"')}${inpRow("shifts", i, "cabang", s.cabang, "text")}${inpRow("shifts", i, "hari", s.hari, "text", 'placeholder="Sabtu"')}<td><button class="btn ghost small" data-del="shifts" data-i="${i}">Hapus</button></td></tr>`).join("")}
+      </tbody></table></div><div><button class="btn ghost" data-add="shifts">Tambah shift</button></div>
+      <div class="grid"><div class="field"><label for="c-alias">Jadwal Kolabo yang salah setting (jadwal = nama shift)</label><textarea id="c-alias" data-cfg="alias">${esc(cfg.alias)}</textarea></div>
+      <div class="field"><label for="c-tetap">Lokasi dengan shift tetap (tidak ditebak), satu per baris</label><textarea id="c-tetap" data-cfg="tetap">${esc(cfg.tetap)}</textarea></div></div>
+      <div class="grid">${f("Ganti shift jika lebih cocok (selisih menit)", "gantiShift")}${f("Tandai dicek jika selisih melebihi (menit)", "reviewBiaya")}${f("Durasi kerja minimal valid (menit)", "minKerja")}</div></div></details>`;
+    h += `<div class="panel stack"><div><h2>Bagikan pengaturan ke tim</h2><p class="sub">Simpan semua pengaturan (tarif, aturan, input gaji, koreksi absensi, invoice) ke satu file, lalu buka di laptop lain lewat tombol Impor.</p></div>
+      <div class="row"><button class="btn ghost" id="cfg-export">Ekspor pengaturan (.json)</button><button class="btn ghost" id="cfg-import">Impor pengaturan</button><input type="file" id="cfg-file" accept=".json,application/json" hidden><span class="hint" id="cfg-msg"></span></div></div>`;
+    h += '<div><button class="btn ghost small" data-reset="1">Kembalikan semua pengaturan ke bawaan</button></div></div>';
     el.innerHTML = h;
-    $("#fcab").onchange = (e) => { filterCabang = e.target.value; renderKary(); };
-    const cari = $("#fcari");
-    cari.oninput = (e) => { filterCari = e.target.value; clearTimeout(cari._t); cari._t = setTimeout(() => { renderKary(); const n = $("#fcari"); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); };
-    el.querySelectorAll("tr.emp").forEach((tr) => {
-      const toggle = () => { const k = tr.dataset.k; terbuka.has(k) ? terbuka.delete(k) : terbuka.add(k); renderKary(); };
-      tr.onclick = toggle;
-      tr.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } };
-    });
-  }
-  function detailTabel(r) {
-    let h = '<div class="scroll"><table><thead><tr><th>Tanggal</th><th>Hari</th><th>Status</th><th>Jadwal HRIS</th><th>Shift aktual</th><th>Masuk</th><th>Pulang</th><th class="n">Telat</th><th class="n">Pot. telat</th><th class="n">Pulang cepat</th><th class="n">Lembur</th><th>Catatan</th></tr></thead><tbody>';
-    r.detail.forEach((d) => {
-      const st = d.Status === "Present" ? "ok" : d.Status === "Absent" ? "bad" : "";
-      h += "<tr><td>" + d.Tanggal + "</td><td>" + esc(d.Hari) + '</td><td><span class="pill ' + st + '">' + (d.Status === "Present" ? "Hadir" : d.Status === "Absent" ? "Absen" : "Libur") + "</span></td><td>" + esc(d["Jadwal HRIS"]) + "</td><td>" + esc(d["Shift Aktual"]) + (d["Status Shift"].startsWith("shift berubah") ? ' <span class="pill warn">berubah</span>' : "") + "</td><td>" + esc(d["Check In"]) + "</td><td>" + esc(d["Check Out"]) +
-        '</td><td class="n">' + (d["Telat (mnt)"] || "") + '</td><td class="n">' + (d["Potongan Telat (Rp)"] ? rp(d["Potongan Telat (Rp)"]) : "") + '</td><td class="n">' + (d["Pulang Cepat (mnt)"] || "") + '</td><td class="n">' + (d["Lembur (mnt)"] ? d["Lembur (mnt)"] + " mnt" + (d["Upah Lembur (Rp)"] ? " · " + rp(d["Upah Lembur (Rp)"]) : "") : "") + '</td><td class="wrap">' + esc(d.Catatan.concat(d._review).join("; ")) + "</td></tr>";
-    });
-    return h + "</tbody></table></div>";
-  }
-
-  // ---------- tab Slip Gaji ----------
-  function slipRows(r) {
-    const isi = (a, i) => i === 0 || a[1] > 0;
-    const x = slipRowsAll(r);
-    return { masuk: x.masuk.filter(isi), potong: x.potong.filter((a) => a[1] > 0).concat(x.potong.some((a) => a[1] > 0) ? [] : [["Tidak ada potongan", 0]]) };
-  }
-  function slipRowsAll(r) {
-    return {
-      masuk: [["Gaji pokok", r.gaji], ["Tunjangan tetap", r.tunj], [`Uang makan (${r.Hadir} hari)`, r.UangMakan], [`Upah lembur (${jam(r.LemburJam)})`, r.LemburUpah], [`Bonus double shift (${r.Double}×)`, r.BonusDouble]],
-      potong: [[`Absen (${r.AbsenDipotong} hari)`, r.PotAbsen], [`Telat > ${cfg.telatAmbang} mnt (${r.TelatKenaKali}×)`, r.TelatPot], [`Pulang cepat (${r.PcMnt} mnt)`, r.PotPc]]
+    bindEdits(el);
+    $("#cfg-export").onclick = () => saveFile("pengaturan-rekap-gaji-" + new Date().toISOString().slice(0, 10) + ".json", JSON.stringify(cfg, null, 1), "application/json");
+    $("#cfg-import").onclick = () => $("#cfg-file").click();
+    $("#cfg-file").onchange = async (e) => {
+      const file = e.target.files[0]; if (!file) return;
+      try { cfg = mergeCfg(JSON.parse(await file.text())); scheduleSave(); recompute(); renderAturan(); $("#cfg-msg").textContent = "Pengaturan diimpor dari " + file.name; }
+      catch (err) { $("#cfg-msg").textContent = "File tidak bisa dibaca: pastikan file .json hasil ekspor halaman ini."; }
     };
   }
-  function slipHTML(r) {
-    const s = slipRows(r);
-    const ln = (a) => `<div class="ln"><span>${esc(a[0])}</span><span>${rp(a[1])}</span></div>`;
-    return `<article class="slip" aria-label="Slip gaji ${esc(r.Nama)}">
-      <div class="hd"><div><div class="co">${esc(namaPT())}</div>${cfg.alamat ? `<div style="color:var(--p-ink-2)">${esc(cfg.alamat)}</div>` : ""}</div><div class="ttl">SLIP GAJI<span>${bulanLabel(hasil.periode)}</span></div></div>
-      ${r.adaTarif ? "" : '<div class="flag">Tarif gaji untuk cabang + posisi ini belum diisi. Slip tidak ikut diunduh.</div>'}
-      <dl class="id"><dt>Nama</dt><dd>${esc(r.Nama)}</dd><dt>NIP</dt><dd>${esc(r.NIP || "-")}</dd><dt>Cabang</dt><dd>${esc(r.Cabang)}</dd><dt>Posisi</dt><dd>${esc(r.Posisi)}</dd></dl>
-      <div class="att"><span>Terjadwal <b>${r.Terjadwal}</b></span><span>Hadir <b>${r.Hadir}</b></span><span>Absen <b>${r.Absen}</b></span><span>Izin <b>${r.Izin}</b></span><span>Telat <b>${r.TelatKali}×</b></span><span>Lembur <b>${jam(r.LemburJam)}</b></span></div>
-      <div class="two"><div><h4>Pendapatan</h4>${s.masuk.map(ln).join("")}<div class="ln sum"><span>Total pendapatan</span><span>${rp(r.Pendapatan)}</span></div></div>
-      <div><h4>Potongan</h4>${s.potong.map(ln).join("")}<div class="ln sum"><span>Total potongan</span><span>${rp(r.Potongan)}</span></div></div></div>
-      <div class="net"><span>Gaji diterima</span><span>${r.adaTarif ? rp(r.GajiBersih) : "—"}</span></div>
-      ${r.adaTarif ? `<div class="acts"><button class="btn ghost small" data-pdf="${esc(keyOf(r))}">Unduh PDF</button></div>` : ""}
-    </article>`;
+
+  // ---------- edit pengaturan ----------
+  const NEW_ROW = {
+    tarif: () => Object.assign({ cabang: "", posisi: "" }, TARIF_KOSONG),
+    lembur: () => ({ cabang: "", mulai: "", selesai: "", tarif: 0, nip: "", ket: "" }),
+    shifts: () => ({ nama: "", masuk: "", pulang: "", cabang: "", hari: "" }),
+    hcTarif: () => ({ min: 0, max: 0, bagi: 0, makan: 0, trans: 0 })
+  };
+  function afterEdit(rerender) {
+    scheduleSave(); recompute();
+    if (rerender) { if (currentTab === "gaji") renderGaji(); if (currentTab === "aturan") renderAturan(); }
   }
-  function slipFilter() {
-    return hasil.rekap.filter((r) => (!slipCabang || r.Cabang === slipCabang) && (!slipCari || (r.Nama + " " + r.NIP).toLowerCase().includes(slipCari.toLowerCase())));
-  }
-  function renderSlip() {
-    const el = $("#tab-slip");
-    if (!hasil) { el.innerHTML = kosong("Slip gaji dibuat dari data absensi. Upload export dulu."); bindUpload(el); return; }
-    const list = slipFilter(), siap = list.filter((r) => r.adaTarif), belum = list.length - siap.length;
-    const cabangs = [...new Set(hasil.rekap.map((r) => r.Cabang))].sort();
-    let h = `<div class="stack"><div class="panel"><div class="row between"><div><h2>Slip gaji ${bulanLabel(hasil.periode)}</h2><p class="sub">${siap.length} slip siap${belum ? `, ${belum} menunggu tarif gaji` : ""}. Semua slip diunduh dalam satu PDF, satu halaman per karyawan.</p></div>
-      <button class="btn" id="pdfAll" ${siap.length ? "" : "disabled"}>Unduh ${siap.length} slip (PDF)</button></div>
-      <div class="filters" style="margin-top:12px"><div class="row"><select id="scab" aria-label="Filter cabang"><option value="">Semua cabang</option>${cabangs.map((c) => `<option${c === slipCabang ? " selected" : ""} value="${esc(c)}">${esc(c)}</option>`).join("")}</select>
-      <input type="text" id="scari" placeholder="Cari nama / NIP" value="${esc(slipCari)}" aria-label="Cari slip"></div></div></div>`;
-    if (belum) h += `<div class="banner warn">${belum} karyawan belum punya tarif gaji. <a href="#" data-go="gaji">Isi Tarif Gaji</a>, slip langsung diperbarui.</div>`;
-    h += list.length ? `<div class="slips">${list.map(slipHTML).join("")}</div>` : '<p class="empty">Tidak ada karyawan yang cocok.</p>';
-    el.innerHTML = h + "</div>";
-    bindUpload(el);
-    $("#scab").onchange = (e) => { slipCabang = e.target.value; renderSlip(); };
-    const cari = $("#scari");
-    cari.oninput = (e) => { slipCari = e.target.value; clearTimeout(cari._t); cari._t = setTimeout(() => { renderSlip(); const n = $("#scari"); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); };
-    $("#pdfAll").onclick = () => unduhPDF(siap, "Slip_Gaji_" + hasil.periode + (slipCabang ? "_" + slipCabang.replace(/[^\w]+/g, "_") : "") + ".pdf");
-    el.querySelectorAll("[data-pdf]").forEach((b) => b.onclick = () => {
-      const r = hasil.rekap.find((x) => keyOf(x) === b.dataset.pdf);
-      unduhPDF([r], "Slip_Gaji_" + hasil.periode + "_" + r.Nama.replace(/[^\w]+/g, "_") + ".pdf");
-    });
+  function bindEdits(root) {
+    root.querySelectorAll("[data-p]").forEach((inp) => inp.addEventListener("change", () => {
+      const row = cfg[inp.dataset.p][+inp.dataset.i];
+      row[inp.dataset.f] = inp.type === "number" ? (+inp.value || 0) : inp.value;
+      afterEdit(false);
+    }));
+    root.querySelectorAll("[data-cfg]").forEach((inp) => inp.addEventListener("change", () => { cfg[inp.dataset.cfg] = inp.type === "number" ? (+inp.value || 0) : inp.value; afterEdit(false); }));
+    root.querySelectorAll("[data-cfgsel]").forEach((inp) => inp.addEventListener("change", () => { cfg[inp.dataset.cfgsel] = inp.value; afterEdit(false); }));
+    root.querySelectorAll("[data-dasar]").forEach((inp) => inp.addEventListener("change", () => { cfg.dasarHarian[inp.dataset.dasar] = inp.checked; afterEdit(false); }));
+    root.querySelectorAll("[data-add]").forEach((b) => b.addEventListener("click", () => { cfg[b.dataset.add].push(NEW_ROW[b.dataset.add]()); afterEdit(true); }));
+    root.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => { cfg[b.dataset.del].splice(+b.dataset.i, 1); afterEdit(true); }));
+    root.querySelectorAll("[data-reset]").forEach((b) => b.addEventListener("click", () => {
+      if (b.dataset.armed) { cfg = defaultCfg(); afterEdit(true); } else { b.dataset.armed = "1"; b.textContent = "Klik lagi untuk menghapus semua pengaturan, input gaji, dan koreksi"; }
+    }));
   }
 
-  // ---------- PDF slip ----------
-  function gambarSlip(doc, r) {
-    const G = [14, 122, 79], INK = [27, 36, 48], MUTED = [93, 104, 116];
-    const rpTxt = (n) => "Rp" + Math.round(n || 0).toLocaleString("id-ID");
-    let y = 22;
-    doc.setTextColor(...INK); doc.setFont("helvetica", "bold"); doc.setFontSize(14);
-    const pt = doc.splitTextToSize(namaPT(), 120); doc.text(pt, 15, y);
-    doc.setFontSize(13); doc.setTextColor(...G); doc.text("SLIP GAJI", 195, y, { align: "right" });
-    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...MUTED);
-    doc.text(bulanLabel(hasil.periode), 195, y + 6, { align: "right" });
-    y += pt.length * 6;
-    if (cfg.alamat) { const a = doc.splitTextToSize(cfg.alamat, 120); doc.text(a, 15, y); y += a.length * 5; }
-    y = Math.max(y, 32);
-    doc.setDrawColor(...G); doc.setLineWidth(0.8); doc.line(15, y, 195, y); y += 9;
-    const idf = [["Nama", r.Nama, "Cabang", r.Cabang], ["NIP", r.NIP || "-", "Posisi", r.Posisi]];
-    doc.setFontSize(10);
-    idf.forEach((p) => {
-      doc.setTextColor(...MUTED); doc.text(p[0], 15, y); doc.text(p[2], 110, y);
-      doc.setTextColor(...INK); doc.setFont("helvetica", "bold");
-      doc.text(doc.splitTextToSize(String(p[1]), 65)[0], 35, y); doc.text(doc.splitTextToSize(String(p[3]), 65)[0], 130, y);
-      doc.setFont("helvetica", "normal"); y += 6;
-    });
-    y += 2;
-    doc.setFillColor(242, 245, 243); doc.rect(15, y, 180, 9, "F");
-    doc.setTextColor(...MUTED);
-    doc.text(`Terjadwal ${r.Terjadwal}   Hadir ${r.Hadir}   Absen ${r.Absen}   Izin ${r.Izin}   Telat ${r.TelatKali}x (${r.TelatMnt} mnt)   Lembur ${jam(r.LemburJam)}`, 18, y + 6);
-    y += 17;
-    const s = slipRows(r);
-    const kolom = (judul, rows, total, totLabel, x) => {
-      let yy = y;
-      doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...MUTED); doc.text(judul.toUpperCase(), x, yy); yy += 6;
-      doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...INK);
-      rows.forEach((a) => { doc.text(a[0], x, yy); doc.text(rpTxt(a[1]), x + 82, yy, { align: "right" }); yy += 6; });
-      doc.setDrawColor(217, 222, 228); doc.setLineWidth(0.3); doc.line(x, yy - 3.5, x + 82, yy - 3.5);
-      doc.setFont("helvetica", "bold"); doc.text(totLabel, x, yy + 1); doc.text(rpTxt(total), x + 82, yy + 1, { align: "right" });
-      doc.setFont("helvetica", "normal");
-      return yy + 1;
-    };
-    const y1 = kolom("Pendapatan", s.masuk, r.Pendapatan, "Total pendapatan", 15);
-    const y2 = kolom("Potongan", s.potong, r.Potongan, "Total potongan", 113);
-    y = Math.max(y1, y2) + 8;
-    doc.setDrawColor(...G); doc.setLineWidth(0.8); doc.line(15, y, 195, y); y += 8;
-    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...INK); doc.text("Gaji diterima", 15, y);
-    doc.setTextColor(...G); doc.setFontSize(15); doc.text(rpTxt(r.GajiBersih), 195, y, { align: "right" });
-    y += 22;
-    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...INK);
-    doc.text("Diterima oleh,", 15, y); doc.text("Mengetahui,", 130, y);
-    doc.text(cfg.ttdJabatan || "", 130, y + 5);
-    y += 28;
-    doc.text(r.Nama, 15, y); doc.text(cfg.ttdNama || "(..............................)", 130, y);
-    doc.setFontSize(8); doc.setTextColor(...MUTED);
-    doc.text(`Dihitung otomatis dari data absensi HRIS ${hasil.dari} s/d ${hasil.sampai}.`, 15, 285);
-  }
-  async function unduhPDF(list, filename) {
+  // ---------- simpan file ----------
+  async function saveFile(filename, data, mime) {
     try {
-      if (!window.jspdf) throw new Error("Pembuat PDF belum termuat. Periksa koneksi lalu muat ulang halaman.");
-      const dl = await window.claude.use("downloads");
-      if (!dl) throw new Error("Unduhan tidak tersedia di tampilan ini.");
-      const doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
-      list.forEach((r, i) => { if (i) doc.addPage(); gambarSlip(doc, r); });
-      await dl.save({ filename, data: doc.output("arraybuffer") });
+      let dlc = null;
+      if (window.claude && window.claude.use) { try { dlc = await window.claude.use("downloads"); } catch (e) { dlc = null; } }
+      if (dlc) { await dlc.save({ filename, data }); return; }
+      const blob = data instanceof Blob ? data : new Blob([data], { type: mime || "application/octet-stream" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
     } catch (e) {
       if (e && e.code === "declined") return;
       setSaved("Unduhan gagal: " + (e.message || e.code || e));
     }
+  }
+  function buatPDF(list) {
+    if (!window.jspdf) throw new Error("Pembuat PDF belum termuat. Periksa koneksi lalu muat ulang halaman.");
+    const doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
+    list.forEach((r, i) => { if (i) doc.addPage(); gambarSlip(doc, r); });
+    return doc.output("arraybuffer");
+  }
+  async function unduhPDF(list, filename) {
+    try { await saveFile(filename, buatPDF(list), "application/pdf"); } catch (e) { setSaved(e.message || String(e)); }
+  }
+  async function unduhZIP(list, filename) {
+    try {
+      if (!window.JSZip) throw new Error("Pembuat ZIP belum termuat. Periksa koneksi lalu muat ulang halaman.");
+      setSaved("Menyiapkan " + list.length + " slip…");
+      const zip = new window.JSZip();
+      list.forEach((r) => zip.file(`${r.Cabang.replace(/[^\w]+/g, "_")}/Slip_${hasil.periode}_${r.Nama.replace(/[^\w]+/g, "_")}.pdf`, buatPDF([r])));
+      await saveFile(filename, await zip.generateAsync({ type: "arraybuffer" }), "application/zip");
+      setSaved("");
+    } catch (e) { setSaved(e.message || String(e)); }
   }
 
   // ---------- Excel ----------
   async function unduhExcel() {
     try {
-      const dl = await window.claude.use("downloads");
-      if (!dl) throw new Error("Unduhan tidak tersedia di tampilan ini.");
       const wb = XLSX.utils.book_new();
       const rekap = hasil.rekap.map((r) => ({
-        Nama: r.Nama, NIP: r.NIP, Cabang: r.Cabang, Posisi: r.Posisi, "Hari Terjadwal": r.Terjadwal, Hadir: r.Hadir, Absen: r.Absen, "Izin/Sakit/Cuti": r.Izin, "Absen Dipotong": r.AbsenDipotong,
-        "Telat (kali)": r.TelatKali, "Telat (mnt)": r.TelatMnt, "Telat Kena Potongan (kali)": r.TelatKenaKali, "Potongan Telat (Rp)": r.TelatPot,
-        "Pulang Cepat (kali)": r.PcKali, "Pulang Cepat (mnt)": r.PcMnt, "Lembur Dibayar (jam)": r.LemburJam, "Upah Lembur (Rp)": r.LemburUpah, "Lembur Belum Diputuskan (jam)": Math.round(r.LemburTakDibayarJam * 10) / 10,
-        "Double Shift": r.Double, "Shift Berubah (kali)": r.ShiftBerubah, "Telat Menurut HRIS (mnt)": r.TelatHris,
-        "Gaji Pokok": r.adaTarif ? r.gaji : "", "Tunjangan Tetap": r.adaTarif ? r.tunj : "", "Uang Makan": r.adaTarif ? r.UangMakan : "",
-        "Potongan Absen (Rp)": r.adaTarif ? Math.round(r.PotAbsen) : "", "Potongan Pulang Cepat (Rp)": r.PotPc, "Bonus Double Shift (Rp)": r.BonusDouble,
-        "Gaji Diterima": r.GajiBersih == null ? "Tarif belum diisi" : Math.round(r.GajiBersih)
+        Nama: r.Nama, NIP: r.NIP, Lokasi: r.Cabang, Posisi: r.Posisi, Jabatan: r.Jabatan, Status: r.StatusKerja, "Hari Terjadwal": r.Terjadwal, Hadir: r.Hadir, "Tanpa Keterangan": r.Absen,
+        Izin: r.Izin, Sakit: r.Sakit, Cuti: r.Cuti, Off: r.Off, "Tidak Check In": r.TidakCI, "Tidak Check Out": r.TidakCO,
+        "Telat (kali)": r.TelatKali, "Telat (mnt)": r.TelatMnt, "Telat Dipotong (kali)": r.TelatKenaKali, "Lembur Dibayar (jam)": r.LemburJam, "Order HC": r.Order, "Jam Order HC": r.OrderJam,
+        "Shift Berubah": r.ShiftBerubah, "Dikoreksi Manual": r.Dikoreksi, "Telat Menurut Kolabo (mnt)": r.TelatHris
       }));
-      const cab = perCabang().sort((a, b) => a.cabang.localeCompare(b.cabang)).map((c) => ({ Cabang: c.cabang, Karyawan: c.n, Hadir: c.hadir, Terjadwal: c.terjadwal, "Kehadiran (%)": Math.round(c.persen * 1000) / 10, Absen: c.absen, "Telat (kali)": c.telat, "Potongan Telat (Rp)": c.telatPot, "Upah Lembur (Rp)": c.lembur, "Total Gaji (Rp)": Math.round(c.gaji) }));
-      const det = hasil.det.map((d) => { const o = Object.assign({}, d); o.Catatan = d.Catatan.concat(d._review).join("; "); delete o._review; return o; });
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rekap), "Rekap Penggajian");
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cab), "Ringkasan Cabang");
+      const rinci = hasil.rekap.map((r) => {
+        const o = { Nama: r.Nama, NIP: r.NIP, Lokasi: r.Cabang, Jabatan: r.Jabatan };
+        r.slip.pend.forEach((s) => s.items.forEach((it) => { o[s.sec.slice(0, 2) + " " + it[0].replace(/ \(.*\)$/, "")] = it[1]; }));
+        o["Pendapatan Bruto"] = r.slip.bruto;
+        r.slip.pot.forEach((it) => { o["Pot. " + it[0].replace(/ \(.*\)$/, "")] = it[1]; });
+        o["Total Potongan"] = r.slip.potongan;
+        r.slip.ben.forEach((it) => { o["Benefit " + it[0]] = it[1]; });
+        o["Gaji Diterima"] = r.GajiBersih == null ? "Tarif belum diisi" : Math.round(r.GajiBersih);
+        o["Biaya Tenaga Kerja"] = r.adaTarif ? Math.round(r.Biaya) : "";
+        return o;
+      });
+      const cab = perCabang().sort((a, b) => a.cabang.localeCompare(b.cabang)).map((c) => ({ Lokasi: c.cabang, Pegawai: c.n, "Kehadiran (%)": Math.round(c.persen * 1000) / 10, "Tanpa Keterangan": c.absen, "Telat (kali)": c.telat, "Gaji Ditransfer": Math.round(c.gaji), "Biaya Tenaga Kerja": Math.round(c.biaya), Invoice: c.invoice || "", Selisih: c.invoice ? Math.round(c.invoice - c.biaya) : "", "Margin (%)": c.invoice ? Math.round((c.invoice - c.biaya) / c.invoice * 1000) / 10 : "" }));
+      const aoa = [];
+      [...new Set(hasil.rekap.map((r) => r.Cabang))].sort().forEach((c) => {
+        aoa.push([c]); aoa.push(["Pegawai", ...hasil.tanggal.map((t) => +t.slice(8)), "H", "T", "A", "I", "S", "C", "O"]);
+        hasil.rekap.filter((r) => r.Cabang === c).sort((a, b) => a.Nama.localeCompare(b.Nama)).forEach((r) => {
+          const m = new Map(r.detail.map((d) => [d.Tanggal, d.Kode]));
+          aoa.push([r.Nama, ...hasil.tanggal.map((t) => m.get(t) || ""), r.Hadir - r.TelatKenaKali, r.TelatKenaKali, r.Absen, r.Izin, r.Sakit, r.Cuti, r.Off]);
+        });
+        aoa.push([]);
+      });
+      const det = hasil.det.map((d) => ({ Tanggal: d.Tanggal, Hari: d.Hari, Nama: d.Nama, NIP: d.NIP, Lokasi: d.Cabang, Kode: d.Kode, Status: STATUS_LABEL[d.Status], "Jadwal Kolabo": d["Jadwal Kolabo"], "Shift Aktual": d["Shift Aktual"], "Check In": d["Check In"], "Check Out": d["Check Out"], "Telat (mnt)": d["Telat (mnt)"], "Potongan Telat": d["Potongan Telat (Rp)"], "Pulang Cepat (mnt)": d["Pulang Cepat (mnt)"], "Lewat Jam Pulang (mnt)": d["Lembur (mnt)"], "Lembur Dibayar (jam)": d["Lembur Dibayar (jam)"], "Upah Lembur": d["Upah Lembur (Rp)"], "Jam Kerja": d["Jam Kerja"], Koreksi: d.adj ? "ya" : "", Catatan: d.Catatan.concat(d._review).join("; ") }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cab), "Ringkasan Lokasi");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rekap), "Rekap Absensi Pegawai");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "Rekap per Lokasi");
+      const jamSheet = (jenis) => {
+        const days = hariBulan(), rows = [["Lokasi", "Pegawai", ...days.map((t) => +t.slice(8))]];
+        [...hasil.rekap].sort((a, b) => a.Cabang.localeCompare(b.Cabang) || a.Nama.localeCompare(b.Nama)).forEach((r) => {
+          const m = new Map(r.detail.map((d) => [d.Tanggal, d]));
+          rows.push([r.Cabang, r.Nama, ...days.map((t) => {
+            const d = m.get(t); if (!d) return "";
+            if (d.Status !== "Present") return d.Status === "Off" ? "off" : d.Kode;
+            if (jenis === "in") return (d["Check In"] || "").slice(0, 5) + (d["Telat (mnt)"] > 0 ? ` (telat ${d["Telat (mnt)"]})` : "");
+            if (d.tidakCO || !d["Check Out"]) return "tidak CO";
+            return d["Check Out"].slice(0, 5) + (d["Pulang Cepat (mnt)"] > 0 ? ` (cepat ${d["Pulang Cepat (mnt)"]})` : "");
+          })]);
+        });
+        return XLSX.utils.aoa_to_sheet(rows);
+      };
+      XLSX.utils.book_append_sheet(wb, jamSheet("in"), "Jam Masuk");
+      XLSX.utils.book_append_sheet(wb, jamSheet("out"), "Jam Pulang");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rinci), "Rincian Gaji");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(det), "Detail Harian");
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hasil.review.length ? hasil.review : [{ Info: "Tidak ada" }]), "Perlu Review");
-      await dl.save({ filename: "Rekap_Absensi_" + hasil.periode + ".xlsx", data: XLSX.write(wb, { type: "array", bookType: "xlsx" }) });
-    } catch (e) {
-      if (e && e.code === "declined") return;
-      setSaved("Unduhan gagal: " + (e.message || e.code || e));
-    }
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hasil.review.length ? hasil.review.map((v) => { const o = Object.assign({}, v); delete o.key; return o; }) : [{ Info: "Tidak ada" }]), "Perlu Dicek");
+      await saveFile("Rekap_Gaji_" + hasil.periode + ".xlsx", XLSX.write(wb, { type: "array", bookType: "xlsx" }), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    } catch (e) { setSaved("Unduhan gagal: " + (e.message || e)); }
   }
 
   // ---------- mulai ----------
@@ -1047,10 +1614,10 @@ details > summary { cursor: pointer; font-weight: 600; }
   const tip = $("#tip");
   document.addEventListener("mousemove", (e) => {
     const t = e.target.closest && e.target.closest("[data-tip]");
-    if (!t || !t.dataset.tip) { tip.hidden = true; return; }
+    if (!t || !t.dataset.tip || $("#modal").innerHTML) { tip.hidden = true; return; }
     tip.textContent = t.dataset.tip; tip.hidden = false;
     const x = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
-    tip.style.left = x + "px"; tip.style.top = (e.clientY + 16) + "px";
+    tip.style.left = x + "px"; tip.style.top = Math.min(e.clientY + 16, window.innerHeight - tip.offsetHeight - 8) + "px";
   });
   renderAll();
   loadCfg();

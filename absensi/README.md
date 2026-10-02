@@ -1,4 +1,15 @@
-# Rekap Absensi Otomatis
+# Rekap Absensi & Gaji (Kolabo)
+
+## Versi utama: `Rekap-Gaji-Kolabo.html`
+Satu file HTML, buka langsung di Chrome/Edge di laptop mana pun (tidak perlu install). Upload export Kolabo
+bulanan, lalu: Dashboard (biaya vs invoice per lokasi, absensi), Rekap Absensi (kode per lokasi, jam masuk & pulang,
+per pegawai; bisa dikoreksi per hari), Input Gaji (komponen slip A–E, BPJS, kasbon, bonus, prorata),
+Slip Gaji (PDF semua pegawai atau ZIP per pegawai), Excel rekap.
+
+- Pengaturan tersimpan di browser laptop masing-masing. Bagikan ke tim lewat Aturan → Ekspor/Impor pengaturan (.json).
+- Sumber halaman ada di `web/` (`p_*.js`, `p_head.html`); jalankan `python web/build.py` untuk membangun ulang.
+
+## Versi skrip Python (lama)
 
 Download export absensi dari HRIS tiap bulan, lalu jalankan satu perintah:
 

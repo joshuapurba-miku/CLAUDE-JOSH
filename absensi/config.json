@@ -23,12 +23,18 @@
     {
       "nama": "Lapangan 09-16",
       "masuk": "09:00",
-      "pulang": "16:00"
+      "pulang": "16:00",
+      "cabang": [
+        "Tim Lapangan Gotong-Gotong"
+      ]
     },
     {
       "nama": "Lapangan 09-18",
       "masuk": "09:00",
-      "pulang": "18:00"
+      "pulang": "18:00",
+      "cabang": [
+        "Tim Lapangan Cv Bintang Harapan"
+      ]
     },
     {
       "nama": "Siang 10-18",
