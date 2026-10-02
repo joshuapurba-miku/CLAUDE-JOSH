@@ -126,7 +126,7 @@
       [Object.keys(bul).length > 0, "Komponen variabel diisi", `${Object.keys(bul).length} pegawai punya input bulan ini (bonus, HC, kasbon)`, "input"],
       [invCab.length === cab.length, "Invoice per lokasi diisi", `${invCab.length} dari ${cab.length} lokasi`, "#inv"],
       [rk.filter((r) => r.adaTarif && r.Pendapatan > 0).length > 0, "Slip siap diunduh", `${rk.filter((r) => r.adaTarif && r.Pendapatan > 0).length} slip siap`, "slip"],
-      [terkunci(), "Disetujui & dikunci", terkunci() ? `oleh ${cfg.approval[hasil.periode].oleh}` : "masih draft", "slip"]
+      [terkunci(), "Disetujui & dikunci", terkunci() ? `oleh ${cfg.approval[hasil.periode].oleh}${cfg.approval[hasil.periode].digital ? " (tanda tangan digital)" : ""}` : cfg.penolakan[hasil.periode] ? "ditolak, perlu diperbaiki" : (cfg.approvers || []).length ? "menunggu approver" : "masih draft", "slip"]
     ];
     let h = `<div class="stack"><div class="panel"><div class="row between"><h2>Progres rekap gaji ${bulanLabel(hasil.periode)}</h2>
       <div class="row"><span class="hint">Unduh isi dashboard:</span><button class="btn ghost small" id="lap-xls">Laporan Excel</button><button class="btn small" id="lap-pdf">Laporan PDF untuk manajemen</button></div></div><div class="steps" style="margin-top:12px">${steps.map((s, i) => `<div class="step ${s[0] ? "done" : ""}"><div class="no">${s[0] ? "✓" : i + 1}</div><div><b>${s[1]}</b><span class="sub">${s[2]}${s[3] ? ` · ${s[3].startsWith("#") ? `<a href="${s[3]}">isi</a>` : `<a href="#" data-go="${s[3]}">buka</a>`}` : ""}</span></div></div>`).join("")}</div></div>`;

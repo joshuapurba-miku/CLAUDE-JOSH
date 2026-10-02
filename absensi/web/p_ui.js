@@ -33,12 +33,13 @@
     const a = hasil && cfg.approval[hasil.periode];
     return a ? `<div class="banner ok">Gaji ${bulanLabel(hasil.periode)} sudah disetujui oleh <b>${esc(a.oleh)}</b> pada ${esc(a.tanggal)}. Data dikunci; untuk mengubah, buka kunci di tab Slip Gaji.</div>` : "";
   }
+  function logoSrc() { return cfg.logo && cfg.logo !== "none" ? cfg.logo : ""; }
   function applyBrand() {
     const img = $("#hdrLogo");
-    if (cfg.logo) { img.src = cfg.logo; img.hidden = false; } else { img.removeAttribute("src"); img.hidden = true; }
+    if (logoSrc()) { img.src = logoSrc(); img.hidden = false; } else { img.removeAttribute("src"); img.hidden = true; }
   }
   function kunciForm(root) {
-    if (!terkunci()) return;
+    if (!dikunci()) return;
     root.querySelectorAll("input, select, textarea, button").forEach((x) => { if (!x.closest("[data-free]")) x.disabled = true; });
   }
   function recompute(keepInput) {
@@ -60,9 +61,11 @@
     const el = $("#databar");
     if (!hasil) { el.innerHTML = ""; return; }
     const kor = Object.keys(cfg.adj).filter((k) => k.slice(-10).startsWith(hasil.periode)).length;
-    el.innerHTML = `<div class="databar"><div class="meta"><b>${bulanLabel(hasil.periode)}</b> <span class="sub">· ${esc(namaPT())} · ${hasil.rekap.length} pegawai · ${hasil.dari} s/d ${hasil.sampai}${kor ? ` · ${kor} koreksi manual` : ""}</span><div class="hint">${esc(fileName)}</div></div>
+    const rv = reviewMode ? `<div class="banner warn" style="margin-bottom:10px"><b>Mode tinjauan approver</b> · paket ${bulanLabel(reviewMode.periode)} dibuat ${esc(new Date(reviewMode.dibuat).toLocaleString("id-ID"))}. ${reviewMode.cocok ? "Data utuh sesuai paket." : "PERINGATAN: data tidak cocok dengan paket."} Perubahan tidak disimpan. Keputusan ada di tab Slip Gaji. <a href="#" id="rv-keluar">Keluar dari mode tinjauan</a></div>` : "";
+    el.innerHTML = rv + `<div class="databar"><div class="meta"><b>${bulanLabel(hasil.periode)}</b> <span class="sub">· ${esc(namaPT())} · ${hasil.rekap.length} pegawai · ${hasil.dari} s/d ${hasil.sampai}${kor ? ` · ${kor} koreksi manual` : ""}</span><div class="hint">${esc(fileName)}</div></div>
       <div class="row"><button class="btn ghost small" id="ganti">Ganti file</button><button class="btn small" id="unduh">Unduh Excel</button></div></div>`;
     $("#ganti").onclick = () => $("#file").click();
+    if ($("#rv-keluar")) $("#rv-keluar").onclick = (e) => { e.preventDefault(); location.reload(); };
     $("#unduh").onclick = unduhExcel;
   }
 
@@ -75,10 +78,13 @@
       <div class="step"><div class="no">3</div><div><b>Cek, koreksi, unduh slip</b><span class="sub">Koreksi absensi per lokasi, isi komponen variabel, lalu unduh slip PDF.</span></div></div>
     </div></div>
     <div class="drop" id="drop"><h2>Upload export absensi dari HRIS</h2><p class="sub">File .xlsx persis seperti hasil download. Data dihitung di browser Anda dan tidak dikirim ke mana pun.</p>
-      <button class="btn" id="pick">Pilih file .xlsx</button><p class="hint">atau tarik file ke kotak ini</p><div id="err"></div></div></div>`;
+      <button class="btn" id="pick">Pilih file .xlsx</button><p class="hint">atau tarik file ke kotak ini</p><div id="err"></div></div>
+    <div class="panel row between"><div><h3>Anda approver?</h3><p class="sub">Buka paket persetujuan (.json) yang dikirim penyiap gaji untuk meninjau dan menyetujui.</p></div><button class="btn ghost" id="pkg-buka">Buka paket persetujuan</button><input type="file" id="pkg-file" accept=".json,application/json" hidden></div></div>`;
   }
   function bindUpload(root) {
     root.querySelectorAll("[data-go]").forEach((a) => a.onclick = (e) => { e.preventDefault(); showTab(a.dataset.go); });
+    const pb = root.querySelector("#pkg-buka");
+    if (pb) { pb.onclick = () => root.querySelector("#pkg-file").click(); root.querySelector("#pkg-file").onchange = (e) => { if (e.target.files[0]) bukaPaket(e.target.files[0]); }; }
     const drop = root.querySelector("#drop");
     if (!drop) return;
     root.querySelector("#pick").onclick = () => $("#file").click();
@@ -260,7 +266,7 @@
   function tutupModal() { $("#modal").innerHTML = ""; document.removeEventListener("keydown", escModal); }
   function escModal(e) { if (e.key === "Escape") tutupModal(); }
   function bukaKoreksi(key, tgl) {
-    if (terkunci()) { setSaved("Periode sudah disetujui dan dikunci. Buka kunci di tab Slip Gaji untuk mengoreksi."); return; }
+    if (dikunci()) { setSaved(reviewMode ? "Mode tinjauan approver: data hanya bisa dilihat." : "Periode sudah disetujui dan dikunci. Buka kunci di tab Slip Gaji untuk mengoreksi."); return; }
     const d = hasil.det.find((x) => x.key === key && x.Tanggal === tgl);
     if (!d) return;
     const a = d.adj || {}, au = d.auto;
@@ -347,7 +353,7 @@
     };
     $("#in-prev").onclick = () => { inputKey = rk[idx - 1].key; renderInput(); };
     $("#in-next").onclick = () => { inputKey = rk[idx + 1].key; renderInput(); };
-    if (terkunci()) { el.querySelectorAll("input[data-scope], #mb-f, #mb-v, #mb-c, #mb-go").forEach((x) => { x.disabled = true; }); }
+    if (dikunci()) { el.querySelectorAll("input[data-scope], #mb-f, #mb-v, #mb-c, #mb-go").forEach((x) => { x.disabled = true; }); }
     el.querySelectorAll("input[data-scope]").forEach((inp) => inp.addEventListener("change", () => {
       const f = inp.dataset.f, val = inp.type === "number" ? (inp.value === "" ? "" : +inp.value) : inp.value.trim();
       let obj;

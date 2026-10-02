@@ -21,6 +21,8 @@
   --bad-soft: #fbe3e1;
   --info: #1f5f9e;
   --info-soft: #e0ecf8;
+  --logo-bg: transparent;
+  --logo-pad: 0;
   --font-body: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
@@ -28,13 +30,13 @@
   :root:not([data-theme="light"]) {
     --bg: #11171d; --surface: #19212a; --surface-2: #222c37; --ink: #e6ebf0; --ink-2: #9aa7b4; --ink-3: #7b8896;
     --line: #2e3a47; --accent: #4cc38a; --accent-ink: #0b1a13; --accent-soft: #17382a; --bar: #45b880; --bar-track: #26313c;
-    --warn: #f0b95a; --warn-soft: #3a2c10; --warn-bar: #e0a03a; --bad: #ff8a80; --bad-soft: #3d1b19; --info: #8cc0f5; --info-soft: #172c42; color-scheme: dark;
+    --warn: #f0b95a; --warn-soft: #3a2c10; --warn-bar: #e0a03a; --bad: #ff8a80; --bad-soft: #3d1b19; --info: #8cc0f5; --info-soft: #172c42; --logo-bg: #f4f7f5; --logo-pad: 4px 6px; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #11171d; --surface: #19212a; --surface-2: #222c37; --ink: #e6ebf0; --ink-2: #9aa7b4; --ink-3: #7b8896;
   --line: #2e3a47; --accent: #4cc38a; --accent-ink: #0b1a13; --accent-soft: #17382a; --bar: #45b880; --bar-track: #26313c;
-  --warn: #f0b95a; --warn-soft: #3a2c10; --warn-bar: #e0a03a; --bad: #ff8a80; --bad-soft: #3d1b19; --info: #8cc0f5; --info-soft: #172c42; color-scheme: dark;
+  --warn: #f0b95a; --warn-soft: #3a2c10; --warn-bar: #e0a03a; --bad: #ff8a80; --bad-soft: #3d1b19; --info: #8cc0f5; --info-soft: #172c42; --logo-bg: #f4f7f5; --logo-pad: 4px 6px; color-scheme: dark;
 }
 *, *::before, *::after { box-sizing: border-box; }
 body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.5; }
@@ -180,10 +182,10 @@ details > summary { cursor: pointer; font-weight: 600; }
 .tm.adj::after { content: ""; position: absolute; top: 2px; right: 2px; width: 4px; height: 4px; border-radius: 50%; background: var(--ink); }
 /* merek & persetujuan */
 .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
-#hdrLogo { height: 46px; width: auto; max-width: 170px; object-fit: contain; }
+#hdrLogo { height: 58px; width: auto; max-width: 180px; object-fit: contain; background: var(--logo-bg); border-radius: 8px; padding: var(--logo-pad); }
 .logo-prev { height: 56px; max-width: 220px; object-fit: contain; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 4px; }
 .slip .lg { background: #fff; border-radius: 6px; padding: 4px 6px; display: inline-flex; margin-right: 10px; flex: 0 0 auto; }
-.slip .lg img { height: 34px; width: auto; max-width: 120px; object-fit: contain; }
+.slip .lg img { height: 48px; width: auto; max-width: 130px; object-fit: contain; }
 .slip .band .left { display: flex; align-items: center; min-width: 0; }
 .slip .band .no { font-weight: 400; letter-spacing: 0; opacity: .9; font-size: 11px; display: block; }
 .slip .draft { display: inline-block; background: #fbefd5; color: #8a5200; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 3px; letter-spacing: .1em; margin-top: 3px; }

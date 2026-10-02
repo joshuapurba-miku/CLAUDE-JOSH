@@ -29,8 +29,8 @@
     h += `<div class="panel stack"><div><h2>Identitas di slip gaji</h2><p class="sub">Nama perusahaan kosong = diambil dari file Kolabo.</p></div><div class="grid">
       ${t("Nama perusahaan", "perusahaan", perusahaanFile || "Nama perusahaan")}${t("Alamat / keterangan", "alamat", "")}${t("Judul slip", "judulSlip", "Financial Detail Report")}
       ${t("Kota tanda tangan", "kota", "Makassar")}${t("Nama penandatangan", "ttdNama", "")}${t("Jabatan penandatangan", "ttdJabatan", "")}</div>
-      <div class="row" style="align-items:center">${cfg.logo ? `<img class="logo-prev" src="${cfg.logo}" alt="Logo saat ini">` : '<span class="sub">Belum ada logo.</span>'}
-        <button class="btn ghost" id="logo-up">${cfg.logo ? "Ganti logo" : "Unggah logo"}</button>${cfg.logo ? '<button class="btn ghost" id="logo-del">Hapus logo</button>' : ""}<input type="file" id="logo-file" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden>
+      <div class="row" style="align-items:center">${logoSrc() ? `<img class="logo-prev" src="${logoSrc()}" alt="Logo saat ini">` : '<span class="sub">Belum ada logo.</span>'}
+        <button class="btn ghost" id="logo-up">${logoSrc() ? "Ganti logo" : "Unggah logo"}</button>${logoSrc() ? '<button class="btn ghost" id="logo-del">Hapus logo</button>' : ""}<input type="file" id="logo-file" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden>
         <span class="hint">PNG dengan latar transparan paling rapi. Logo muncul di aplikasi, slip, dan laporan.</span></div>
       <div class="field" style="max-width:520px"><label for="c-pw">Password PDF slip per pegawai</label><select id="c-pw" data-cfgsel="slipPassword">
         <option value="none"${cfg.slipPassword !== "nip" ? " selected" : ""}>Tanpa password</option><option value="nip"${cfg.slipPassword === "nip" ? " selected" : ""}>Password = NIP tanpa spasi (misal SQUAD021)</option></select>
@@ -62,13 +62,14 @@
       <div class="grid"><div class="field"><label for="c-alias">Jadwal Kolabo yang salah setting (jadwal = nama shift)</label><textarea id="c-alias" data-cfg="alias">${esc(cfg.alias)}</textarea></div>
       <div class="field"><label for="c-tetap">Lokasi dengan shift tetap (tidak ditebak), satu per baris</label><textarea id="c-tetap" data-cfg="tetap">${esc(cfg.tetap)}</textarea></div></div>
       <div class="grid">${f("Ganti shift jika lebih cocok (selisih menit)", "gantiShift")}${f("Tandai dicek jika selisih melebihi (menit)", "reviewBiaya")}${f("Durasi kerja minimal valid (menit)", "minKerja")}</div></div></details>`;
+    h += aturanPersetujuanHTML();
     h += `<div class="panel stack"><div><h2>Bagikan pengaturan ke tim</h2><p class="sub">Simpan semua pengaturan (tarif, aturan, input gaji, koreksi absensi, invoice) ke satu file, lalu buka di laptop lain lewat tombol Impor.</p></div>
       <div class="row" data-free><button class="btn ghost" id="cfg-export">Ekspor pengaturan (.json)</button><button class="btn ghost" id="cfg-import">Impor pengaturan</button><input type="file" id="cfg-file" accept=".json,application/json" hidden><span class="hint" id="cfg-msg"></span></div></div>`;
     h += '<div><button class="btn ghost small" data-reset="1">Kembalikan semua pengaturan ke bawaan</button></div></div>';
     el.innerHTML = lockBanner() + h;
-    bindEdits(el); kunciForm(el);
+    bindEdits(el); kunciForm(el); bindAturanPersetujuan();
     $("#logo-up").onclick = () => $("#logo-file").click();
-    if ($("#logo-del")) $("#logo-del").onclick = () => { cfg.logo = ""; cfg.logoW = cfg.logoH = 0; scheduleSave(); applyBrand(); renderAturan(); };
+    if ($("#logo-del")) $("#logo-del").onclick = () => { cfg.logo = "none"; cfg.logoW = cfg.logoH = 0; scheduleSave(); applyBrand(); renderAturan(); };
     $("#logo-file").onchange = (e) => {
       const f = e.target.files[0]; if (!f) return;
       const rd = new FileReader();
@@ -90,7 +91,7 @@
     $("#cfg-import").onclick = () => $("#cfg-file").click();
     $("#cfg-file").onchange = async (e) => {
       const file = e.target.files[0]; if (!file) return;
-      if (terkunci()) { $("#cfg-msg").textContent = "Buka kunci periode dulu sebelum mengimpor pengaturan."; return; }
+      if (dikunci()) { $("#cfg-msg").textContent = "Buka kunci periode dulu sebelum mengimpor pengaturan."; return; }
       try { cfg = mergeCfg(JSON.parse(await file.text())); scheduleSave(); recompute(); renderAturan(); $("#cfg-msg").textContent = "Pengaturan diimpor dari " + file.name; }
       catch (err) { $("#cfg-msg").textContent = "File tidak bisa dibaca: pastikan file .json hasil ekspor halaman ini."; }
     };

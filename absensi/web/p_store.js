@@ -8,6 +8,7 @@
     if (!saved || typeof saved !== "object") return d;
     if (saved.ttdJabatan === "HRD" && !saved.ttdNama) { delete saved.ttdJabatan; delete saved.ttdNama; }
     delete saved.izin;
+    if (!saved.logo) { delete saved.logo; delete saved.logoW; delete saved.logoH; }
     const c = Object.assign(d, saved);
     c.tarif = (c.tarif || []).map((t) => {
       const x = Object.assign({}, TARIF_KOSONG, t);
@@ -15,14 +16,16 @@
       delete x.tunj; delete x.makan;
       return x;
     });
-    ["adj", "pegawai", "bulanan", "invoice", "riwayat", "approval"].forEach((k) => { if (!c[k] || typeof c[k] !== "object") c[k] = {}; });
+    ["adj", "pegawai", "bulanan", "invoice", "riwayat", "approval", "penolakan"].forEach((k) => { if (!c[k] || typeof c[k] !== "object") c[k] = {}; });
     const dsh = Object.fromEntries(d.shifts.map((x) => [x.nama, x]));
     c.shifts = (c.shifts || []).map((x) => (x.nama === "Lapangan 09-16" || x.nama === "Lapangan 09-18") && !x.cabang && dsh[x.nama] && x.masuk === dsh[x.nama].masuk && x.pulang === dsh[x.nama].pulang ? Object.assign({}, x, { cabang: dsh[x.nama].cabang }) : x);
+    if (!Array.isArray(c.approvers)) c.approvers = [];
     c.dasarHarian = Object.assign({}, d.dasarHarian, saved.dasarHarian || {});
     return c;
   }
   function setSaved(t) { $("#saved").textContent = t; }
   function scheduleSave() {
+    if (reviewMode) { setSaved("Mode tinjauan: perubahan tidak disimpan"); return; }
     setSaved("Menyimpan…");
     clearTimeout(saveTimer);
     saveTimer = setTimeout(async () => {

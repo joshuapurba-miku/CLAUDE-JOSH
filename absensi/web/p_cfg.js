@@ -49,8 +49,8 @@
         { min: 7, max: 8, bagi: 30000, makan: 15000, trans: 15000 },
         { min: 9, max: 24, bagi: 35000, makan: 20000, trans: 15000 }
       ],
-      invoice: {}, riwayat: {}, approval: {},
-      logo: "", logoW: 0, logoH: 0, slipPassword: "none"
+      invoice: {}, riwayat: {}, approval: {}, penolakan: {}, approvers: [],
+      logo: LOGO_DEFAULT, logoW: 480, logoH: 444, slipPassword: "none"
     };
   }
 
