@@ -9,11 +9,12 @@
     const el = $("#tab-gaji");
     let h = `<div class="stack"><div class="panel"><h2>Tarif gaji per lokasi dan posisi</h2><p class="sub">Komponen tetap bulanan sesuai slip (bagian A. Penempatan). Satu baris untuk tiap kombinasi lokasi + posisi Kolabo. Pegawai yang berbeda dari tarif (misal PIC senior) diisi di Input Gaji, kolom "khusus".</p></div>`;
     h += dl("dl-cab", branchList()) + dl("dl-pos", postList());
-    h += '<div class="scroll"><table><thead><tr><th>Lokasi</th><th>Posisi</th><th>Gaji pokok</th><th>Tunj. makan &amp; transport</th><th>Tunj. kinerja</th><th>Tunj. absensi</th><th>Admin &amp; payroll (potong)</th><th></th></tr></thead><tbody>';
+    h += '<div class="scroll"><table><thead><tr><th>Lokasi</th><th>Posisi</th><th>Gaji pokok</th><th>Tunj. makan &amp; transport</th><th>Tunj. kinerja</th><th>Tunj. kehadiran</th><th></th></tr></thead><tbody>';
     cfg.tarif.forEach((t, i) => {
-      h += `<tr>${inpRow("tarif", i, "cabang", t.cabang, "text", 'list="dl-cab"')}${inpRow("tarif", i, "posisi", t.posisi, "text", 'list="dl-pos"')}${inpRow("tarif", i, "gaji", t.gaji || "")}${inpRow("tarif", i, "tunjMT", t.tunjMT || "")}${inpRow("tarif", i, "tunjKin", t.tunjKin || "")}${inpRow("tarif", i, "tunjAbs", t.tunjAbs || "")}${inpRow("tarif", i, "admin", t.admin)}<td><button class="btn ghost small" data-del="tarif" data-i="${i}">Hapus</button></td></tr>`;
+      h += `<tr>${inpRow("tarif", i, "cabang", t.cabang, "text", 'list="dl-cab"')}${inpRow("tarif", i, "posisi", t.posisi, "text", 'list="dl-pos"')}${inpRow("tarif", i, "gaji", t.gaji || "")}${inpRow("tarif", i, "tunjMT", t.tunjMT || "")}${inpRow("tarif", i, "tunjKin", t.tunjKin || "")}${inpRow("tarif", i, "tunjAbs", t.tunjAbs || "")}<td><button class="btn ghost small" data-del="tarif" data-i="${i}">Hapus</button></td></tr>`;
     });
     h += `</tbody></table></div><div><button class="btn ghost" data-add="tarif">Tambah baris</button></div>
+      <p class="hint">Gaji harian (untuk prorata, backup di lokasi ini, dan insentif mengganti) = komponen yang dicentang di Pengaturan ÷ ${cfg.pembagi}. Tunjangan kehadiran dibayar penuh jika hadir tepat waktu minimal ${cfg.kehadiranMin} hari. Biaya admin & payroll diatur sekali di Pengaturan.</p>
       <p class="hint">Lokasi tanpa jadwal tetap (${esc(list(cfg.tanpaJadwal).join(", ") || "tidak ada")}) boleh bergaji pokok 0; pendapatannya dari order home cleaning.</p></div>`;
     el.innerHTML = lockBanner() + h;
     bindEdits(el); kunciForm(el);
@@ -39,11 +40,20 @@
       <div class="field"><label for="c-metode">Metode untuk hari tidak masuk</label><select id="c-metode" data-cfgsel="metodeGaji">
         <option value="potong"${cfg.metodeGaji === "potong" ? " selected" : ""}>Gaji penuh, dipotong per hari tanpa keterangan / izin (seperti slip sekarang)</option>
         <option value="prorata"${cfg.metodeGaji === "prorata" ? " selected" : ""}>Prorata: komponen tetap × hari dibayar ÷ hari terjadwal</option></select>
-        <span class="hint">Hari dibayar = hadir + sakit + cuti. Pegawai yang masuk/berhenti di tengah bulan selalu prorata (isi tanggalnya di Input Gaji).</span></div>
-      <div class="field"><label>Dasar potongan per hari (metode potong) = jumlah komponen ini ÷ ${cfg.pembagi}</label><div class="row">${chk("gaji", "Gaji pokok")}${chk("tunjMT", "Tunj. makan & transport")}${chk("tunjKin", "Tunj. kinerja")}${chk("tunjAbs", "Tunj. absensi")}</div></div>
+        <span class="hint">Hari dibayar = hadir + sakit + cuti. Pegawai yang belum aktif sebulan penuh atau berhenti di tengah bulan selalu prorata: hari aktif ÷ ${cfg.pembagi} (isi tanggalnya di Input Gaji). Tunjangan kehadiran untuk mereka juga prorata, begitu juga syarat harinya.</span></div>
+      <div class="field"><label>Gaji harian = jumlah komponen ini ÷ ${cfg.pembagi} (dipakai untuk potongan per hari, prorata, upah backup, dan insentif mengganti)</label><div class="row">${chk("gaji", "Gaji pokok")}${chk("tunjMT", "Tunj. makan & transport")}${chk("tunjKin", "Tunj. kinerja")}${chk("tunjAbs", "Tunj. kehadiran")}</div></div>
       <div class="grid">${f("Ambang telat (menit)", "telatAmbang")}${f("Potongan per kejadian telat (Rp)", "telatNominal", 'step="1000"')}${f("Pembagi hari kerja", "pembagi")}
-      ${f("Tarif lembur bawaan (Rp / jam)", "tarifLembur", 'step="1000"')}${f("Potongan pulang cepat (Rp / menit)", "pulangPerMenit")}${f("Insentif mengganti / double shift (Rp)", "bonusDouble", 'step="1000"')}
+      ${f("Tarif lembur bawaan (Rp / jam)", "tarifLembur", 'step="1000"')}${f("Potongan pulang cepat (Rp / menit)", "pulangPerMenit")}${f("Tunjangan kehadiran: minimal hari tepat waktu", "kehadiranMin")}${f("Deteksi extend shift: toleransi (menit)", "extendTol")}
       ${f("Toleransi telat (menit)", "tolTelat")}${f("Toleransi pulang cepat (menit)", "tolPulang")}${f("Lembur minimal (menit)", "lemburMin")}${f("Pembulatan lembur (menit)", "lemburBulat")}</div></div>`;
+    const b = cfg.bpjs, fb = (label, key) => `<div class="field"><label for="b-${key}">${label}</label><input type="number" id="b-${key}" data-bpjs="${key}" value="${b[key]}" min="0" step="0.01"></div>`;
+    const umk = +b.umk || 0, pk = (x) => rp(Math.round(umk * x / 100));
+    h += `<div class="panel stack"><div><h2>BPJS</h2><p class="sub">Iuran dihitung dari UMK (atau dasar upah per orang di Input Gaji) × persentase. Status per orang diatur di Input Gaji: <b>Aktif</b> (iuran pegawai dipotong, bagian perusahaan dibayar ke BPJS) atau <b>Tidak mau diaktifkan</b> (bagian perusahaan dibayarkan ke pegawai sebagai tambahan gaji, tanpa potongan).</p></div>
+      <div class="grid"><div class="field"><label for="b-umk">UMK (Rp)</label><input type="number" id="b-umk" data-bpjs="umk" value="${b.umk || ""}" min="0" step="1000" placeholder="isi UMK"></div></div>
+      <h3>BPJS Kesehatan</h3><div class="grid">${fb("Dipotong dari pegawai (%)", "kesPekerja")}${fb("Dibayar perusahaan (%)", "kesPerusahaan")}</div>
+      <h3>BPJS Ketenagakerjaan</h3><div class="grid">${fb("JHT pegawai (%)", "jhtPekerja")}${fb("JHT perusahaan (%)", "jhtPerusahaan")}${fb("JP pegawai (%)", "jpPekerja")}${fb("JP perusahaan (%)", "jpPerusahaan")}${fb("JKK perusahaan (%)", "jkk")}${fb("JKM perusahaan (%)", "jkm")}</div>
+      <p class="hint">${umk ? `Dengan UMK ${rp(umk)}: potongan pegawai Kesehatan ${pk(+b.kesPekerja)} + Ketenagakerjaan ${pk(+b.jhtPekerja + +b.jpPekerja)}; bagian perusahaan Kesehatan ${pk(+b.kesPerusahaan)} + Ketenagakerjaan ${pk(+b.jhtPerusahaan + +b.jpPerusahaan + +b.jkk + +b.jkm)}.` : "Isi UMK supaya iuran BPJS terhitung otomatis."} Nilai per orang bisa diganti manual di Input Gaji.</p></div>`;
+    h += `<div class="panel stack"><div><h2>Biaya admin &amp; payroll</h2><p class="sub">Berlaku untuk semua pegawai yang digaji. Biaya transfer dipotong hanya jika bank pegawai (di Input Gaji) berbeda dengan bank perusahaan.</p></div>
+      <div class="grid">${f("Biaya admin & payroll per pegawai (Rp)", "biayaAdmin", 'step="500"')}${f("Biaya transfer antar bank (Rp)", "biayaTransfer", 'step="500"')}${t("Bank perusahaan (rekening sumber)", "bankPerusahaan", "misal BRI")}</div></div>`;
     h += `<div class="panel stack"><div><h2>Home cleaning (tanpa jadwal tetap)</h2><p class="sub">Lokasi di bawah ini bekerja sesuai order: hari tanpa check-in dianggap tidak ada order (bukan absen), tidak ada hitungan telat. Tiap check-in dihitung satu order; jam dibulatkan ke jam terdekat.</p></div>
       <div class="field"><label for="c-tanpaJadwal">Lokasi tanpa jadwal tetap (satu per baris)</label><textarea id="c-tanpaJadwal" data-cfg="tanpaJadwal">${esc(cfg.tanpaJadwal)}</textarea></div>
       <div class="scroll"><table><thead><tr><th>Jam order dari</th><th>sampai</th><th>Bagi hasil per jam</th><th>Makan per order</th><th>Transport per order</th><th></th></tr></thead><tbody>
@@ -116,6 +126,7 @@
     }));
     root.querySelectorAll("[data-cfg]").forEach((inp) => inp.addEventListener("change", () => { cfg[inp.dataset.cfg] = inp.type === "number" ? (+inp.value || 0) : inp.value; afterEdit(false); }));
     root.querySelectorAll("[data-cfgsel]").forEach((inp) => inp.addEventListener("change", () => { cfg[inp.dataset.cfgsel] = inp.value; afterEdit(false); }));
+    root.querySelectorAll("[data-bpjs]").forEach((inp) => inp.addEventListener("change", () => { cfg.bpjs[inp.dataset.bpjs] = +inp.value || 0; afterEdit(true); }));
     root.querySelectorAll("[data-dasar]").forEach((inp) => inp.addEventListener("change", () => { cfg.dasarHarian[inp.dataset.dasar] = inp.checked; afterEdit(false); }));
     root.querySelectorAll("[data-add]").forEach((b) => b.addEventListener("click", () => { cfg[b.dataset.add].push(NEW_ROW[b.dataset.add]()); afterEdit(true); }));
     root.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => { cfg[b.dataset.del].splice(+b.dataset.i, 1); afterEdit(true); }));
@@ -165,7 +176,7 @@
   // ---------- Excel ----------
   async function unduhExcel() {
     try {
-      const wb = XLSX.utils.book_new(), uang = lihatUang();
+      const wb = XLSX.utils.book_new();
       const rekap = hasil.rekap.map((r) => ({
         Nama: r.Nama, NIP: r.NIP, Lokasi: r.Cabang, Posisi: r.Posisi, Jabatan: r.Jabatan, Status: r.StatusKerja, "Hari Terjadwal": r.Terjadwal, Hadir: r.Hadir, "Tanpa Keterangan": r.Absen,
         Izin: r.Izin, Sakit: r.Sakit, Cuti: r.Cuti, Off: r.Off, "Tidak Check In": r.TidakCI, "Tidak Check Out": r.TidakCO,
@@ -194,13 +205,9 @@
         aoa.push([]);
       });
       const det = hasil.det.map((d) => ({ Tanggal: d.Tanggal, Hari: d.Hari, Nama: d.Nama, NIP: d.NIP, Lokasi: d.Cabang, Kode: d.Kode, Status: STATUS_LABEL[d.Status], "Jadwal Kolabo": d["Jadwal HRIS"], "Shift Aktual": d["Shift Aktual"], "Check In": d["Check In"], "Check Out": d["Check Out"], "Telat (mnt)": d["Telat (mnt)"], "Potongan Telat": d["Potongan Telat (Rp)"], "Pulang Cepat (mnt)": d["Pulang Cepat (mnt)"], "Lewat Jam Pulang (mnt)": d["Lembur (mnt)"], "Lembur Dibayar (jam)": d["Lembur Dibayar (jam)"], "Upah Lembur": d["Upah Lembur (Rp)"], "Jam Kerja": d["Jam Kerja"], Koreksi: d.adj ? "ya" : "", Catatan: d.Catatan.concat(d._review).join("; ") }));
-      if (!uang) {
-        const tanpa = (o, ks) => { ks.forEach((k) => delete o[k]); return o; };
-        cab.forEach((c) => tanpa(c, ["Gaji Ditransfer", "Biaya Tenaga Kerja", "Invoice", "Selisih", "Margin (%)"]));
-        det.forEach((d) => tanpa(d, ["Potongan Telat", "Upah Lembur"]));
-      }
+      XLSX.utils.book_append_sheet(wb, sheetRekapGaji(barisRekapGaji("")), "Rekap Gaji");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cab), "Ringkasan Lokasi");
-      if (uang) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataTransfer()), "Daftar Transfer");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataTransfer()), "Daftar Transfer");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataLogKoreksi()), "Log Koreksi");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rekap), "Rekap Absensi Pegawai");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "Rekap per Lokasi");
@@ -220,10 +227,10 @@
       };
       XLSX.utils.book_append_sheet(wb, jamSheet("in"), "Jam Masuk");
       XLSX.utils.book_append_sheet(wb, jamSheet("out"), "Jam Pulang");
-      if (uang) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rinci), "Rincian Gaji");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rinci), "Rincian Gaji");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(det), "Detail Harian");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hasil.review.length ? hasil.review.map((v) => { const o = Object.assign({}, v); delete o.key; return o; }) : [{ Info: "Tidak ada" }]), "Perlu Dicek");
-      await saveFile((uang ? "Rekap_Gaji_" : "Rekap_Absensi_") + hasil.periode + ".xlsx", XLSX.write(wb, { type: "array", bookType: "xlsx" }), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      await saveFile("Rekap_Gaji_" + hasil.periode + ".xlsx", XLSX.write(wb, { type: "array", bookType: "xlsx" }), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     } catch (e) { setSaved("Unduhan gagal: " + (e.message || e)); }
   }
 

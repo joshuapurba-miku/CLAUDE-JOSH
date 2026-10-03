@@ -22,7 +22,11 @@
     if (!Array.isArray(c.approvers)) c.approvers = [];
     if (!Array.isArray(c.pegawaiLuar)) c.pegawaiLuar = [];
     delete c.apPinHash;
-    c.dasarHarian = Object.assign({}, d.dasarHarian, saved.dasarHarian || {});
+    const awal = defaultCfg();
+    c.dasarHarian = Object.assign({}, awal.dasarHarian, saved.dasarHarian || {});
+    c.bpjs = Object.assign({}, awal.bpjs, saved.bpjs || {});
+    if (saved.biayaAdmin == null) { const a = c.tarif.map((t) => t.admin).find((x) => isNum(x)); if (a != null) c.biayaAdmin = +a; }
+    c.tarif.forEach((t) => { delete t.admin; });
     return c;
   }
   function setSaved(t) { $("#saved").textContent = t; }

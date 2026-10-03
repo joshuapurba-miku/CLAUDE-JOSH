@@ -128,16 +128,8 @@
       [rk.filter((r) => r.adaTarif && r.Pendapatan > 0).length > 0, "Slip siap diunduh", `${rk.filter((r) => r.adaTarif && r.Pendapatan > 0).length} slip siap`, "slip"],
       [terkunci(), "Disetujui & dikunci", terkunci() ? `oleh ${cfg.approval[hasil.periode].oleh}${cfg.approval[hasil.periode].digital ? " (tanda tangan digital)" : ""}` : cfg.penolakan[hasil.periode] ? "ditolak, perlu diperbaiki" : (cfg.approvers || []).length ? "menunggu approver" : "masih draft", "slip"]
     ];
-    const isKepatuhan = activeRole === "kepatuhan";
-    const stepsKep = [
-      [true, "Data Kolabo diupload", `${rk.length} pegawai, ${hasil.det.length} baris absensi`, ""],
-      [!hasil.review.length, "Absensi divalidasi", hasil.review.length ? `${hasil.review.length} kasus perlu dicek` : "semua kasus sudah dicek", "rekap"],
-      [false, "Ekspor data validasi", "Kirim ke Admin Operasional untuk penggajian", "rekap"]
-    ];
-    let h = `<div class="stack"><div class="panel"><div class="row between"><h2>${isKepatuhan ? "Progres validasi absensi" : "Progres rekap gaji"} ${bulanLabel(hasil.periode)}</h2>
-      ${isKepatuhan ? "" : '<div class="row"><span class="hint">Unduh isi dashboard:</span><button class="btn ghost small" id="lap-xls">Laporan Excel</button><button class="btn small" id="lap-pdf">Laporan PDF untuk manajemen</button></div>'}</div><div class="steps" style="margin-top:12px">${(isKepatuhan ? stepsKep : steps).map((s, i) => `<div class="step ${s[0] ? "done" : ""}"><div class="no">${s[0] ? "✓" : i + 1}</div><div><b>${s[1]}</b><span class="sub">${s[2]}${s[3] ? ` · ${s[3].startsWith("#") ? `<a href="${s[3]}">isi</a>` : `<a href="#" data-go="${s[3]}">buka</a>`}` : ""}</span></div></div>`).join("")}</div></div>`;
-    // --- Bagian keuangan: hanya untuk operasional & direktur ---
-    if (!isKepatuhan) {
+    let h = `<div class="stack"><div class="panel"><div class="row between"><h2>Progres rekap gaji ${bulanLabel(hasil.periode)}</h2>
+      <div class="row"><span class="hint">Unduh isi dashboard:</span><button class="btn ghost small" id="lap-xls">Laporan Excel</button><button class="btn small" id="lap-pdf">Laporan PDF untuk manajemen</button></div></div><div class="steps" style="margin-top:12px">${steps.map((s, i) => `<div class="step ${s[0] ? "done" : ""}"><div class="no">${s[0] ? "✓" : i + 1}</div><div><b>${s[1]}</b><span class="sub">${s[2]}${s[3] ? ` · ${s[3].startsWith("#") ? `<a href="${s[3]}">isi</a>` : `<a href="#" data-go="${s[3]}">buka</a>`}` : ""}</span></div></div>`).join("")}</div></div>`;
     h += `<h2>Penggajian</h2><div class="kpis">
       <div class="kpi"><div class="l">Biaya tenaga kerja</div><div class="v">${rp(biaya)}</div><div class="s">pendapatan bruto + benefit perusahaan${prev ? "<br>" + delta(biaya, prev.biaya) : ""}</div></div>
       <div class="kpi"><div class="l">Gaji ditransfer</div><div class="v">${rp(thp)}</div><div class="s">total take home pay ${rk.filter((r) => r.adaTarif).length} pegawai</div></div>
@@ -169,14 +161,13 @@
     if (per.length > 1) {
       h += `<div class="stack" style="gap:8px"><h2>Tren bulanan</h2><div class="scroll"><table><thead><tr><th>Bulan</th><th class="n">Pegawai</th><th class="n">Kehadiran</th><th class="n">Biaya tenaga kerja</th><th class="n">Gaji ditransfer</th><th class="n">Invoice</th><th class="n">Margin</th><th class="n">Potongan telat</th></tr></thead><tbody>${per.map((p) => { const x = cfg.riwayat[p]; return `<tr${p === hasil.periode ? ' style="font-weight:700"' : ""}><td>${bulanLabel(p)}</td><td class="n">${x.pegawai}</td><td class="n">${pct(x.terjadwal ? x.hadir / x.terjadwal : 0)}</td><td class="n">${rp(x.biaya)}</td><td class="n">${rp(x.thp)}</td><td class="n">${x.invoice ? rp(x.invoice) : "—"}</td><td class="n">${x.invoice ? pct((x.invoice - Object.values(x.cab).filter((c) => c.invoice).reduce((a, c) => a + c.biaya, 0)) / x.invoice) : "—"}</td><td class="n">${rp(x.telatPot)}</td></tr>`; }).join("")}</tbody></table></div></div>`;
     }
-    } // end !isKepatuhan
     // absensi
     const cabA = cab.filter((c) => !c.tanpaJadwal).sort((a, b) => a.persen - b.persen);
     h += `<h2 style="margin-top:8px">Absensi</h2><div class="kpis">
       <div class="kpi"><div class="l">Tingkat kehadiran</div><div class="v">${pct(terj ? hadir / terj : 0)}</div><div class="s">${num(hadir)} hadir dari ${num(terj)} hari terjadwal${prev && prev.terjadwal ? "<br>" + bulanLabel(prevP) + ": " + pct(prev.hadir / prev.terjadwal) : ""}</div></div>
       <div class="kpi"><div class="l">Tanpa keterangan</div><div class="v">${num(sumBy(rk, (r) => r.Absen))} hari</div><div class="s">izin ${sumBy(rk, (r) => r.Izin)} · sakit ${sumBy(rk, (r) => r.Sakit)} · cuti ${sumBy(rk, (r) => r.Cuti)}</div></div>
-      <div class="kpi"><div class="l">Telat &gt; ${cfg.telatAmbang} menit</div><div class="v">${num(sumBy(rk, (r) => r.TelatKenaKali))}×</div><div class="s">${isKepatuhan ? `${num(sumBy(rk, (r) => r.TelatKali))}× telat total` : `potongan ${rp(sumBy(rk, (r) => r.TelatPot))}`}</div></div>
-      <div class="kpi"><div class="l">Lembur ${isKepatuhan ? "tercatat" : "dibayar"}</div><div class="v">${isKepatuhan ? jam(sumBy(rk, (r) => r.LemburJam)) : rp(sumBy(rk, (r) => r.LemburUpah))}</div><div class="s">${isKepatuhan ? "jam lembur disetujui" : jam(sumBy(rk, (r) => r.LemburJam))} · ${jam(sumBy(rk, (r) => r.LemburTakDibayarJam))} belum diputuskan</div></div>
+      <div class="kpi"><div class="l">Telat &gt; ${cfg.telatAmbang} menit</div><div class="v">${num(sumBy(rk, (r) => r.TelatKenaKali))}×</div><div class="s">potongan ${rp(sumBy(rk, (r) => r.TelatPot))}</div></div>
+      <div class="kpi"><div class="l">Lembur dibayar</div><div class="v">${rp(sumBy(rk, (r) => r.LemburUpah))}</div><div class="s">${jam(sumBy(rk, (r) => r.LemburJam))} · ${jam(sumBy(rk, (r) => r.LemburTakDibayarJam))} belum diputuskan</div></div>
       <div class="kpi"><div class="l">Perlu dicek</div><div class="v">${hasil.review.length}</div><div class="s">kasus, <a href="#" data-go="rekap">buka Rekap Absensi</a></div></div>
     </div>`;
     h += '<div class="cols2">';
@@ -184,14 +175,14 @@
       hbars(cabA.map((c) => ({ label: c.cabang, v: c.persen, warn: c.persen < AMBANG_HADIR, tip: `${c.cabang}: ${c.hadir} hadir dari ${c.terjadwal} hari terjadwal, ${c.n} pegawai` })), pct, { max: 1 }) + legenda() + "</div>";
     const telat = [...rk].filter((r) => r.TelatMnt > 0).sort((a, b) => b.TelatMnt - a.TelatMnt).slice(0, 8);
     h += '<div class="panel"><h2>Paling banyak telat</h2><p class="sub">Total menit telat, dihitung dari shift yang benar-benar dijalankan.</p>' +
-      (telat.length ? hbars(telat.map((r) => ({ label: r.Nama, v: r.TelatMnt, tip: `${r.Nama} (${r.Cabang}): ${r.TelatKali}× telat, ${r.TelatKenaKali}× kena potongan${isKepatuhan ? "" : " " + rp(r.TelatPot)}` })), (v) => num(v) + " mnt") : '<p class="empty">Tidak ada yang telat.</p>') + "</div>";
+      (telat.length ? hbars(telat.map((r) => ({ label: r.Nama, v: r.TelatMnt, tip: `${r.Nama} (${r.Cabang}): ${r.TelatKali}× telat, ${r.TelatKenaKali}× kena potongan ${rp(r.TelatPot)}` })), (v) => num(v) + " mnt") : '<p class="empty">Tidak ada yang telat.</p>') + "</div>";
     h += "</div>";
     h += `<div class="panel chart"><h2>Kehadiran harian</h2><p class="sub">Persentase pegawai terjadwal yang hadir tiap tanggal. Arahkan kursor ke batang untuk detail.</p>${kolomHarian(hr)}${legenda()}
       <details style="margin-top:10px"><summary class="hint">Lihat sebagai tabel</summary><div class="scroll" style="margin-top:8px"><table><thead><tr><th>Tanggal</th><th>Hari</th><th class="n">Hadir</th><th class="n">Terjadwal</th><th class="n">Kehadiran</th></tr></thead><tbody>${hr.map((d) => `<tr><td>${d.tgl}</td><td>${esc(d.hari)}</td><td class="n">${d.hadir}</td><td class="n">${d.terjadwal}</td><td class="n">${pct(d.persen)}</td></tr>`).join("")}</tbody></table></div></details></div>`;
     h += "</div>";
     el.innerHTML = h;
     bindUpload(el);
-    if ($("#lap-xls")) { $("#lap-xls").onclick = unduhLaporanExcel; $("#lap-pdf").onclick = unduhLaporanPDF; }
+    $("#lap-xls").onclick = unduhLaporanExcel; $("#lap-pdf").onclick = unduhLaporanPDF;
     el.querySelectorAll("[data-inv]").forEach((inp) => inp.addEventListener("change", () => {
       const b = cfg.invoice[hasil.periode] = cfg.invoice[hasil.periode] || {};
       if (inp.value === "" || +inp.value === 0) delete b[inp.dataset.inv]; else b[inp.dataset.inv] = +inp.value;

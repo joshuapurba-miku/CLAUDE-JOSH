@@ -18,7 +18,7 @@
   const cabangOpts = (sel, semua) => (semua ? `<option value="">Semua lokasi</option>` : "") + [...new Set(hasil.rekap.map((r) => r.Cabang))].sort().map((c) => `<option${c === sel ? " selected" : ""} value="${esc(c)}">${esc(c)}</option>`).join("");
 
   // ---------- tab ----------
-  const DATA_TABS = { dash: () => renderDash(), rekap: () => renderRekap(), input: () => renderInput(), bk: () => renderBackup(), slip: () => renderSlip() };
+  const DATA_TABS = { dash: () => renderDash(), rekap: () => renderRekap(), input: () => renderInput(), rgaji: () => renderRekapGaji(), bk: () => renderBackup(), slip: () => renderSlip() };
   function showTab(name) {
     const allowed = roleTabs();
     if (allowed && !allowed.includes(name)) name = allowed[0];
@@ -64,9 +64,8 @@
     if (!el) return;
     if (!activeRole) { el.innerHTML = ""; return; }
     const flowSteps = [
-      { key: "kepatuhan", label: "1. Validasi Absensi" },
-      { key: "operasional", label: "2. Penggajian" },
-      { key: "direktur", label: "3. Persetujuan" }
+      { key: "operasional", label: "1. Absensi & penggajian" },
+      { key: "direktur", label: "2. Persetujuan" }
     ];
     el.innerHTML = `<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px">
       ${roleBadgeHTML()}
@@ -88,7 +87,6 @@
 
   // ---------- upload ----------
   function uploadPanel() {
-    // Unified upload: file type determines role automatically
     return `<div class="stack"><div class="panel">
       <h2 style="margin-bottom:6px">Alur kerja otomatis</h2>
       <p class="sub" style="margin-bottom:14px">Upload file sesuai tugas Anda. Sistem akan otomatis mengenali peran dan membuka tab yang sesuai.</p>
@@ -101,7 +99,7 @@
       </div>
     </div>
     <div class="drop" id="drop"><h2>Upload file untuk mulai</h2>
-      <p class="sub">Upload file .xlsx dari Kolabo <b>atau</b> file .json (validasi / paket persetujuan).<br>Peran dan akses Anda ditentukan otomatis dari file yang diupload.</p>
+      <p class="sub">Admin Operasional: upload file .xlsx dari Kolabo. Approval: upload paket persetujuan (.json).<br>Akses ditentukan otomatis dari file yang diupload.</p>
       <div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap;justify-content:center">
         <button class="btn" id="pick">Upload file .xlsx / .json</button>
       </div>
@@ -121,12 +119,10 @@
   }
   async function muat(f) {
     try {
-      // JSON file → auto-detect role (validasi / paket persetujuan)
       if (f.name.endsWith(".json") || f.type === "application/json") {
         await deteksiDanMuatJSON(f);
         return;
       }
-      // XLSX file → Kepatuhan role
       if (typeof XLSX === "undefined") throw new Error("Pembaca Excel belum termuat. Periksa koneksi internet lalu muat ulang halaman.");
       const wb = XLSX.read(await f.arrayBuffer(), { type: "array" });
       const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "", raw: true });
@@ -136,7 +132,7 @@
       let baru = 0;
       rawRows.forEach((r) => { if (!tarifRow(r.cabang, r.posisi)) { cfg.tarif.push(Object.assign({ cabang: r.cabang, posisi: r.posisi }, TARIF_KOSONG)); baru++; } });
       if (baru) scheduleSave();
-      setRoleKepatuhan();
+      activeRole = "operasional"; applyRoleTabs();
       hasil = hitung(rawRows); simpanRiwayat(); cekBukti();
       rekapCabang = ""; inputKey = ""; filterCari = slipCari = ""; slipCabang = ""; terbuka.clear();
       renderBar(); updateTabCounts(); showTab("dash");
@@ -151,29 +147,34 @@
 
   // ---------- tab Rekap Absensi ----------
   let rekapMode = "lokasi", rekapCabang = "", filterCari = "", filterCabang = "", terbuka = new Set();
-  const KODE_KET = [["H", "Hadir"], ["T", `Telat > ${"{a}"} mnt`], ["A", "Tanpa keterangan"], ["I", "Izin"], ["S", "Sakit"], ["C", "Cuti"], ["O", "Off / tidak ada order"]];
+  const KODE_KET = [["H", "Hadir tepat waktu"], ["T", "Hadir tapi telat > {a} mnt"], ["E", "Extend ke shift berikutnya"], ["M", "Masuk di hari off"], ["B", "Backup dari lokasi lain"],
+    ["A", "Tanpa keterangan"], ["I", "Izin"], ["S", "Sakit"], ["C", "Cuti"], ["O", "Off / libur"], ["N", "Belum aktif / sudah keluar"]];
   function legendaKode() {
-    return `<div class="keys">${KODE_KET.map(([k, l]) => `<span><span class="cell ${k}">${k === "O" ? "·" : k}</span>${l.replace("{a}", cfg.telatAmbang)}</span>`).join("")}
-      <span><span class="cell H adj">H</span>sudah dikoreksi</span><span><span class="cell H rev">H</span>perlu dicek</span><span><span class="cell A bk">A</span>dibackup orang lain</span></div>`;
+    return `<div class="keys">${KODE_KET.map(([k, l]) => `<span><span class="cell ${k}">${k}</span>${l.replace("{a}", cfg.telatAmbang)}</span>`).join("")}
+      <span><span class="cell H adj">H</span>sudah dikoreksi</span><span><span class="cell H rev">H</span>perlu dicek</span><span><span class="cell A bk">A</span>dibackup orang lain</span><span><span class="cell O out">O</span>sedang backup di lokasi lain</span></div>`;
   }
+  const isExtend = (d) => d.Status === "Present" && d["Double Shift"] === "ya";
   function tipHari(d) {
     const p = [`${d.Hari} ${tglPendek(d.Tanggal)}`, STATUS_LABEL[d.Status]];
-    if (d["Check In"]) p.push(`${d["Check In"].slice(0, 5)}–${(d["Check Out"] || "?").slice(0, 5)} (shift ${d["Shift Aktual"]})`);
+    if (d["Check In"]) p.push(`${d["Check In"].slice(0, 5)}–${(d["Check Out"] || "?").slice(0, 5)}${d["Shift Aktual"] ? ` (shift ${d["Shift Aktual"]})` : ""}`);
+    if (d.Extend) p.push("extend ke shift " + d.Extend);
     if (d["Telat (mnt)"]) p.push(`telat ${d["Telat (mnt)"]} mnt`);
     if (d["Lembur Dibayar (jam)"]) p.push(`lembur ${d["Lembur Dibayar (jam)"]} jam`);
     if (d._review.length) p.push("perlu dicek: " + d._review.join("; "));
     if (d.adj) p.push("dikoreksi" + (d.adj.ket ? ": " + d.adj.ket : ""));
     if (d.dibackup) p.push("dibackup oleh " + d.dibackup.join(", "));
+    if (d.backupKeluar) p.push("backup di " + d.backupKeluar.map((x) => x.cabang + (x.diganti ? " menggantikan " + x.diganti : "")).join(", "));
     return p.join(" · ");
   }
   function cellHTML(d) {
-    return `<button class="cell ${d.Kode}${d.adj ? " adj" : ""}${d.dibackup ? " bk" : ""}${d._review.length ? " rev" : ""}" data-k="${esc(d.key)}" data-t="${d.Tanggal}" data-tip="${esc(tipHari(d))}" aria-label="${esc(d.Nama + ", " + tipHari(d))}">${d.Kode === "O" ? "·" : d.Kode}</button>`;
+    const k = isExtend(d) ? "E" : d.Kode;
+    return `<button class="cell ${k}${d.adj ? " adj" : ""}${d.dibackup ? " bk" : ""}${d.backupKeluar ? " out" : ""}${d._review.length ? " rev" : ""}" data-k="${esc(d.key)}" data-t="${d.Tanggal}" data-tip="${esc(tipHari(d))}" aria-label="${esc(d.Nama + ", " + tipHari(d))}">${k}</button>`;
   }
   function renderRekap() {
     const el = $("#tab-rekap");
     if (!hasil) { el.innerHTML = kosong("Belum ada data. Upload export absensi dulu."); bindUpload(el); return; }
     let h = `<div class="stack"><div class="panel"><div class="row between"><div><h2>Rekap absensi ${bulanLabel(hasil.periode)}</h2>
-      <p class="sub">Klik kotak tanggal atau tombol Koreksi untuk mengubah status, menit telat, atau jam lembur.${lihatUang() ? " Gaji dan slip langsung ikut berubah." : " Setelah semua valid, ekspor data validasi di bagian bawah."}</p></div>
+      <p class="sub">Klik kotak tanggal atau tombol Koreksi untuk mengubah status, menit telat, atau jam lembur. Gaji dan slip langsung ikut berubah.</p></div>
       <div class="seg" role="group" aria-label="Tampilan rekap"><button data-mode="lokasi" aria-pressed="${rekapMode === "lokasi"}">Kode per lokasi</button><button data-mode="jam" aria-pressed="${rekapMode === "jam"}">Jam masuk &amp; pulang</button><button data-mode="pegawai" aria-pressed="${rekapMode === "pegawai"}">Per pegawai</button></div></div>
       <div style="margin-top:12px">${rekapMode === "jam" ? legendaJam() : legendaKode()}</div></div>`;
     h += lockBanner();
@@ -181,6 +182,7 @@
     el.innerHTML = h + "</div>";
     el.querySelectorAll("[data-mode]").forEach((b) => b.onclick = () => { rekapMode = b.dataset.mode; renderRekap(); });
     el.querySelectorAll("[data-k][data-t]").forEach((b) => b.onclick = (e) => { e.stopPropagation(); bukaKoreksi(b.dataset.k, b.dataset.t); });
+    el.querySelectorAll("[data-bkgo]").forEach((b) => b.onclick = () => showTab("bk"));
     const sc = $("#rcab"); if (sc) sc.onchange = (e) => { rekapCabang = e.target.value; renderRekap(); };
     const jc = $("#jcab"); if (jc) jc.onchange = (e) => { jamCabang = e.target.value; renderRekap(); };
     const fc = $("#fcab"); if (fc) fc.onchange = (e) => { filterCabang = e.target.value; renderRekap(); };
@@ -192,15 +194,6 @@
       tr.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } };
     });
     el.querySelectorAll("[data-goemp]").forEach((b) => b.onclick = () => { rekapMode = "pegawai"; filterCari = ""; filterCabang = ""; terbuka = new Set([b.dataset.goemp]); renderRekap(); const tr = document.querySelector(`tr.emp[data-row="${CSS.escape(b.dataset.goemp)}"]`); if (tr) tr.scrollIntoView({ block: "start" }); });
-    // Ekspor validasi button for kepatuhan role
-    if (activeRole === "kepatuhan" && hasil) {
-      const expBtn = document.createElement("div");
-      expBtn.className = "panel";
-      expBtn.style.marginTop = "16px";
-      expBtn.innerHTML = `<div class="row between"><div><h3>Selesai validasi?</h3><p class="sub">Ekspor data absensi yang sudah divalidasi untuk dikirim ke Admin Operasional.</p></div><button class="btn" id="ekspor-val">Ekspor data validasi</button></div>`;
-      el.querySelector(".stack").appendChild(expBtn);
-      $("#ekspor-val").onclick = () => eksporValidasi();
-    }
   }
 
   // ---------- rekap jam masuk & pulang (kalender sebulan) ----------
@@ -250,34 +243,76 @@
       <span class="hint">Telat dan pulang cepat dihitung dari shift yang benar-benar dijalankan. Klik jam untuk mengoreksi.</span></div>
       <div><h3>Check-in (jam masuk)</h3>${tabel("in")}</div><div><h3>Check-out (jam pulang)</h3>${tabel("out")}</div></div>`;
   }
+  function shiftUtama(r) {
+    if (r.TanpaJadwal) return "Sesuai order";
+    const hit = {};
+    r.detail.forEach((d) => { const sh = d["Shift Aktual"]; if (sh && (d.Status === "Present" || d.Status === "OffMasuk")) hit[sh] = (hit[sh] || 0) + 1; });
+    if (!Object.keys(hit).length) r.detail.forEach((d) => { const sh = d["Jadwal HRIS"]; if (sh) hit[sh] = (hit[sh] || 0) + 1; });
+    const top = Object.entries(hit).sort((a, b) => b[1] - a[1])[0];
+    return top ? top[0] : "Tanpa shift tetap";
+  }
+  function tabelLokasi(cab, days) {
+    const rk = hasil.rekap.filter((r) => !r.Luar && r.Cabang === cab);
+    const grup = {};
+    rk.forEach((r) => { const sh = shiftUtama(r); (grup[sh] = grup[sh] || []).push(r); });
+    const urut = Object.keys(grup).sort((a, b) => (/^\d/.test(a) ? a : "~" + a).localeCompare(/^\d/.test(b) ? b : "~" + b));
+    const bk = hasil.backup.filter((o) => o.sev !== "konflik" && o.cabang === cab && o.tgl);
+    const per = {};
+    bk.forEach((o) => { const p = per[o.pengganti] = per[o.pengganti] || { nama: o.namaPengganti, asal: o.asal, hari: {} }; (p.hari[o.tgl] = p.hari[o.tgl] || []).push(o); });
+    const masuk = Object.fromEntries(days.map((t) => [t, 0]));
+    const ncol = days.length + 10;
+    let h = "";
+    urut.forEach((sh) => {
+      const rows = grup[sh].sort((a, b) => a.Nama.localeCompare(b.Nama));
+      h += `<tr class="grp"><td colspan="${ncol}">${/^\d/.test(sh) ? "Shift " + esc(sh) : esc(sh)} <span>· ${rows.length} orang</span></td></tr>`;
+      rows.forEach((r) => {
+        const map = new Map(r.detail.map((d) => [d.Tanggal, d]));
+        days.forEach((t) => { const d = map.get(t); if (d && (d.Status === "Present" || d.Status === "OffMasuk")) masuk[t]++; });
+        h += `<tr><td class="nm"><b>${esc(r.Nama)}${r.Manual ? '<span class="tag">manual</span>' : ""}</b><span class="sub">${esc(r.Jabatan)}</span></td>${days.map((t) => `<td>${map.has(t) ? cellHTML(map.get(t)) : ""}</td>`).join("")}
+          <td class="sm">${r.Hadir - r.TelatKenaKali}</td><td class="sm">${r.TelatKenaKali}</td><td class="sm">${r.Absen ? `<span class="neg">${r.Absen}</span>` : 0}</td><td class="sm">${r.Izin + r.Sakit + r.Cuti}</td><td class="sm">${r.Off}</td>
+          <td class="sm">${r.Mengganti || "—"}</td><td class="sm">${r.TelatMnt} mnt</td><td class="sm">${r.TelatPot ? rp(r.TelatPot) : "—"}</td><td class="sm">${r.LemburJam ? jam(r.LemburJam) : "—"}</td></tr>`;
+      });
+    });
+    const pk = Object.keys(per);
+    if (pk.length) {
+      h += `<tr class="grp"><td colspan="${ncol}">Backup dari lokasi lain <span>· ${pk.length} orang</span></td></tr>`;
+      pk.forEach((k) => {
+        const p = per[k];
+        h += `<tr><td class="nm"><b>${esc(p.nama)}<span class="tag">backup</span></b><span class="sub">asal ${esc(p.asal || "di luar Kolabo")}</span></td>${days.map((t) => {
+          const os = p.hari[t]; if (!os) return "<td></td>";
+          masuk[t]++;
+          const tip = `${tglPendek(t)} · backup${os.map((o) => (o.namaDiganti ? " menggantikan " + o.namaDiganti : "") + " · upah " + rp(o.upahPakai)).join(";")}`;
+          return `<td><button class="cell B" data-bkgo="1" data-tip="${esc(tip)}" aria-label="${esc(p.nama + ", " + tip)}">B</button></td>`;
+        }).join("")}<td class="sm" colspan="5"></td><td class="sm">${Object.keys(p.hari).length}</td><td class="sm" colspan="3"></td></tr>`;
+      });
+    }
+    h += `<tr class="cnt"><td class="nm" style="text-align:left">Masuk per hari</td>${days.map((t) => `<td>${masuk[t]}</td>`).join("")}<td colspan="10"></td></tr>`;
+    return { h, n: rk.length, hadir: sumBy(rk, (r) => r.Hadir), terj: sumBy(rk, (r) => r.Terjadwal), telat: sumBy(rk, (r) => r.TelatKenaKali), absen: sumBy(rk, (r) => r.Absen) };
+  }
   function rekapLokasiHTML() {
     const cabs = [...new Set(hasil.rekap.filter((r) => !r.Luar).map((r) => r.Cabang))].sort();
-    if (!cabs.includes(rekapCabang)) rekapCabang = cabs[0];
-    const rk = hasil.rekap.filter((r) => !r.Luar && r.Cabang === rekapCabang).sort((a, b) => a.Nama.localeCompare(b.Nama));
-    const hadir = sumBy(rk, (r) => r.Hadir), terj = sumBy(rk, (r) => r.Terjadwal);
-    const days = hasil.tanggal;
-    let h = `<div class="panel stack"><div class="row between"><div class="row"><label class="sub" for="rcab">Lokasi</label><select id="rcab" style="width:auto">${cabangOpts(rekapCabang)}</select></div>
-      <div class="row sub"><span><b>${rk.length}</b> pegawai</span><span>kehadiran <b>${pct(terj ? hadir / terj : 0)}</b></span><span><b>${sumBy(rk, (r) => r.TelatKenaKali)}</b>× telat dipotong</span><span><b>${sumBy(rk, (r) => r.Absen)}</b> hari tanpa keterangan</span></div></div>`;
-    h += `<div class="scroll" style="border:0"><table class="cal"><thead><tr><th style="text-align:left">Pegawai</th>${days.map((t) => { const hr = hariDari(t); return `<th class="${hr === "Min" ? "we" : ""}">${+t.slice(8)}<br>${hr.slice(0, 2)}</th>`; }).join("")}
-      <th class="sm">H</th><th class="sm">T</th><th class="sm">A</th><th class="sm">I/S/C</th><th class="sm">O</th><th class="sm">Telat</th>${lihatUang() ? '<th class="sm">Pot. telat</th>' : ""}<th class="sm">Lembur</th></tr></thead><tbody>`;
-    rk.forEach((r) => {
-      const map = new Map(r.detail.map((d) => [d.Tanggal, d]));
-      h += `<tr><td class="nm"><b>${esc(r.Nama)}</b><span class="sub">${esc(r.Jabatan)}</span></td>${days.map((t) => `<td>${map.has(t) ? cellHTML(map.get(t)) : ""}</td>`).join("")}
-        <td class="sm">${r.Hadir - r.TelatKenaKali}</td><td class="sm">${r.TelatKenaKali}</td><td class="sm">${r.Absen ? `<span class="neg">${r.Absen}</span>` : 0}</td><td class="sm">${r.Izin + r.Sakit + r.Cuti}</td><td class="sm">${r.Off}</td>
-        <td class="sm">${r.TelatMnt} mnt</td>${lihatUang() ? `<td class="sm">${r.TelatPot ? rp(r.TelatPot) : "—"}</td>` : ""}<td class="sm">${r.LemburJam ? jam(r.LemburJam) : "—"}</td></tr>`;
+    if (rekapCabang !== "*" && !cabs.includes(rekapCabang)) rekapCabang = cabs[0];
+    const days = hariBulan(), pilih = rekapCabang === "*" ? cabs : [rekapCabang];
+    const head = `<thead><tr><th style="text-align:left">Pegawai</th>${days.map((t) => { const hr = hariDari(t); return `<th class="${hr === "Min" ? "we" : ""}">${+t.slice(8)}<br>${hr.slice(0, 2)}</th>`; }).join("")}
+      <th class="sm">H</th><th class="sm">T</th><th class="sm">A</th><th class="sm">I/S/C</th><th class="sm">O</th><th class="sm" title="extend + masuk hari off + backup">Ganti</th><th class="sm">Telat</th><th class="sm">Pot. telat</th><th class="sm">Lembur</th></tr></thead>`;
+    let h = `<div class="panel stack"><div class="row between"><div class="row"><label class="sub" for="rcab">Lokasi</label><select id="rcab" style="width:auto"><option value="*"${rekapCabang === "*" ? " selected" : ""}>Semua lokasi</option>${cabangOpts(rekapCabang)}</select></div>
+      <span class="hint">Dikelompokkan per shift. Klik kotak untuk mengoreksi; kotak B membuka tab Backup.</span></div>`;
+    pilih.forEach((cab) => {
+      const t = tabelLokasi(cab, days);
+      h += `<div><div class="row between"><h3>${esc(cab)}</h3><div class="row sub"><span><b>${t.n}</b> pegawai</span><span>kehadiran <b>${pct(t.terj ? t.hadir / t.terj : 0)}</b></span><span><b>${t.telat}</b>× telat dipotong</span><span><b>${t.absen}</b> hari tanpa keterangan</span></div></div>
+        <div class="scroll" style="border:0"><table class="cal">${head}<tbody>${t.h}</tbody></table></div></div>`;
     });
-    h += "</tbody></table></div>";
-    const rv = hasil.review.filter((v) => v.Cabang === rekapCabang && v.Tanggal);
-    h += `<div><h3>Perlu dicek di lokasi ini (${rv.length})</h3>` + (rv.length ? `<div class="scroll" style="margin-top:8px"><table><thead><tr><th>Tanggal</th><th>Nama</th><th>Masuk</th><th>Pulang</th><th>Alasan</th><th></th></tr></thead><tbody>${rv.map((v) => `<tr><td>${tglPendek(v.Tanggal)}</td><td>${esc(v.Nama)}</td><td>${esc(v["Check In"])}</td><td>${esc(v["Check Out"])}</td><td class="wrap">${esc(v.Alasan)}</td><td><button class="btn ghost small" data-k="${esc(v.key)}" data-t="${v.Tanggal}">Koreksi</button></td></tr>`).join("")}</tbody></table></div>` : '<p class="hint" style="margin-top:4px">Tidak ada.</p>') + "</div>";
+    const rv = hasil.review.filter((v) => v.Tanggal && pilih.includes(v.Cabang));
+    h += `<div><h3>Perlu dicek (${rv.length})</h3>` + (rv.length ? `<div class="scroll" style="margin-top:8px"><table><thead><tr><th>Tanggal</th><th>Nama</th><th>Lokasi</th><th>Masuk</th><th>Pulang</th><th>Alasan</th><th></th></tr></thead><tbody>${rv.map((v) => `<tr><td>${tglPendek(v.Tanggal)}</td><td>${esc(v.Nama)}</td><td>${esc(v.Cabang)}</td><td>${esc(v["Check In"])}</td><td>${esc(v["Check Out"])}</td><td class="wrap">${esc(v.Alasan)}</td><td>${hasil.det.some((d) => d.key === v.key && d.Tanggal === v.Tanggal) ? `<button class="btn ghost small" data-k="${esc(v.key)}" data-t="${v.Tanggal}">Koreksi</button>` : '<button class="btn ghost small" data-bkgo="1">Backup</button>'}</td></tr>`).join("")}</tbody></table></div>` : '<p class="hint" style="margin-top:4px">Tidak ada.</p>') + "</div>";
     return h + "</div>";
   }
   function rekapPegawaiHTML() {
     const rk = hasil.rekap.filter((r) => (!filterCabang || r.Cabang === filterCabang) && (!filterCari || (r.Nama + " " + r.NIP).toLowerCase().includes(filterCari.toLowerCase())));
     const tot = (k) => sumBy(rk, (r) => r[k]);
-    const uang = lihatUang(), ncol = uang ? 12 : 10;
+    const ncol = 12;
     let h = `<div class="filters"><div class="row"><select id="fcab" aria-label="Filter lokasi">${cabangOpts(filterCabang, true)}</select>
       <input type="text" id="fcari" placeholder="Cari nama / NIP" value="${esc(filterCari)}" aria-label="Cari pegawai"></div><span class="hint">Klik baris untuk melihat dan mengoreksi absensi harian.</span></div>`;
-    h += `<div class="scroll"><table><thead><tr><th>Pegawai</th><th>Lokasi / Posisi</th><th class="n">Hadir</th><th class="n">Telat</th><th class="n">Tanpa ket.</th><th class="n">Izin/Sakit/Cuti</th><th class="n">Off</th><th class="n">Tidak check-out</th><th class="n">Lembur</th>${uang ? '<th class="n">Pot. telat</th>' : ""}<th class="n">Koreksi</th>${uang ? '<th class="n">Gaji diterima</th>' : ""}</tr></thead><tbody>`;
+    h += `<div class="scroll"><table><thead><tr><th>Pegawai</th><th>Lokasi / Posisi</th><th class="n">Hadir</th><th class="n">Telat</th><th class="n">Tanpa ket.</th><th class="n">Izin/Sakit/Cuti</th><th class="n">Off</th><th class="n">Tidak check-out</th><th class="n">Lembur</th><th class="n">Pot. telat</th><th class="n">Koreksi</th><th class="n">Gaji diterima</th></tr></thead><tbody>`;
     if (!rk.length) h += '<tr><td colspan="${ncol}" class="empty">Tidak ada pegawai yang cocok.</td></tr>';
     rk.forEach((r) => {
       const open = terbuka.has(r.key);
@@ -285,22 +320,22 @@
         <td class="wrap">${esc(r.Cabang)}<br><span class="sub">${esc(r.Jabatan)}</span></td>
         <td class="n">${r.Hadir}/${r.Terjadwal}</td><td class="n">${r.TelatKali}×<br><span class="sub">${r.TelatMnt} mnt</span></td>
         <td class="n">${r.Absen ? `<span class="neg">${r.Absen}</span>` : 0}</td><td class="n">${r.Izin}/${r.Sakit}/${r.Cuti}</td><td class="n">${r.Off}</td><td class="n">${r.TidakCO}</td>
-        <td class="n">${r.LemburJam ? jam(r.LemburJam) : "—"}</td>${uang ? `<td class="n">${r.TelatPot ? rp(r.TelatPot) : "—"}</td>` : ""}<td class="n">${r.Dikoreksi || "—"}</td>
-        ${uang ? `<td class="n"><b>${r.GajiBersih == null ? '<span class="pill warn">tarif kosong</span>' : rp(r.GajiBersih)}</b></td>` : ""}</tr>`;
+        <td class="n">${r.LemburJam ? jam(r.LemburJam) : "—"}</td><td class="n">${r.TelatPot ? rp(r.TelatPot) : "—"}</td><td class="n">${r.Dikoreksi || "—"}</td>
+        <td class="n"><b>${r.GajiBersih == null ? '<span class="pill warn">tarif kosong</span>' : rp(r.GajiBersih)}</b></td></tr>`;
       if (open) h += `<tr class="detail"><td colspan="${ncol}">${detailTabel(r)}</td></tr>`;
     });
-    h += `<tr class="tot"><td colspan="2">Total${filterCabang || filterCari ? " (terfilter)" : ""}</td><td class="n">${num(tot("Hadir"))}</td><td class="n">${num(tot("TelatKali"))}×</td><td class="n">${num(tot("Absen"))}</td><td class="n">${num(tot("Izin") + tot("Sakit") + tot("Cuti"))}</td><td class="n">${num(tot("Off"))}</td><td class="n">${num(tot("TidakCO"))}</td><td class="n">${jam(tot("LemburJam"))}</td>${uang ? `<td class="n">${rp(tot("TelatPot"))}</td>` : ""}<td class="n">${num(tot("Dikoreksi"))}</td>${uang ? `<td class="n">${rp(sumBy(rk, (r) => r.GajiBersih || 0))}</td>` : ""}</tr></tbody></table></div>`;
+    h += `<tr class="tot"><td colspan="2">Total${filterCabang || filterCari ? " (terfilter)" : ""}</td><td class="n">${num(tot("Hadir"))}</td><td class="n">${num(tot("TelatKali"))}×</td><td class="n">${num(tot("Absen"))}</td><td class="n">${num(tot("Izin") + tot("Sakit") + tot("Cuti"))}</td><td class="n">${num(tot("Off"))}</td><td class="n">${num(tot("TidakCO"))}</td><td class="n">${jam(tot("LemburJam"))}</td><td class="n">${rp(tot("TelatPot"))}</td><td class="n">${num(tot("Dikoreksi"))}</td><td class="n">${rp(sumBy(rk, (r) => r.GajiBersih || 0))}</td></tr></tbody></table></div>`;
     const rvAll = hasil.review.filter((v) => !v.Tanggal);
     if (rvAll.length) h += `<div class="panel"><h3>Catatan data pegawai</h3><ul class="sub" style="margin:8px 0 0;padding-left:18px">${rvAll.map((v) => `<li><b>${esc(v.Nama)}</b>: ${esc(v.Alasan)}</li>`).join("")}</ul></div>`;
     return h;
   }
   function detailTabel(r) {
-    let h = '<div class="scroll"><table><thead><tr><th>Tanggal</th><th>Status</th><th>Jadwal HRIS</th><th>Shift aktual</th><th>Masuk</th><th>Pulang</th><th class="n">Telat</th>' + (lihatUang() ? '<th class="n">Pot. telat</th>' : "") + '<th class="n">Pulang cepat</th><th class="n">Lembur</th><th>Catatan</th><th></th></tr></thead><tbody>';
+    let h = '<div class="scroll"><table><thead><tr><th>Tanggal</th><th>Status</th><th>Jadwal HRIS</th><th>Shift aktual</th><th>Masuk</th><th>Pulang</th><th class="n">Telat</th><th class="n">Pot. telat</th><th class="n">Pulang cepat</th><th class="n">Lembur</th><th>Catatan</th><th></th></tr></thead><tbody>';
     r.detail.forEach((d) => {
       const pill = { H: "ok", T: "warn", A: "bad" }[d.Kode] || "";
       h += `<tr><td>${d.Hari} ${tglPendek(d.Tanggal)}</td><td><span class="pill ${pill}">${STATUS_LABEL[d.Status]}${d.Kode === "T" ? ", telat" : ""}</span>${d.adj ? ' <span class="pill">dikoreksi</span>' : ""}</td>
         <td>${esc(d["Jadwal HRIS"])}</td><td>${esc(d["Shift Aktual"])}${d["Status Shift"].startsWith("shift berubah") ? ' <span class="pill warn">berubah</span>' : ""}</td><td>${esc(d["Check In"])}</td><td>${esc(d["Check Out"])}</td>
-        <td class="n">${d["Telat (mnt)"] || ""}</td>${lihatUang() ? `<td class="n">${d["Potongan Telat (Rp)"] ? rp(d["Potongan Telat (Rp)"]) : ""}</td>` : ""}<td class="n">${d["Pulang Cepat (mnt)"] || ""}</td>
+        <td class="n">${d["Telat (mnt)"] || ""}</td><td class="n">${d["Potongan Telat (Rp)"] ? rp(d["Potongan Telat (Rp)"]) : ""}</td><td class="n">${d["Pulang Cepat (mnt)"] || ""}</td>
         <td class="n">${d["Lembur Dibayar (jam)"] ? jam(d["Lembur Dibayar (jam)"]) : d["Lembur (mnt)"] >= cfg.lemburMin ? `<span class="sub">${d["Lembur (mnt)"]} mnt, belum dibayar</span>` : ""}</td>
         <td class="wrap">${esc(d.Catatan.concat(d._review).join("; "))}</td><td><button class="btn ghost small" data-k="${esc(d.key)}" data-t="${d.Tanggal}">Koreksi</button></td></tr>`;
     });
@@ -319,13 +354,13 @@
     const opt = (v, l) => `<option value="${v}"${(a.status || "") === v ? " selected" : ""}>${l}</option>`;
     $("#modal").innerHTML = `<div class="modal" id="mbg"><form class="box" id="mform" aria-labelledby="mtitle">
       <div><h2 id="mtitle">Koreksi absensi</h2><p class="sub">${esc(d.Nama)} · ${esc(d.Cabang)} · ${d.Hari} ${tglPendek(d.Tanggal)} ${hasil.periode.slice(0, 4)}</p></div>
-      <div class="facts"><div><span>Status HRIS</span><b>${d.rawStatus === "Present" ? "Hadir" : d.rawStatus === "Absent" ? "Tidak check-in" : "Off"}</b></div><div><span>Jadwal HRIS</span><b>${esc(d["Jadwal HRIS"] || "—")}</b></div>
+      <div class="facts"><div><span>${d.manual ? "Status awal" : "Status Kolabo"}</span><b>${d.rawStatus === "Present" ? "Hadir" : d.rawStatus === "Absent" ? "Tidak check-in" : d.rawStatus === "NA" ? "Di luar masa kerja" : d.Status === "OffMasuk" || d.auto.status === "OffMasuk" ? "Off, tapi check-in" : "Off"}</b></div><div><span>Jadwal HRIS</span><b>${esc(d["Jadwal HRIS"] || "—")}</b></div>
         <div><span>Shift aktual</span><b>${esc(d["Shift Aktual"] || "—")}</b></div><div><span>Masuk</span><b>${esc(d["Check In"] || "—")}</b></div><div><span>Pulang</span><b>${esc(d["Check Out"] || "—")}</b></div>
         <div><span>Telat (sistem)</span><b>${au.telat} mnt</b></div><div><span>Lewat jam pulang</span><b>${au.lemburMnt} mnt</b></div></div>
       ${d.Catatan.length || d._review.length ? `<p class="hint">${esc(d.Catatan.filter((c) => !c.startsWith("dikoreksi")).concat(d._review).join("; "))}</p>` : ""}
-      <div class="field"><label for="m-status">Status hari ini</label><select id="m-status">${opt("", "Otomatis (sistem: " + STATUS_LABEL[au.status] + ")")}${opt("hadir", "Hadir")}${opt("absen", "Tanpa keterangan (dipotong)")}${opt("izin", "Izin (dipotong)")}${opt("sakit", "Sakit (dibayar)")}${opt("cuti", "Cuti (dibayar)")}${opt("off", "Off / libur")}</select></div>
-      <div class="grid"><div class="field"><label for="m-telat">Menit telat yang dihitung</label><input type="number" id="m-telat" min="0" inputmode="numeric" value="${isNum(a.telat) ? a.telat : ""}" placeholder="otomatis: ${au.telat}"><span class="hint">Isi 0 untuk memaafkan telat. Telat &gt; ${cfg.telatAmbang} mnt ${lihatUang() ? "dipotong " + rp(cfg.telatNominal) : "dihitung telat"}.</span></div>
-        <div class="field"><label for="m-lembur">Jam lembur dibayar</label><input type="number" id="m-lembur" min="0" step="0.5" value="${isNum(a.lembur) ? a.lembur : ""}" placeholder="otomatis: ${au.lembur}">${lihatUang() ? `<span class="hint">Tarif ${rp(tarifL)}/jam${d.lemburTarif != null ? " (aturan lembur lokasi)" : " (tarif lembur bawaan)"}.</span>` : ""}</div></div>
+      <div class="field"><label for="m-status">Status hari ini</label><select id="m-status">${opt("", "Otomatis (sistem: " + STATUS_LABEL[au.status] + ")")}${opt("hadir", "Hadir")}${opt("telat", "Hadir tapi telat")}${opt("absen", "Tanpa keterangan (dipotong)")}${opt("izin", "Izin (dipotong)")}${opt("sakit", "Sakit (dibayar)")}${opt("cuti", "Cuti (dibayar)")}${opt("off", "Off / libur (tidak dibayar ekstra)")}${opt("na", "Belum aktif / sudah keluar (tidak dihitung)")}</select></div>
+      <div class="grid"><div class="field"><label for="m-telat">Menit telat yang dihitung</label><input type="number" id="m-telat" min="0" inputmode="numeric" value="${isNum(a.telat) ? a.telat : ""}" placeholder="otomatis: ${au.telat}"><span class="hint">Isi 0 untuk memaafkan telat. Telat &gt; ${cfg.telatAmbang} mnt dipotong ${rp(cfg.telatNominal)}.</span></div>
+        <div class="field"><label for="m-lembur">Jam lembur dibayar</label><input type="number" id="m-lembur" min="0" step="0.5" value="${isNum(a.lembur) ? a.lembur : ""}" placeholder="otomatis: ${au.lembur}"><span class="hint">Tarif ${rp(tarifL)}/jam${d.lemburTarif != null ? " (aturan lembur lokasi)" : " (tarif lembur bawaan)"}.</span></div></div>
       ${d.tidakCO || a.co ? `<label class="row"><input type="checkbox" id="m-co"${a.co === "ok" ? " checked" : ""}> Check-out sudah dikonfirmasi (tidak dihitung "tidak check-out")</label>` : ""}
       <div class="field"><label for="m-ket">Alasan koreksi</label><input type="text" id="m-ket" value="${esc(a.ket || "")}" placeholder="misal: tukar shift disetujui PIC"></div>
       <div class="row between"><div>${d.adj ? '<button type="button" class="btn ghost" id="m-reset">Kembalikan ke otomatis</button>' : ""}</div>
@@ -354,6 +389,7 @@
   let inputKey = "";
   function fieldHTML(scope, key, f, val) {
     const [id, label, type, list] = f;
+    if (type === "select") return `<div class="field"><label for="in-${scope}-${id}">${label}</label><select id="in-${scope}-${id}" data-scope="${scope}" data-f="${id}">${list.map(([v, l]) => `<option value="${v}"${(val || "") === v ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></div>`;
     const t = type === "text" ? "text" : type === "date" ? "date" : "number";
     return `<div class="field"><label for="in-${scope}-${id}">${label}</label><input type="${t}" id="in-${scope}-${id}" data-scope="${scope}" data-f="${id}" ${list ? `list="${list}"` : ""} ${t === "number" ? 'min="0" step="1000" inputmode="numeric"' : ""} value="${esc(val == null ? "" : val)}"></div>`;
   }
@@ -378,7 +414,8 @@
     h += dl("dl-jab", ["CSO - JUNIOR", "CSO - SENIOR", "PIC - PERCOBAAN", "PIC - JUNIOR", "PIC - SENIOR", "INTERNAL", "MANPOWER"]) + dl("dl-status", ["MITRA KERJA", "PROBATION", "KONTRAK", "PERMANEN"]) + dl("dl-bank", ["BRI", "BNI", "Mandiri", "BCA", "BSI", "BTN", "Bank Sulselbar"]);
     h += `<div class="ig"><div class="stack">
       <div class="panel"><fieldset class="fs"><legend>Data tetap ${esc(r.Nama)} <span class="sub">(berlaku untuk bulan-bulan berikutnya)</span></legend>
-        <p class="hint">Tarif ${esc(r.Cabang)} / ${esc(r.Posisi)}: gaji pokok ${rp(t.gaji)}, tunj. makan & transport ${rp(t.tunjMT)}, kinerja ${rp(t.tunjKin)}, absensi ${rp(t.tunjAbs)}. Isi kolom "khusus" hanya jika pegawai ini berbeda dari tarif (misal PIC senior).</p>
+        <p class="hint">Tarif ${esc(r.Cabang)} / ${esc(r.Posisi)}: gaji pokok ${rp(t.gaji)}, tunj. makan & transport ${rp(t.tunjMT)}, kinerja ${rp(t.tunjKin)}, kehadiran ${rp(t.tunjAbs)}. Isi kolom "khusus" hanya jika pegawai ini berbeda dari tarif (misal PIC senior).</p>
+        <p class="hint">BPJS dihitung dari ${r.slip.bp.base ? rp(r.slip.bp.base) : "UMK (belum diisi di Pengaturan)"}: iuran pegawai Kesehatan ${rp(r.slip.bp.kesPekerja)}, Ketenagakerjaan ${rp(r.slip.bp.tkPekerja)}; bagian perusahaan ${rp(r.slip.bp.kesPerusahaan + r.slip.bp.tkPerusahaan)}. Pilih "dibayar tunai" jika pegawai tidak mau diaktifkan: bagian perusahaan dibayarkan sebagai tambahan gaji.</p>
         <div class="grid">${F_TETAP.map((f) => fieldHTML("tetap", r.key, f, P[f[0]])).join("")}</div></fieldset></div>`;
     F_BULAN.forEach((s) => {
       h += `<div class="panel"><fieldset class="fs"><legend>${s.sec} <span class="sub">· ${bulanLabel(hasil.periode)}</span></legend>${s.hint ? `<p class="hint">${s.hint}</p>` : ""}<div class="grid">${s.f.map((f) => fieldHTML("bulan", r.key, f, M[f[0]])).join("")}</div></fieldset></div>`;
@@ -398,8 +435,8 @@
     };
     $("#in-prev").onclick = () => { inputKey = rk[idx - 1].key; renderInput(); };
     $("#in-next").onclick = () => { inputKey = rk[idx + 1].key; renderInput(); };
-    if (dikunci()) { el.querySelectorAll("input[data-scope], #mb-f, #mb-v, #mb-c, #mb-go").forEach((x) => { x.disabled = true; }); }
-    el.querySelectorAll("input[data-scope]").forEach((inp) => inp.addEventListener("change", () => {
+    if (dikunci()) { el.querySelectorAll("input[data-scope], select[data-scope], #mb-f, #mb-v, #mb-c, #mb-go").forEach((x) => { x.disabled = true; }); }
+    el.querySelectorAll("input[data-scope], select[data-scope]").forEach((inp) => inp.addEventListener("change", () => {
       const f = inp.dataset.f, val = inp.type === "number" ? (inp.value === "" ? "" : +inp.value) : inp.value.trim();
       let obj;
       if (inp.dataset.scope === "tetap") obj = cfg.pegawai[inputKey] = cfg.pegawai[inputKey] || {};
@@ -416,6 +453,7 @@
     box.innerHTML = `<h3>${esc(r.Nama)}</h3><p class="sub">${esc(r.Jabatan)} · ${esc(r.Cabang)}</p>
       <p class="hint" style="margin:8px 0">Hadir ${r.Hadir}/${r.Terjadwal} · tanpa ket. ${r.Absen} · izin ${r.Izin} · telat dipotong ${r.TelatKenaKali}× · lembur ${jam(r.LemburJam)}</p>
       ${s.ada ? "" : '<div class="banner warn" style="margin-bottom:8px">Gaji pokok belum ada. Isi di Tarif Gaji atau kolom gaji pokok khusus.</div>'}
+      ${s.faktor < 1 ? `<p class="hint">Prorata: ${esc(s.ketProrata)}</p>` : ""}${s.g.tunjAbs ? `<p class="hint">Tunjangan kehadiran: tepat waktu ${s.tepat}/${s.syarat} hari${s.tepat >= s.syarat ? " ✓" : " (tidak memenuhi)"}</p>` : ""}
       ${s.pend.filter((x) => x.total).map((x) => `<div class="sumline"><span>${esc(x.sec)}</span><span>${rp(x.total)}</span></div>`).join("")}
       <div class="sumline" style="font-weight:700"><span>Pendapatan bruto</span><span>${rp(s.bruto)}</span></div>
       <div class="sumline"><span>Potongan</span><span class="neg">−${rp(s.potongan)}</span></div>

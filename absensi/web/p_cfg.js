@@ -16,7 +16,7 @@
     ["HEAD OFFICE INTERNAL", "HUMAN RESOURCE DEPARTMENT"], ["HEAD OFFICE INTERNAL", "Legal & Compliance"],
     ["HEAD OFFICE INTERNAL", "CONTENT CREATOR INT"]
   ];
-  const TARIF_KOSONG = { gaji: 0, tunjMT: 0, tunjKin: 0, tunjAbs: 0, admin: 30000 };
+  const TARIF_KOSONG = { gaji: 0, tunjMT: 0, tunjKin: 0, tunjAbs: 0 };
   function defaultCfg() {
     return {
       shifts: [
@@ -35,7 +35,9 @@
       tetap: "HEAD OFFICE INTERNAL\nHome Cleaning",
       tolTelat: 0, tolPulang: 10, gantiShift: 90, reviewBiaya: 120, minKerja: 120,
       lemburMin: 60, lemburBulat: 30, tarifLembur: 0,
-      pembagi: 26, telatAmbang: 10, telatNominal: 20000, pulangPerMenit: 0, bonusDouble: 0,
+      pembagi: 26, telatAmbang: 10, telatNominal: 20000, pulangPerMenit: 0,
+      kehadiranMin: 25, extendTol: 60, biayaAdmin: 30000, biayaTransfer: 2500, bankPerusahaan: "",
+      bpjs: { umk: 0, kesPekerja: 1, kesPerusahaan: 4, jhtPekerja: 2, jhtPerusahaan: 3.7, jpPekerja: 1, jpPerusahaan: 2, jkk: 0.24, jkm: 0.3 },
       dasarHarian: { gaji: true, tunjMT: true, tunjKin: false, tunjAbs: false },
       tarif: SEED_TARIF.map(([c, p]) => Object.assign({ cabang: c, posisi: p }, TARIF_KOSONG)),
       lembur: [], adj: {}, pegawai: {}, bulanan: {},

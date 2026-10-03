@@ -93,6 +93,16 @@
     return null;
   }
 
+  // extend: jam kerja menutup shift berikutnya (atau sebelumnya) di lokasi yang sama
+  function cariExtend(r, sh, ci, co, shifts) {
+    const tol = +cfg.extendTol || 60;
+    const cocok = shifts.filter((s) => (!s.cabang.length || s.cabang.includes(r.cabang)) && (!s.hari.length || s.hari.includes(r.hari)) && !(s.masuk === sh.masuk && s.pulang === sh.pulang));
+    const nx = cocok.find((s) => Math.abs(s.masuk - sh.pulang) <= tol && s.pulang - sh.pulang >= 240 && co >= s.pulang - tol);
+    const pv = nx ? null : cocok.find((s) => Math.abs(s.pulang - sh.masuk) <= tol && sh.masuk - s.masuk >= 240 && ci <= s.masuk + tol);
+    const x = nx || pv;
+    return x ? hhmm(x.masuk) + "-" + hhmm(x.pulang) : "";
+  }
+
   // ---------- hitung per hari ----------
   function hitungHari(r, shifts, alias, tetap) {
     const o = {
@@ -111,6 +121,14 @@
       o["Shift Aktual"] = "sesuai order"; o["Status Shift"] = "tanpa jadwal tetap";
       if (co0 == null || co0 <= ci0) { o._review.push("check-out kosong/tidak valid, jam order tidak bisa dihitung"); o.tidakCO = true; }
       else { o["Jam Kerja"] = Math.round((co0 - ci0) / 60 * 100) / 100; o.Catatan.push("order home cleaning " + o["Jam Kerja"] + " jam"); }
+      return o;
+    }
+    if (r.code === "Off" && valid(r.ci)) {
+      o.Status = "OffMasuk"; o["Check In"] = r.ci; o["Check Out"] = valid(r.co) ? r.co : "";
+      const a0 = menit(r.ci), b0 = menit(r.co);
+      if (b0 != null && b0 > a0) o["Jam Kerja"] = Math.round((b0 - a0) / 60 * 100) / 100;
+      o.Catatan.push("masuk di hari off");
+      o._review.push("masuk di hari off: dibayar sebagai insentif mengganti (prorata). Ubah status ke Off jika hanya tukar jadwal, atau catat di Backup jika menggantikan rekan di lokasi lain");
       return o;
     }
     if (r.code !== "Present" || !valid(r.ci)) { if (r.code === "Present") o.Status = "Absent"; o.rawStatus = o.Status; return o; }
@@ -142,6 +160,14 @@
         o.tidakCO = true;
       } else {
         o["Pulang Cepat (mnt)"] = Math.max(0, Math.trunc(sh.pulang - co) - cfg.tolPulang);
+        const ext = !tetap.includes(r.cabang) && cariExtend(r, sh, ci, co, shifts);
+        if (ext) {
+          o["Double Shift"] = "ya"; o.Extend = ext;
+          o._review = o._review.filter((x) => !x.startsWith("jam absen tidak cocok"));
+          o.Catatan.push("extend ke shift " + ext + " (dibayar sebagai insentif mengganti)");
+          if (t.status.startsWith("shift berubah")) o.Catatan.push("shift berubah dari " + o["Jadwal HRIS"]);
+          return o;
+        }
         const lembur = Math.trunc(co - sh.pulang);
         o["Lembur (mnt)"] = Math.max(0, lembur);
         if (lembur >= cfg.lemburMin) {

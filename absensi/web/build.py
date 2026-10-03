@@ -1,7 +1,7 @@
 head=open('p_head.html').read().replace('<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>','<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>\n<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>')
 import base64
 LOGO='data:image/png;base64,'+base64.b64encode(open('logo-default.png','rb').read()).decode()
-parts=[head]+[open(f).read().replace('"use strict";\n','"use strict";\n  const LOGO_DEFAULT = "'+LOGO+'";\n',1) if f=='p_cfg.js' else open(f).read() for f in ['p_cfg.js','p_store.js','p_core.js','p_calc.js','p_role.js','p_ui.js','p_slip.js','p_dash2.js','p_lap.js','p_appr.js','p_backup.js','p_set.js']]
+parts=[head]+[open(f).read().replace('"use strict";\n','"use strict";\n  const LOGO_DEFAULT = "'+LOGO+'";\n',1) if f=='p_cfg.js' else open(f).read() for f in ['p_cfg.js','p_store.js','p_core.js','p_calc.js','p_role.js','p_ui.js','p_slip.js','p_rgaji.js','p_dash2.js','p_lap.js','p_appr.js','p_backup.js','p_set.js']]
 out='\n'.join(parts).replace('HRIS','Kolabo')
 open('rekap-absensi.html','w').write(out)
 print('built',len(out))
