@@ -63,7 +63,7 @@
 
   function rolePickerModal() {
     const el = $("#modal");
-    el.innerHTML = `<div class="m-overlay"><div class="m-box" style="max-width:560px">
+    el.innerHTML = `<div class="modal"><div class="box" style="max-width:560px">
       <h2 style="margin-bottom:4px">Pilih peran Anda</h2>
       <p class="sub" style="margin-bottom:16px">Satu file HTML, tiga alur kerja. Pilih sesuai tugas Anda. Data mengalir antar peran lewat file ekspor.</p>
       <div class="role-cards">
