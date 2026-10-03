@@ -1,43 +1,36 @@
 // ---------- sistem peran (role-based workflow) ----------
+  // Peran OTOMATIS ditentukan oleh file yang diupload:
+  //   .xlsx dari Kolabo       → Admin Kepatuhan & Legal
+  //   .json validasi absensi  → Admin Operasional
+  //   .json paket persetujuan → Direktur Operasional
   const ROLES = {
     kepatuhan: {
       label: "Admin Kepatuhan & Legal",
       short: "Kepatuhan",
       icon: "🔍",
-      desc: "Upload data Kolabo, validasi kehadiran, koreksi absensi. Setelah selesai, ekspor data validasi untuk Admin Operasional.",
-      tabs: ["dash", "rekap"],
-      canUpload: true,
-      canExport: true
+      desc: "Upload file .xlsx dari Kolabo untuk memvalidasi absensi.",
+      file: "File .xlsx export Kolabo",
+      tabs: ["dash", "rekap"]
     },
     operasional: {
       label: "Admin Operasional",
       short: "Operasional",
       icon: "💰",
-      desc: "Terima data validasi dari Kepatuhan. Atur komponen gaji: gaji pokok, lembur, backup, tambahan. Setelah selesai, kirim paket persetujuan ke Direktur.",
-      tabs: ["dash", "rekap", "input", "bk", "gaji", "aturan"],
-      canImportValidasi: true,
-      canExportApproval: true
+      desc: "Upload file validasi (.json) dari Admin Kepatuhan untuk mengatur penggajian: tarif gaji, input gaji, lembur, backup, invoice, dan pengaturan.",
+      file: "File validasi (.json) dari Kepatuhan",
+      tabs: ["dash", "rekap", "input", "bk", "gaji", "slip", "aturan"]
     },
     direktur: {
       label: "Direktur Operasional",
       short: "Direktur",
       icon: "✅",
-      desc: "Tinjau dan setujui penggajian. Tanda tangan digital ditambahkan ke slip setelah disetujui.",
-      tabs: ["dash", "rekap", "slip"],
-      canApprove: true
+      desc: "Upload paket persetujuan (.json) dari Admin Operasional untuk ditinjau dan disetujui.",
+      file: "Paket persetujuan (.json) dari Operasional",
+      tabs: ["dash", "rekap", "slip"]
     }
   };
 
-  const ROLE_KEY = "rekap-peran-aktif";
   let activeRole = null;
-
-  function getRole() {
-    try { return localStorage.getItem(ROLE_KEY) || null; } catch (e) { return null; }
-  }
-  function setRole(r) {
-    activeRole = r;
-    try { localStorage.setItem(ROLE_KEY, r); } catch (e) { /* ok */ }
-  }
 
   function roleTabs() {
     return activeRole && ROLES[activeRole] ? ROLES[activeRole].tabs : null;
@@ -45,7 +38,11 @@
 
   function applyRoleTabs() {
     const allowed = roleTabs();
-    if (!allowed) return; // no role = show all
+    if (!allowed) {
+      // no role yet = hide all data tabs, show only dash
+      document.querySelectorAll("#tabs button[data-tab]").forEach((b) => { b.hidden = true; });
+      return;
+    }
     document.querySelectorAll("#tabs button[data-tab]").forEach((b) => {
       const t = b.dataset.tab;
       b.hidden = !allowed.includes(t);
@@ -55,32 +52,51 @@
     });
   }
 
+  // Kepatuhan hanya memvalidasi absensi — tidak boleh melihat nominal uang
+  function lihatUang() { return activeRole !== "kepatuhan"; }
+
+  function setRoleByFile(r) {
+    activeRole = r;
+    applyRoleTabs();
+    renderAll();
+  }
+
   function roleBadgeHTML() {
     if (!activeRole || !ROLES[activeRole]) return "";
     const r = ROLES[activeRole];
-    return `<div class="role-badge" data-free><span class="role-icon">${r.icon}</span><span>${esc(r.label)}</span><button class="btn ghost small" id="role-switch" style="margin-left:8px;font-size:12px">Ganti peran</button></div>`;
+    return `<div class="role-badge" data-free><span class="role-icon">${r.icon}</span><span>${esc(r.label)}</span></div>`;
   }
 
-  function rolePickerModal() {
-    const el = $("#modal");
-    el.innerHTML = `<div class="modal"><div class="box" style="max-width:560px">
-      <h2 style="margin-bottom:4px">Pilih peran Anda</h2>
-      <p class="sub" style="margin-bottom:16px">Satu file HTML, tiga alur kerja. Pilih sesuai tugas Anda. Data mengalir antar peran lewat file ekspor.</p>
-      <div class="role-cards">
-        ${Object.entries(ROLES).map(([k, r], i) => `<button class="role-card" data-role="${k}">
-          <div class="role-num">${i + 1}</div>
-          <div class="role-card-icon">${r.icon}</div>
-          <div><b>${esc(r.label)}</b><p class="sub">${esc(r.desc)}</p></div>
-        </button>`).join("")}
-      </div>
-      <p class="hint" style="margin-top:12px;text-align:center">Anda bisa ganti peran kapan saja lewat tombol di header.</p>
-    </div></div>`;
-    el.querySelectorAll("[data-role]").forEach((b) => b.onclick = () => {
-      setRole(b.dataset.role);
-      el.innerHTML = "";
-      applyRoleTabs();
-      renderAll();
-    });
+  // --- Deteksi tipe file JSON ---
+  async function deteksiDanMuatJSON(file) {
+    try {
+      const teks = await file.text();
+      const data = JSON.parse(teks);
+      if (data.tipe === "validasi-absensi") {
+        // File validasi dari Kepatuhan → peran Operasional
+        setRoleByFile("operasional");
+        await _muatValidasi(data, file.name);
+      } else if (data.jenis === "paket-persetujuan") {
+        setRoleByFile("direktur");
+        await bukaPaket(file);
+      } else if (data.jenis === "hasil-persetujuan") {
+        if (activeRole !== "operasional" || !hasil) throw new Error("Upload file validasi dari Kepatuhan dulu, lalu impor hasil persetujuan Direktur di tab Slip Gaji.");
+        await imporKeputusan(file);
+      } else {
+        throw new Error("Format file .json tidak dikenali. Gunakan file validasi dari Kepatuhan atau paket persetujuan dari Operasional.");
+      }
+    } catch (e) {
+      if (e instanceof SyntaxError) {
+        setSaved("File bukan JSON yang valid.");
+      } else {
+        setSaved(e.message || String(e));
+      }
+    }
+  }
+
+  // --- Muat file XLSX → peran Kepatuhan ---
+  function setRoleKepatuhan() {
+    setRoleByFile("kepatuhan");
   }
 
   // --- Ekspor data validasi (Kepatuhan → Operasional) ---
@@ -94,14 +110,11 @@
       dari: hasil.dari,
       sampai: hasil.sampai,
       dibuat: new Date().toISOString(),
+      dibuatOleh: "Admin Kepatuhan & Legal",
       fileName: fileName,
-      // raw attendance rows
       rows: rawRows,
-      // corrections
       adj: cfg.adj,
-      // any review notes
       review: hasil.review,
-      // sidik (fingerprint)
       sidik: await sidikData()
     };
     const blob = new Blob([JSON.stringify(paket, null, 2)], { type: "application/json" });
@@ -110,31 +123,20 @@
     a.download = `Validasi_${hasil.periode}_${namaPT().replace(/[^a-zA-Z0-9]/g, "_")}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
-    setSaved("Data validasi diekspor untuk Admin Operasional.");
+    setSaved("Data validasi diekspor. Kirim file ini ke Admin Operasional.");
   }
 
-  // --- Impor data validasi (Operasional menerima dari Kepatuhan) ---
-  async function imporValidasi(file) {
-    try {
-      const data = JSON.parse(await file.text());
-      if (data.tipe !== "validasi-absensi") throw new Error("File bukan data validasi absensi.");
-      rawRows = data.rows;
-      fileName = data.fileName || file.name;
-      perusahaanFile = data.perusahaan || "";
-      // apply corrections from kepatuhan
-      if (data.adj) { Object.assign(cfg.adj, data.adj); }
-      // ensure tarif entries exist
-      let baru = 0;
-      rawRows.forEach((r) => { if (!tarifRow(r.cabang, r.posisi)) { cfg.tarif.push(Object.assign({ cabang: r.cabang, posisi: r.posisi }, TARIF_KOSONG)); baru++; } });
-      if (baru) scheduleSave();
-      hasil = hitung(rawRows); simpanRiwayat(); cekBukti();
-      rekapCabang = ""; inputKey = ""; filterCari = slipCari = ""; slipCabang = ""; terbuka.clear();
-      renderBar(); updateTabCounts(); showTab("dash");
-      setSaved(`Data validasi ${bulanLabel(data.periode)} dari Kepatuhan berhasil dimuat.`);
-    } catch (e) {
-      setSaved("Gagal memuat data validasi: " + (e.message || e));
-    }
+  // --- Impor data validasi (internal, dipanggil setelah deteksi) ---
+  async function _muatValidasi(data, namaFile) {
+    rawRows = data.rows;
+    fileName = data.fileName || namaFile;
+    perusahaanFile = data.perusahaan || "";
+    if (data.adj) { Object.assign(cfg.adj, data.adj); }
+    let baru = 0;
+    rawRows.forEach((r) => { if (!tarifRow(r.cabang, r.posisi)) { cfg.tarif.push(Object.assign({ cabang: r.cabang, posisi: r.posisi }, TARIF_KOSONG)); baru++; } });
+    if (baru) scheduleSave();
+    hasil = hitung(rawRows); simpanRiwayat(); cekBukti();
+    rekapCabang = ""; inputKey = ""; filterCari = slipCari = ""; slipCabang = ""; terbuka.clear();
+    renderBar(); updateTabCounts(); showTab("dash");
+    setSaved(`Data validasi ${bulanLabel(data.periode)} dari Kepatuhan berhasil dimuat. Atur komponen gaji di tab Input Gaji.`);
   }
-
-  // Export workflow data (Operasional → Direktur): reuses existing paket persetujuan
-  // The existing approval export in p_appr.js already handles this flow.

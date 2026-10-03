@@ -43,7 +43,7 @@
   ];
   const F_BULAN = [
     { sec: "Masa kerja bulan ini", hint: "Isi hanya jika pegawai baru masuk atau berhenti di tengah bulan. Gaji tetap dihitung prorata.", f: [["tglMasuk", "Mulai kerja tanggal", "date"], ["tglKeluar", "Berhenti tanggal", "date"]] },
-    { sec: "B. Home Cleaning", hint: "Isi jam tiap order di luar absensi, pisahkan koma (misal: 5, 8, 3). Bagi hasil, makan, dan transport dihitung dari tabel tarif home cleaning di Aturan.", f: [["hcOrders", "Order (jam per order)", "text"], ["hcBagi", "Bagi hasil tambahan"], ["hcMakan", "Tunj. makan tambahan"], ["hcTrans", "Tunj. transport tambahan"]] },
+    { sec: "B. Home Cleaning", hint: "Isi jam tiap order di luar absensi, pisahkan koma (misal: 5, 8, 3). Bagi hasil, makan, dan transport dihitung dari tabel tarif home cleaning di Pengaturan.", f: [["hcOrders", "Order (jam per order)", "text"], ["hcBagi", "Bagi hasil tambahan"], ["hcMakan", "Tunj. makan tambahan"], ["hcTrans", "Tunj. transport tambahan"]] },
     { sec: "C. Project", f: [["pjBagi", "Imbal bagi hasil"], ["pjMakan", "Tunjangan makan"], ["pjTrans", "Tunjangan transport"], ["pjKin", "Tunjangan kinerja"]] },
     { sec: "D. Additional performance", f: [["jaspro", "Insentif Jaspro (referral)"], ["bonusPerf", "Bonus performance (KPI ≥ 90%)"], ["bonusZero", "Bonus zero complain"], ["bonusLain", "Bonus lain"], ["bonusKet", "Keterangan bonus lain", "text"]] },
     { sec: "E. Lain-lain", f: [["backup", "Insentif backup"], ["lemburTambah", "Lembur tambahan (kontrak PKS)"], ["penggantiCuti", "Pengganti cuti / masuk hari off"], ["tip", "TIP dari customer"], ["lain", "Lain-lain"], ["lainKet", "Keterangan lain-lain", "text"], ["adjPlus", "Payroll adjustment (kurang bayar)"]] },

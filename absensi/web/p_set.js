@@ -165,7 +165,7 @@
   // ---------- Excel ----------
   async function unduhExcel() {
     try {
-      const wb = XLSX.utils.book_new();
+      const wb = XLSX.utils.book_new(), uang = lihatUang();
       const rekap = hasil.rekap.map((r) => ({
         Nama: r.Nama, NIP: r.NIP, Lokasi: r.Cabang, Posisi: r.Posisi, Jabatan: r.Jabatan, Status: r.StatusKerja, "Hari Terjadwal": r.Terjadwal, Hadir: r.Hadir, "Tanpa Keterangan": r.Absen,
         Izin: r.Izin, Sakit: r.Sakit, Cuti: r.Cuti, Off: r.Off, "Tidak Check In": r.TidakCI, "Tidak Check Out": r.TidakCO,
@@ -194,8 +194,13 @@
         aoa.push([]);
       });
       const det = hasil.det.map((d) => ({ Tanggal: d.Tanggal, Hari: d.Hari, Nama: d.Nama, NIP: d.NIP, Lokasi: d.Cabang, Kode: d.Kode, Status: STATUS_LABEL[d.Status], "Jadwal Kolabo": d["Jadwal HRIS"], "Shift Aktual": d["Shift Aktual"], "Check In": d["Check In"], "Check Out": d["Check Out"], "Telat (mnt)": d["Telat (mnt)"], "Potongan Telat": d["Potongan Telat (Rp)"], "Pulang Cepat (mnt)": d["Pulang Cepat (mnt)"], "Lewat Jam Pulang (mnt)": d["Lembur (mnt)"], "Lembur Dibayar (jam)": d["Lembur Dibayar (jam)"], "Upah Lembur": d["Upah Lembur (Rp)"], "Jam Kerja": d["Jam Kerja"], Koreksi: d.adj ? "ya" : "", Catatan: d.Catatan.concat(d._review).join("; ") }));
+      if (!uang) {
+        const tanpa = (o, ks) => { ks.forEach((k) => delete o[k]); return o; };
+        cab.forEach((c) => tanpa(c, ["Gaji Ditransfer", "Biaya Tenaga Kerja", "Invoice", "Selisih", "Margin (%)"]));
+        det.forEach((d) => tanpa(d, ["Potongan Telat", "Upah Lembur"]));
+      }
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cab), "Ringkasan Lokasi");
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataTransfer()), "Daftar Transfer");
+      if (uang) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataTransfer()), "Daftar Transfer");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataLogKoreksi()), "Log Koreksi");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rekap), "Rekap Absensi Pegawai");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "Rekap per Lokasi");
@@ -215,16 +220,16 @@
       };
       XLSX.utils.book_append_sheet(wb, jamSheet("in"), "Jam Masuk");
       XLSX.utils.book_append_sheet(wb, jamSheet("out"), "Jam Pulang");
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rinci), "Rincian Gaji");
+      if (uang) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rinci), "Rincian Gaji");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(det), "Detail Harian");
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hasil.review.length ? hasil.review.map((v) => { const o = Object.assign({}, v); delete o.key; return o; }) : [{ Info: "Tidak ada" }]), "Perlu Dicek");
-      await saveFile("Rekap_Gaji_" + hasil.periode + ".xlsx", XLSX.write(wb, { type: "array", bookType: "xlsx" }), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      await saveFile((uang ? "Rekap_Gaji_" : "Rekap_Absensi_") + hasil.periode + ".xlsx", XLSX.write(wb, { type: "array", bookType: "xlsx" }), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     } catch (e) { setSaved("Unduhan gagal: " + (e.message || e)); }
   }
 
   // ---------- mulai ----------
   const fileInput = document.createElement("input");
-  fileInput.type = "file"; fileInput.id = "file"; fileInput.accept = ".xlsx,.xls"; fileInput.hidden = true;
+  fileInput.type = "file"; fileInput.id = "file"; fileInput.accept = ".xlsx,.xls,.json,application/json"; fileInput.hidden = true;
   document.body.appendChild(fileInput);
   fileInput.onchange = () => { if (fileInput.files[0]) muat(fileInput.files[0]); fileInput.value = ""; };
   document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
@@ -236,10 +241,9 @@
     const x = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
     tip.style.left = x + "px"; tip.style.top = Math.min(e.clientY + 16, window.innerHeight - tip.offsetHeight - 8) + "px";
   });
-  // init role
-  activeRole = getRole();
+  // init — no role until a file is uploaded
+  activeRole = null;
   renderAll();
   loadCfg();
-  if (!activeRole) rolePickerModal();
 })();
 </script>

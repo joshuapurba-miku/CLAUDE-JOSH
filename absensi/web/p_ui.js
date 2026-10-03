@@ -63,7 +63,6 @@
     const el = $("#role-bar");
     if (!el) return;
     if (!activeRole) { el.innerHTML = ""; return; }
-    const r = ROLES[activeRole];
     const flowSteps = [
       { key: "kepatuhan", label: "1. Validasi Absensi" },
       { key: "operasional", label: "2. Penggajian" },
@@ -73,8 +72,6 @@
       ${roleBadgeHTML()}
       <div class="role-flow">${flowSteps.map((s, i) => `${i ? '<span class="arrow">→</span>' : ""}<span class="step-chip${s.key === activeRole ? " active" : ""}">${s.label}</span>`).join("")}</div>
     </div>`;
-    const sw = el.querySelector("#role-switch");
-    if (sw) sw.onclick = () => rolePickerModal();
   }
   function renderBar() {
     renderRoleBar();
@@ -91,54 +88,45 @@
 
   // ---------- upload ----------
   function uploadPanel() {
-    const nTarif = cfg.tarif.length, isi = cfg.tarif.filter((t) => +t.gaji > 0).length;
-    const role = activeRole;
-    // Role-specific upload guidance
-    if (role === "operasional") {
-      return `<div class="stack"><div class="panel"><div class="steps">
-        <div class="step"><div class="no">1</div><div><b>Impor data validasi</b><span class="sub">Muat file validasi (.json) dari Admin Kepatuhan yang sudah memvalidasi absensi.</span></div></div>
-        <div class="step ${isi ? "done" : ""}"><div class="no">2</div><div><b>Atur komponen gaji</b><span class="sub">${isi} dari ${nTarif} tarif sudah diisi. Atur gaji, lembur, backup, potongan.</span></div></div>
-        <div class="step"><div class="no">3</div><div><b>Kirim ke Direktur</b><span class="sub">Ekspor paket persetujuan untuk ditinjau dan ditandatangani Direktur.</span></div></div>
-      </div></div>
-      <div class="drop" id="drop"><h2>Impor data validasi dari Kepatuhan</h2><p class="sub">File .json dari Admin Kepatuhan & Legal. Atau upload langsung file .xlsx dari HRIS.</p>
-        <div class="row" style="gap:8px"><button class="btn" id="pick-val">Pilih file validasi (.json)</button><button class="btn ghost" id="pick">atau upload .xlsx langsung</button></div><div id="err"></div></div>
-      <input type="file" id="val-file" accept=".json,application/json" hidden></div>`;
-    }
-    if (role === "direktur") {
-      return `<div class="stack"><div class="panel"><div class="steps">
-        <div class="step"><div class="no">1</div><div><b>Buka paket persetujuan</b><span class="sub">File .json dari Admin Operasional berisi data gaji yang siap disetujui.</span></div></div>
-        <div class="step"><div class="no">2</div><div><b>Tinjau data</b><span class="sub">Periksa rekap gaji, lalu setujui atau tolak.</span></div></div>
-        <div class="step"><div class="no">3</div><div><b>Tanda tangan</b><span class="sub">Tanda tangan digital Anda otomatis masuk ke semua slip gaji.</span></div></div>
-      </div></div>
-      <div class="drop" id="drop"><h2>Buka paket persetujuan</h2><p class="sub">File .json dari Admin Operasional. Tinjau data gaji dan berikan persetujuan.</p>
-        <button class="btn" id="pkg-buka">Pilih file persetujuan (.json)</button><div id="err"></div></div>
-      <input type="file" id="pkg-file" accept=".json,application/json" hidden></div>`;
-    }
-    // Default / kepatuhan
-    return `<div class="stack"><div class="panel"><div class="steps">
-      <div class="step ${isi ? "done" : ""}"><div class="no">1</div><div><b>Isi tarif gaji</b><span class="sub">${isi} dari ${nTarif} kombinasi lokasi + posisi sudah diisi. <a href="#" data-go="gaji">Buka Tarif Gaji</a></span></div></div>
-      <div class="step"><div class="no">2</div><div><b>Upload export bulan ini</b><span class="sub">Absensi dihitung otomatis, termasuk shift yang berubah.</span></div></div>
-      <div class="step"><div class="no">3</div><div><b>Validasi absensi</b><span class="sub">Cek kehadiran, koreksi yang salah, lalu ekspor data validasi untuk Admin Operasional.</span></div></div>
-    </div></div>
-    <div class="drop" id="drop"><h2>Upload export absensi dari HRIS</h2><p class="sub">File .xlsx persis seperti hasil download. Data dihitung di browser Anda dan tidak dikirim ke mana pun.</p>
-      <button class="btn" id="pick">Pilih file .xlsx</button><p class="hint">atau tarik file ke kotak ini</p><div id="err"></div></div>
-    ${!role || role === "kepatuhan" ? "" : '<div class="panel row between"><div><h3>Anda approver?</h3><p class="sub">Buka paket persetujuan (.json) yang dikirim penyiap gaji untuk meninjau dan menyetujui.</p></div><button class="btn ghost" id="pkg-buka">Buka paket persetujuan</button><input type="file" id="pkg-file" accept=".json,application/json" hidden></div>'}</div>`;
+    // Unified upload: file type determines role automatically
+    return `<div class="stack"><div class="panel">
+      <h2 style="margin-bottom:6px">Alur kerja otomatis</h2>
+      <p class="sub" style="margin-bottom:14px">Upload file sesuai tugas Anda. Sistem akan otomatis mengenali peran dan membuka tab yang sesuai.</p>
+      <div class="role-cards">
+        ${Object.entries(ROLES).map(([k, r], i) => `<div class="role-card" style="cursor:default">
+          <div class="role-num">${i + 1}</div>
+          <div class="role-card-icon">${r.icon}</div>
+          <div><b>${esc(r.label)}</b><p class="sub">${esc(r.desc)}</p><p class="hint" style="margin-top:4px">📁 ${esc(r.file)}</p></div>
+        </div>`).join("")}
+      </div>
+    </div>
+    <div class="drop" id="drop"><h2>Upload file untuk mulai</h2>
+      <p class="sub">Upload file .xlsx dari Kolabo <b>atau</b> file .json (validasi / paket persetujuan).<br>Peran dan akses Anda ditentukan otomatis dari file yang diupload.</p>
+      <div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap;justify-content:center">
+        <button class="btn" id="pick">Upload file .xlsx / .json</button>
+      </div>
+      <p class="hint" style="margin-top:8px">atau tarik file ke kotak ini</p>
+      <div id="err"></div>
+    </div></div>`;
   }
   function bindUpload(root) {
     root.querySelectorAll("[data-go]").forEach((a) => a.onclick = (e) => { e.preventDefault(); showTab(a.dataset.go); });
-    const pb = root.querySelector("#pkg-buka");
-    if (pb) { pb.onclick = () => root.querySelector("#pkg-file").click(); root.querySelector("#pkg-file").onchange = (e) => { if (e.target.files[0]) bukaPaket(e.target.files[0]); }; }
-    const pv = root.querySelector("#pick-val");
-    if (pv) { pv.onclick = () => root.querySelector("#val-file").click(); root.querySelector("#val-file").onchange = (e) => { if (e.target.files[0]) imporValidasi(e.target.files[0]); }; }
     const drop = root.querySelector("#drop");
     if (!drop) return;
-    root.querySelector("#pick").onclick = () => $("#file").click();
+    const pick = root.querySelector("#pick");
+    if (pick) pick.onclick = () => $("#file").click();
     ["dragenter", "dragover"].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.add("over"); }));
     ["dragleave", "drop"].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.remove("over"); }));
     drop.addEventListener("drop", (ev) => { const f = ev.dataTransfer.files[0]; if (f) muat(f); });
   }
   async function muat(f) {
     try {
+      // JSON file → auto-detect role (validasi / paket persetujuan)
+      if (f.name.endsWith(".json") || f.type === "application/json") {
+        await deteksiDanMuatJSON(f);
+        return;
+      }
+      // XLSX file → Kepatuhan role
       if (typeof XLSX === "undefined") throw new Error("Pembaca Excel belum termuat. Periksa koneksi internet lalu muat ulang halaman.");
       const wb = XLSX.read(await f.arrayBuffer(), { type: "array" });
       const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "", raw: true });
@@ -148,6 +136,7 @@
       let baru = 0;
       rawRows.forEach((r) => { if (!tarifRow(r.cabang, r.posisi)) { cfg.tarif.push(Object.assign({ cabang: r.cabang, posisi: r.posisi }, TARIF_KOSONG)); baru++; } });
       if (baru) scheduleSave();
+      setRoleKepatuhan();
       hasil = hitung(rawRows); simpanRiwayat(); cekBukti();
       rekapCabang = ""; inputKey = ""; filterCari = slipCari = ""; slipCabang = ""; terbuka.clear();
       renderBar(); updateTabCounts(); showTab("dash");
@@ -184,7 +173,7 @@
     const el = $("#tab-rekap");
     if (!hasil) { el.innerHTML = kosong("Belum ada data. Upload export absensi dulu."); bindUpload(el); return; }
     let h = `<div class="stack"><div class="panel"><div class="row between"><div><h2>Rekap absensi ${bulanLabel(hasil.periode)}</h2>
-      <p class="sub">Klik kotak tanggal atau tombol Koreksi untuk mengubah status, menit telat, atau jam lembur. Gaji dan slip langsung ikut berubah.</p></div>
+      <p class="sub">Klik kotak tanggal atau tombol Koreksi untuk mengubah status, menit telat, atau jam lembur.${lihatUang() ? " Gaji dan slip langsung ikut berubah." : " Setelah semua valid, ekspor data validasi di bagian bawah."}</p></div>
       <div class="seg" role="group" aria-label="Tampilan rekap"><button data-mode="lokasi" aria-pressed="${rekapMode === "lokasi"}">Kode per lokasi</button><button data-mode="jam" aria-pressed="${rekapMode === "jam"}">Jam masuk &amp; pulang</button><button data-mode="pegawai" aria-pressed="${rekapMode === "pegawai"}">Per pegawai</button></div></div>
       <div style="margin-top:12px">${rekapMode === "jam" ? legendaJam() : legendaKode()}</div></div>`;
     h += lockBanner();
@@ -270,12 +259,12 @@
     let h = `<div class="panel stack"><div class="row between"><div class="row"><label class="sub" for="rcab">Lokasi</label><select id="rcab" style="width:auto">${cabangOpts(rekapCabang)}</select></div>
       <div class="row sub"><span><b>${rk.length}</b> pegawai</span><span>kehadiran <b>${pct(terj ? hadir / terj : 0)}</b></span><span><b>${sumBy(rk, (r) => r.TelatKenaKali)}</b>× telat dipotong</span><span><b>${sumBy(rk, (r) => r.Absen)}</b> hari tanpa keterangan</span></div></div>`;
     h += `<div class="scroll" style="border:0"><table class="cal"><thead><tr><th style="text-align:left">Pegawai</th>${days.map((t) => { const hr = hariDari(t); return `<th class="${hr === "Min" ? "we" : ""}">${+t.slice(8)}<br>${hr.slice(0, 2)}</th>`; }).join("")}
-      <th class="sm">H</th><th class="sm">T</th><th class="sm">A</th><th class="sm">I/S/C</th><th class="sm">O</th><th class="sm">Telat</th><th class="sm">Pot. telat</th><th class="sm">Lembur</th></tr></thead><tbody>`;
+      <th class="sm">H</th><th class="sm">T</th><th class="sm">A</th><th class="sm">I/S/C</th><th class="sm">O</th><th class="sm">Telat</th>${lihatUang() ? '<th class="sm">Pot. telat</th>' : ""}<th class="sm">Lembur</th></tr></thead><tbody>`;
     rk.forEach((r) => {
       const map = new Map(r.detail.map((d) => [d.Tanggal, d]));
       h += `<tr><td class="nm"><b>${esc(r.Nama)}</b><span class="sub">${esc(r.Jabatan)}</span></td>${days.map((t) => `<td>${map.has(t) ? cellHTML(map.get(t)) : ""}</td>`).join("")}
         <td class="sm">${r.Hadir - r.TelatKenaKali}</td><td class="sm">${r.TelatKenaKali}</td><td class="sm">${r.Absen ? `<span class="neg">${r.Absen}</span>` : 0}</td><td class="sm">${r.Izin + r.Sakit + r.Cuti}</td><td class="sm">${r.Off}</td>
-        <td class="sm">${r.TelatMnt} mnt</td><td class="sm">${r.TelatPot ? rp(r.TelatPot) : "—"}</td><td class="sm">${r.LemburJam ? jam(r.LemburJam) : "—"}</td></tr>`;
+        <td class="sm">${r.TelatMnt} mnt</td>${lihatUang() ? `<td class="sm">${r.TelatPot ? rp(r.TelatPot) : "—"}</td>` : ""}<td class="sm">${r.LemburJam ? jam(r.LemburJam) : "—"}</td></tr>`;
     });
     h += "</tbody></table></div>";
     const rv = hasil.review.filter((v) => v.Cabang === rekapCabang && v.Tanggal);
@@ -285,32 +274,33 @@
   function rekapPegawaiHTML() {
     const rk = hasil.rekap.filter((r) => (!filterCabang || r.Cabang === filterCabang) && (!filterCari || (r.Nama + " " + r.NIP).toLowerCase().includes(filterCari.toLowerCase())));
     const tot = (k) => sumBy(rk, (r) => r[k]);
+    const uang = lihatUang(), ncol = uang ? 12 : 10;
     let h = `<div class="filters"><div class="row"><select id="fcab" aria-label="Filter lokasi">${cabangOpts(filterCabang, true)}</select>
       <input type="text" id="fcari" placeholder="Cari nama / NIP" value="${esc(filterCari)}" aria-label="Cari pegawai"></div><span class="hint">Klik baris untuk melihat dan mengoreksi absensi harian.</span></div>`;
-    h += `<div class="scroll"><table><thead><tr><th>Pegawai</th><th>Lokasi / Posisi</th><th class="n">Hadir</th><th class="n">Telat</th><th class="n">Tanpa ket.</th><th class="n">Izin/Sakit/Cuti</th><th class="n">Off</th><th class="n">Tidak check-out</th><th class="n">Lembur</th><th class="n">Pot. telat</th><th class="n">Koreksi</th><th class="n">Gaji diterima</th></tr></thead><tbody>`;
-    if (!rk.length) h += '<tr><td colspan="12" class="empty">Tidak ada pegawai yang cocok.</td></tr>';
+    h += `<div class="scroll"><table><thead><tr><th>Pegawai</th><th>Lokasi / Posisi</th><th class="n">Hadir</th><th class="n">Telat</th><th class="n">Tanpa ket.</th><th class="n">Izin/Sakit/Cuti</th><th class="n">Off</th><th class="n">Tidak check-out</th><th class="n">Lembur</th>${uang ? '<th class="n">Pot. telat</th>' : ""}<th class="n">Koreksi</th>${uang ? '<th class="n">Gaji diterima</th>' : ""}</tr></thead><tbody>`;
+    if (!rk.length) h += '<tr><td colspan="${ncol}" class="empty">Tidak ada pegawai yang cocok.</td></tr>';
     rk.forEach((r) => {
       const open = terbuka.has(r.key);
       h += `<tr class="emp" data-row="${esc(r.key)}" tabindex="0" aria-expanded="${open}"><td><b>${esc(r.Nama)}</b><br><span class="sub">${esc(r.NIP || "NIP kosong")}</span></td>
         <td class="wrap">${esc(r.Cabang)}<br><span class="sub">${esc(r.Jabatan)}</span></td>
         <td class="n">${r.Hadir}/${r.Terjadwal}</td><td class="n">${r.TelatKali}×<br><span class="sub">${r.TelatMnt} mnt</span></td>
         <td class="n">${r.Absen ? `<span class="neg">${r.Absen}</span>` : 0}</td><td class="n">${r.Izin}/${r.Sakit}/${r.Cuti}</td><td class="n">${r.Off}</td><td class="n">${r.TidakCO}</td>
-        <td class="n">${r.LemburJam ? jam(r.LemburJam) : "—"}</td><td class="n">${r.TelatPot ? rp(r.TelatPot) : "—"}</td><td class="n">${r.Dikoreksi || "—"}</td>
-        <td class="n"><b>${r.GajiBersih == null ? '<span class="pill warn">tarif kosong</span>' : rp(r.GajiBersih)}</b></td></tr>`;
-      if (open) h += `<tr class="detail"><td colspan="12">${detailTabel(r)}</td></tr>`;
+        <td class="n">${r.LemburJam ? jam(r.LemburJam) : "—"}</td>${uang ? `<td class="n">${r.TelatPot ? rp(r.TelatPot) : "—"}</td>` : ""}<td class="n">${r.Dikoreksi || "—"}</td>
+        ${uang ? `<td class="n"><b>${r.GajiBersih == null ? '<span class="pill warn">tarif kosong</span>' : rp(r.GajiBersih)}</b></td>` : ""}</tr>`;
+      if (open) h += `<tr class="detail"><td colspan="${ncol}">${detailTabel(r)}</td></tr>`;
     });
-    h += `<tr class="tot"><td colspan="2">Total${filterCabang || filterCari ? " (terfilter)" : ""}</td><td class="n">${num(tot("Hadir"))}</td><td class="n">${num(tot("TelatKali"))}×</td><td class="n">${num(tot("Absen"))}</td><td class="n">${num(tot("Izin") + tot("Sakit") + tot("Cuti"))}</td><td class="n">${num(tot("Off"))}</td><td class="n">${num(tot("TidakCO"))}</td><td class="n">${jam(tot("LemburJam"))}</td><td class="n">${rp(tot("TelatPot"))}</td><td class="n">${num(tot("Dikoreksi"))}</td><td class="n">${rp(sumBy(rk, (r) => r.GajiBersih || 0))}</td></tr></tbody></table></div>`;
+    h += `<tr class="tot"><td colspan="2">Total${filterCabang || filterCari ? " (terfilter)" : ""}</td><td class="n">${num(tot("Hadir"))}</td><td class="n">${num(tot("TelatKali"))}×</td><td class="n">${num(tot("Absen"))}</td><td class="n">${num(tot("Izin") + tot("Sakit") + tot("Cuti"))}</td><td class="n">${num(tot("Off"))}</td><td class="n">${num(tot("TidakCO"))}</td><td class="n">${jam(tot("LemburJam"))}</td>${uang ? `<td class="n">${rp(tot("TelatPot"))}</td>` : ""}<td class="n">${num(tot("Dikoreksi"))}</td>${uang ? `<td class="n">${rp(sumBy(rk, (r) => r.GajiBersih || 0))}</td>` : ""}</tr></tbody></table></div>`;
     const rvAll = hasil.review.filter((v) => !v.Tanggal);
     if (rvAll.length) h += `<div class="panel"><h3>Catatan data pegawai</h3><ul class="sub" style="margin:8px 0 0;padding-left:18px">${rvAll.map((v) => `<li><b>${esc(v.Nama)}</b>: ${esc(v.Alasan)}</li>`).join("")}</ul></div>`;
     return h;
   }
   function detailTabel(r) {
-    let h = '<div class="scroll"><table><thead><tr><th>Tanggal</th><th>Status</th><th>Jadwal HRIS</th><th>Shift aktual</th><th>Masuk</th><th>Pulang</th><th class="n">Telat</th><th class="n">Pot. telat</th><th class="n">Pulang cepat</th><th class="n">Lembur</th><th>Catatan</th><th></th></tr></thead><tbody>';
+    let h = '<div class="scroll"><table><thead><tr><th>Tanggal</th><th>Status</th><th>Jadwal HRIS</th><th>Shift aktual</th><th>Masuk</th><th>Pulang</th><th class="n">Telat</th>' + (lihatUang() ? '<th class="n">Pot. telat</th>' : "") + '<th class="n">Pulang cepat</th><th class="n">Lembur</th><th>Catatan</th><th></th></tr></thead><tbody>';
     r.detail.forEach((d) => {
       const pill = { H: "ok", T: "warn", A: "bad" }[d.Kode] || "";
       h += `<tr><td>${d.Hari} ${tglPendek(d.Tanggal)}</td><td><span class="pill ${pill}">${STATUS_LABEL[d.Status]}${d.Kode === "T" ? ", telat" : ""}</span>${d.adj ? ' <span class="pill">dikoreksi</span>' : ""}</td>
         <td>${esc(d["Jadwal HRIS"])}</td><td>${esc(d["Shift Aktual"])}${d["Status Shift"].startsWith("shift berubah") ? ' <span class="pill warn">berubah</span>' : ""}</td><td>${esc(d["Check In"])}</td><td>${esc(d["Check Out"])}</td>
-        <td class="n">${d["Telat (mnt)"] || ""}</td><td class="n">${d["Potongan Telat (Rp)"] ? rp(d["Potongan Telat (Rp)"]) : ""}</td><td class="n">${d["Pulang Cepat (mnt)"] || ""}</td>
+        <td class="n">${d["Telat (mnt)"] || ""}</td>${lihatUang() ? `<td class="n">${d["Potongan Telat (Rp)"] ? rp(d["Potongan Telat (Rp)"]) : ""}</td>` : ""}<td class="n">${d["Pulang Cepat (mnt)"] || ""}</td>
         <td class="n">${d["Lembur Dibayar (jam)"] ? jam(d["Lembur Dibayar (jam)"]) : d["Lembur (mnt)"] >= cfg.lemburMin ? `<span class="sub">${d["Lembur (mnt)"]} mnt, belum dibayar</span>` : ""}</td>
         <td class="wrap">${esc(d.Catatan.concat(d._review).join("; "))}</td><td><button class="btn ghost small" data-k="${esc(d.key)}" data-t="${d.Tanggal}">Koreksi</button></td></tr>`;
     });
@@ -334,8 +324,8 @@
         <div><span>Telat (sistem)</span><b>${au.telat} mnt</b></div><div><span>Lewat jam pulang</span><b>${au.lemburMnt} mnt</b></div></div>
       ${d.Catatan.length || d._review.length ? `<p class="hint">${esc(d.Catatan.filter((c) => !c.startsWith("dikoreksi")).concat(d._review).join("; "))}</p>` : ""}
       <div class="field"><label for="m-status">Status hari ini</label><select id="m-status">${opt("", "Otomatis (sistem: " + STATUS_LABEL[au.status] + ")")}${opt("hadir", "Hadir")}${opt("absen", "Tanpa keterangan (dipotong)")}${opt("izin", "Izin (dipotong)")}${opt("sakit", "Sakit (dibayar)")}${opt("cuti", "Cuti (dibayar)")}${opt("off", "Off / libur")}</select></div>
-      <div class="grid"><div class="field"><label for="m-telat">Menit telat yang dihitung</label><input type="number" id="m-telat" min="0" inputmode="numeric" value="${isNum(a.telat) ? a.telat : ""}" placeholder="otomatis: ${au.telat}"><span class="hint">Isi 0 untuk memaafkan telat. Telat &gt; ${cfg.telatAmbang} mnt dipotong ${rp(cfg.telatNominal)}.</span></div>
-        <div class="field"><label for="m-lembur">Jam lembur dibayar</label><input type="number" id="m-lembur" min="0" step="0.5" value="${isNum(a.lembur) ? a.lembur : ""}" placeholder="otomatis: ${au.lembur}"><span class="hint">Tarif ${rp(tarifL)}/jam${d.lemburTarif != null ? " (aturan lembur lokasi)" : " (tarif lembur bawaan)"}.</span></div></div>
+      <div class="grid"><div class="field"><label for="m-telat">Menit telat yang dihitung</label><input type="number" id="m-telat" min="0" inputmode="numeric" value="${isNum(a.telat) ? a.telat : ""}" placeholder="otomatis: ${au.telat}"><span class="hint">Isi 0 untuk memaafkan telat. Telat &gt; ${cfg.telatAmbang} mnt ${lihatUang() ? "dipotong " + rp(cfg.telatNominal) : "dihitung telat"}.</span></div>
+        <div class="field"><label for="m-lembur">Jam lembur dibayar</label><input type="number" id="m-lembur" min="0" step="0.5" value="${isNum(a.lembur) ? a.lembur : ""}" placeholder="otomatis: ${au.lembur}">${lihatUang() ? `<span class="hint">Tarif ${rp(tarifL)}/jam${d.lemburTarif != null ? " (aturan lembur lokasi)" : " (tarif lembur bawaan)"}.</span>` : ""}</div></div>
       ${d.tidakCO || a.co ? `<label class="row"><input type="checkbox" id="m-co"${a.co === "ok" ? " checked" : ""}> Check-out sudah dikonfirmasi (tidak dihitung "tidak check-out")</label>` : ""}
       <div class="field"><label for="m-ket">Alasan koreksi</label><input type="text" id="m-ket" value="${esc(a.ket || "")}" placeholder="misal: tukar shift disetujui PIC"></div>
       <div class="row between"><div>${d.adj ? '<button type="button" class="btn ghost" id="m-reset">Kembalikan ke otomatis</button>' : ""}</div>
