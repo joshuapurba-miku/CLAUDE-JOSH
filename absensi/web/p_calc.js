@@ -76,6 +76,11 @@
     const t = tarifRow(cabang, posisi) || cfg.tarif.find((x) => x.cabang === cabang && +x.gaji > 0) || TARIF_KOSONG;
     return harianDari(t);
   }
+  // upah harian pegawai sendiri (tarif lokasi & posisinya + gaji khusus jika diisi)
+  function harianPegawai(key, cabang, posisi) {
+    const t = tarifRow(cabang, posisi) || TARIF_KOSONG, P = cfg.pegawai[key] || {}, ov = (o, b) => isNum(o) ? +o : (+b || 0);
+    return harianDari({ gaji: ov(P.oGaji, t.gaji), tunjMT: ov(P.oTunjMT, t.tunjMT), tunjKin: ov(P.oTunjKin, t.tunjKin), tunjAbs: ov(P.oTunjAbs, t.tunjAbs) });
+  }
   function hitungBPJS(P) {
     const B = cfg.bpjs || {}, base = isNum(P.bpjsDasar) ? +P.bpjsDasar : (+B.umk || 0);
     const pc = (x) => Math.round(base * (+x || 0) / 100), ov = (o, b) => isNum(o) ? +o : b;
@@ -218,7 +223,8 @@
       const d = dg ? dMap.get(bk.diganti + "|" + bk.tgl) : null;
       o.namaPengganti = pg ? pg.nama : "(belum dipilih)"; o.namaDiganti = dg ? dg.Nama : ""; o.cabang = bk.lokasi || (dg ? dg.Cabang : "");
       o.asal = pg ? pg.cabang : "";
-      o.harian = o.cabang ? harianLokasi(o.cabang, dg ? dg.Posisi : (pg && pg.posisi) || "") : 0;
+      o.lokasiSendiri = !!(pg && o.cabang && o.cabang === pg.cabang);
+      o.harian = !o.cabang ? 0 : o.lokasiSendiri ? harianPegawai(bk.pengganti, pg.cabang, pg.posisi) : harianLokasi(o.cabang, dg ? dg.Posisi : (pg && pg.posisi) || "");
       o.upahPakai = isNum(bk.upah) ? +bk.upah : Math.round(o.harian);
       let sev = "ok";
       if (!bk.tgl || !pg || !o.cabang) { sev = "konflik"; alasan.push("lengkapi tanggal, pengganti, dan lokasi atau yang digantikan"); }

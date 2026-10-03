@@ -715,6 +715,11 @@ table.rg td.tot, table.rg th.tot { background: var(--accent-soft); font-weight: 
     const t = tarifRow(cabang, posisi) || cfg.tarif.find((x) => x.cabang === cabang && +x.gaji > 0) || TARIF_KOSONG;
     return harianDari(t);
   }
+  // upah harian pegawai sendiri (tarif lokasi & posisinya + gaji khusus jika diisi)
+  function harianPegawai(key, cabang, posisi) {
+    const t = tarifRow(cabang, posisi) || TARIF_KOSONG, P = cfg.pegawai[key] || {}, ov = (o, b) => isNum(o) ? +o : (+b || 0);
+    return harianDari({ gaji: ov(P.oGaji, t.gaji), tunjMT: ov(P.oTunjMT, t.tunjMT), tunjKin: ov(P.oTunjKin, t.tunjKin), tunjAbs: ov(P.oTunjAbs, t.tunjAbs) });
+  }
   function hitungBPJS(P) {
     const B = cfg.bpjs || {}, base = isNum(P.bpjsDasar) ? +P.bpjsDasar : (+B.umk || 0);
     const pc = (x) => Math.round(base * (+x || 0) / 100), ov = (o, b) => isNum(o) ? +o : b;
@@ -857,7 +862,8 @@ table.rg td.tot, table.rg th.tot { background: var(--accent-soft); font-weight: 
       const d = dg ? dMap.get(bk.diganti + "|" + bk.tgl) : null;
       o.namaPengganti = pg ? pg.nama : "(belum dipilih)"; o.namaDiganti = dg ? dg.Nama : ""; o.cabang = bk.lokasi || (dg ? dg.Cabang : "");
       o.asal = pg ? pg.cabang : "";
-      o.harian = o.cabang ? harianLokasi(o.cabang, dg ? dg.Posisi : (pg && pg.posisi) || "") : 0;
+      o.lokasiSendiri = !!(pg && o.cabang && o.cabang === pg.cabang);
+      o.harian = !o.cabang ? 0 : o.lokasiSendiri ? harianPegawai(bk.pengganti, pg.cabang, pg.posisi) : harianLokasi(o.cabang, dg ? dg.Posisi : (pg && pg.posisi) || "");
       o.upahPakai = isNum(bk.upah) ? +bk.upah : Math.round(o.harian);
       let sev = "ok";
       if (!bk.tgl || !pg || !o.cabang) { sev = "konflik"; alasan.push("lengkapi tanggal, pengganti, dan lokasi atau yang digantikan"); }
@@ -2389,7 +2395,7 @@ table.rg td.tot, table.rg th.tot { background: var(--accent-soft); font-weight: 
     const nOk = bk.filter((o) => o.sev === "ok").length, nPer = bk.filter((o) => o.sev === "perhatian").length, nKon = bk.filter((o) => o.sev === "konflik").length;
     const pill = { ok: '<span class="pill ok">aman</span>', perhatian: '<span class="pill warn">perlu dicek</span>', konflik: '<span class="pill bad">bermasalah</span>' };
     let h = lockBanner() + `<div class="stack"><div class="panel stack"><div><h2>Jadwal backup ${bulanLabel(p)}</h2>
-      <p class="sub">Catat siapa backup, di lokasi mana, tanggal berapa. Upah otomatis = gaji harian lokasi tempat backup (tarif lokasi ÷ ${cfg.pembagi}), masuk ke gaji pengganti sebagai "Backup [lokasi]". Kolom "Menggantikan" boleh kosong jika hanya mengisi kekurangan orang di lokasi itu. Pengganti muncul di Rekap Absensi lokasi tempat dia backup (kotak B).</p></div>
+      <p class="sub">Catat siapa backup, di lokasi mana, tanggal berapa. Upah otomatis: backup <b>ke lokasi lain</b> = gaji harian lokasi tujuan (tarif lokasi ÷ ${cfg.pembagi}); backup <b>di lokasi sendiri</b> = gaji harian pegawai itu sendiri, sama dengan insentif mengganti (extend). Masuk ke gaji pengganti sebagai "Backup [lokasi]". Kolom "Menggantikan" boleh kosong jika hanya mengisi kekurangan orang di lokasi itu. Pengganti muncul di Rekap Absensi lokasi tempat dia backup (kotak B).</p></div>
       <div class="row sub"><span><b>${list.length}</b> backup</span><span><b>${rp(sumBy(bk.filter((o) => o.sev !== "konflik"), (o) => o.upahPakai))}</b> total upah backup</span>${nPer ? `<span class="pill warn">${nPer} perlu dicek</span>` : ""}${nKon ? `<span class="pill bad">${nKon} bermasalah (tidak dibayar)</span>` : ""}</div>
       <div class="scroll"><table><thead><tr><th>Tanggal</th><th>Pengganti (yang dibayar)</th><th>Lokasi backup</th><th>Menggantikan (opsional)</th><th>Status yang digantikan</th><th class="n">Upah (Rp)</th><th>Keterangan</th><th>Cek</th><th></th></tr></thead><tbody>
       ${list.length ? "" : '<tr><td colspan="9" class="empty">Belum ada backup bulan ini.</td></tr>'}
