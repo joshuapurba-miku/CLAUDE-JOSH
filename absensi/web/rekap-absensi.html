@@ -159,6 +159,7 @@ details > summary { cursor: pointer; font-weight: 600; }
 .cell.I, .cell.S, .cell.C { background: var(--info-soft); color: var(--info); }
 .cell.O { background: transparent; color: var(--ink-3); }
 .cell.adj::after { content: ""; position: absolute; top: 2px; right: 2px; width: 5px; height: 5px; border-radius: 50%; background: var(--ink); }
+.cell.bk, .tm.bk { outline: 2px dashed var(--info); outline-offset: -2px; }
 .cell.rev { box-shadow: inset 0 0 0 2px var(--warn-bar); }
 .keys { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--ink-2); align-items: center; }
 .keys .cell { cursor: default; width: 22px; height: 22px; margin-right: 4px; vertical-align: middle; }
@@ -266,11 +267,13 @@ details > summary { cursor: pointer; font-weight: 600; }
     </div></div>
     <div class="saved" id="saved" aria-live="polite"></div>
   </header>
+  <div id="role-bar"></div>
   <div id="databar"></div>
   <nav class="tabs" role="tablist" id="tabs">
     <button role="tab" aria-selected="true" data-tab="dash">Dashboard</button>
     <button role="tab" aria-selected="false" data-tab="rekap">Rekap Absensi</button>
     <button role="tab" aria-selected="false" data-tab="input">Input Gaji</button>
+    <button role="tab" aria-selected="false" data-tab="bk">Backup &amp; Tambahan</button>
     <button role="tab" aria-selected="false" data-tab="slip">Slip Gaji</button>
     <button role="tab" aria-selected="false" data-tab="gaji">Tarif Gaji</button>
     <button role="tab" aria-selected="false" data-tab="aturan">Aturan</button>
@@ -278,12 +281,30 @@ details > summary { cursor: pointer; font-weight: 600; }
   <section id="tab-dash"></section>
   <section id="tab-rekap" hidden></section>
   <section id="tab-input" hidden></section>
+  <section id="tab-bk" hidden></section>
   <section id="tab-slip" hidden></section>
   <section id="tab-gaji" hidden></section>
   <section id="tab-aturan" hidden></section>
 </div>
 <div id="tip" hidden></div>
 <div id="modal"></div>
+<style>
+/* Role system */
+.role-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--accent-soft); color: var(--accent); border-radius: 6px; padding: 4px 10px; font-size: 13px; font-weight: 600; }
+.role-icon { font-size: 16px; }
+.role-cards { display: grid; gap: 10px; }
+.role-card { display: grid; grid-template-columns: 32px 36px 1fr; align-items: start; gap: 10px; text-align: left; background: var(--surface); border: 2px solid var(--line); border-radius: 10px; padding: 14px; cursor: pointer; transition: border-color 0.15s; }
+.role-card:hover, .role-card:focus-visible { border-color: var(--accent); background: var(--accent-soft); }
+.role-num { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 99px; background: var(--surface-2); font-weight: 700; font-size: 14px; color: var(--ink-2); }
+.role-card:hover .role-num { background: var(--accent); color: var(--accent-ink); }
+.role-card-icon { font-size: 26px; }
+.role-card b { font-size: 14px; }
+.role-card .sub { font-size: 12.5px; margin-top: 3px; }
+.role-flow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 12px 0; }
+.role-flow .arrow { color: var(--ink-3); font-size: 18px; }
+.role-flow .step-chip { background: var(--surface-2); border-radius: 6px; padding: 4px 10px; font-size: 12px; font-weight: 600; }
+.role-flow .step-chip.active { background: var(--accent-soft); color: var(--accent); }
+</style>
 
 
 <script>
@@ -337,7 +358,7 @@ details > summary { cursor: pointer; font-weight: 600; }
         { min: 7, max: 8, bagi: 30000, makan: 15000, trans: 15000 },
         { min: 9, max: 24, bagi: 35000, makan: 20000, trans: 15000 }
       ],
-      invoice: {}, riwayat: {}, approval: {}, penolakan: {}, approvers: [], apPinHash: "",
+      invoice: {}, riwayat: {}, approval: {}, penolakan: {}, approvers: [], pegawaiLuar: [], backup: {},
       logo: LOGO_DEFAULT, logoW: 480, logoH: 444, slipPassword: "none"
     };
   }
@@ -366,10 +387,12 @@ details > summary { cursor: pointer; font-weight: 600; }
       delete x.tunj; delete x.makan;
       return x;
     });
-    ["adj", "pegawai", "bulanan", "invoice", "riwayat", "approval", "penolakan"].forEach((k) => { if (!c[k] || typeof c[k] !== "object") c[k] = {}; });
+    ["adj", "pegawai", "bulanan", "invoice", "riwayat", "approval", "penolakan", "backup"].forEach((k) => { if (!c[k] || typeof c[k] !== "object") c[k] = {}; });
     const dsh = Object.fromEntries(d.shifts.map((x) => [x.nama, x]));
     c.shifts = (c.shifts || []).map((x) => (x.nama === "Lapangan 09-16" || x.nama === "Lapangan 09-18") && !x.cabang && dsh[x.nama] && x.masuk === dsh[x.nama].masuk && x.pulang === dsh[x.nama].pulang ? Object.assign({}, x, { cabang: dsh[x.nama].cabang }) : x);
     if (!Array.isArray(c.approvers)) c.approvers = [];
+    if (!Array.isArray(c.pegawaiLuar)) c.pegawaiLuar = [];
+    delete c.apPinHash;
     c.dasarHarian = Object.assign({}, d.dasarHarian, saved.dasarHarian || {});
     return c;
   }
@@ -621,6 +644,11 @@ details > summary { cursor: pointer; font-weight: 600; }
   function bulanIni(key) { const b = cfg.bulanan[hasil ? hasil.periode : ""] || {}; return b[key] || {}; }
 
   function hcRate(j) { return cfg.hcTarif.find((t) => j >= +t.min && j <= +t.max) || cfg.hcTarif[cfg.hcTarif.length - 1] || { bagi: 0, makan: 0, trans: 0 }; }
+  function harianPegawai(key, cabang, posisi) {
+    const t = tarifRow(cabang, posisi) || TARIF_KOSONG, P = cfg.pegawai[key] || {}, d = cfg.dasarHarian || {};
+    const ov = (o, b) => isNum(o) ? +o : (+b || 0);
+    return ((d.gaji ? ov(P.oGaji, t.gaji) : 0) + (d.tunjMT ? ov(P.oTunjMT, t.tunjMT) : 0) + (d.tunjKin ? ov(P.oTunjKin, t.tunjKin) : 0) + (d.tunjAbs ? ov(P.oTunjAbs, t.tunjAbs) : 0)) / (cfg.pembagi || 26);
+  }
   function hitungGaji(r, periode) {
     const t = tarifRow(r.Cabang, r.Posisi) || TARIF_KOSONG;
     const P = cfg.pegawai[r.key] || {}, M = (cfg.bulanan[periode] || {})[r.key] || {};
@@ -641,7 +669,7 @@ details > summary { cursor: pointer; font-weight: 600; }
     let faktor = 1, ketProrata = "";
     if (jadwal.length && prorata) { faktor = Math.min(1, dibayar / jadwal.length); ketProrata = `prorata ${dibayar}/${jadwal.length} hari`; }
     else if (jadwal.length && (M.tglMasuk || M.tglKeluar)) { faktor = jadwalMasa.length / jadwal.length; ketProrata = `prorata masa kerja ${jadwalMasa.length}/${jadwal.length} hari`; }
-    const ada = g.gaji > 0 || tanpaJadwal;
+    const ada = g.gaji > 0 || tanpaJadwal || !!r.Luar;
     const d = cfg.dasarHarian || {};
     const harian = ((d.gaji ? g.gaji : 0) + (d.tunjMT ? g.tunjMT : 0) + (d.tunjKin ? g.tunjKin : 0) + (d.tunjAbs ? g.tunjAbs : 0)) / (cfg.pembagi || 26);
     const fx = (x) => Math.round(x * faktor);
@@ -650,7 +678,7 @@ details > summary { cursor: pointer; font-weight: 600; }
       { sec: "B. Home Cleaning", info: orders.length ? `${orders.length} order · ${hc.jam} jam` : "", items: [["Imbal bagi hasil", hc.bagi + v(M.hcBagi)], ["Tunjangan makan", hc.makan + v(M.hcMakan)], ["Tunjangan transport", hc.trans + v(M.hcTrans)]] },
       { sec: "C. Project", items: [["Imbal bagi hasil", v(M.pjBagi)], ["Tunjangan makan", v(M.pjMakan)], ["Tunjangan transport", v(M.pjTrans)], ["Tunjangan kinerja", v(M.pjKin)]] },
       { sec: "D. Additional performance", items: [["Insentif Jaspro", v(M.jaspro)], ["Bonus performance", v(M.bonusPerf)], ["Bonus zero complain", v(M.bonusZero)], [M.bonusKet ? `Bonus lain (${M.bonusKet})` : "Bonus lain", v(M.bonusLain)]] },
-      { sec: "E. Lain-lain", items: [["Insentif backup", v(M.backup)], [`Lembur (${jam(r.LemburJam)})`, r.LemburUpah], ["Lembur tambahan (PKS)", v(M.lemburTambah)],
+      { sec: "E. Lain-lain", items: [[r.BackupN ? `Insentif backup (${r.BackupN} hari)` : "Insentif backup", v(M.backup) + (r.BackupUpah || 0)], [`Lembur (${jam(r.LemburJam)})`, r.LemburUpah], ["Lembur tambahan (PKS)", v(M.lemburTambah)],
         [`Insentif mengganti (${r.Double}× double shift)`, r.Double * cfg.bonusDouble], ["Add-on benefit", v(P.addOn)], ["Pengganti cuti", v(M.penggantiCuti)],
         ["TIP dari customer", v(M.tip)], [M.lainKet ? `Lain-lain (${M.lainKet})` : "Lain-lain", v(M.lain)], ["Payroll adjustment (kurang bayar)", v(M.adjPlus)]] }
     ];
@@ -678,15 +706,49 @@ details > summary { cursor: pointer; font-weight: 600; }
 
     const grup = new Map();
     det.forEach((d) => { if (!grup.has(d.key)) grup.set(d.key, []); grup.get(d.key).push(d); });
+    // pegawai di luar Kolabo (backup / home cleaning / freelance)
+    const luar = (cfg.pegawaiLuar || []).filter((p) => p.aktif !== false && p.nama);
+    const infoKey = (k) => { if (grup.has(k)) { const f = grup.get(k)[0]; return { nama: f.Nama, cabang: f.Cabang, luar: false }; } const p = luar.find((x) => "LUAR:" + x.id === k); return p ? { nama: p.nama, cabang: p.cabang, luar: true } : null; };
+    // jadwal backup: hubungkan pengganti dan yang digantikan
+    const dMap = new Map(det.map((d) => [d.key + "|" + d.Tanggal, d]));
+    const bkUpah = {}, backup = [], dobel = {};
+    (cfg.backup[periode] || []).forEach((bk, i) => {
+      const o = Object.assign({ idx: i }, bk), alasan = [];
+      const pg = infoKey(bk.pengganti), dg = grup.has(bk.diganti) ? grup.get(bk.diganti)[0] : null;
+      const d = dMap.get(bk.diganti + "|" + bk.tgl);
+      o.namaPengganti = pg ? pg.nama : "(belum dipilih)"; o.namaDiganti = dg ? dg.Nama : "(belum dipilih)"; o.cabang = dg ? dg.Cabang : "";
+      o.harian = dg ? harianPegawai(bk.diganti, dg.Cabang, dg.Posisi) : 0;
+      o.upahPakai = isNum(bk.upah) ? +bk.upah : Math.round(o.harian);
+      let sev = "ok";
+      if (!bk.tgl || !pg || !dg) { sev = "konflik"; alasan.push("lengkapi tanggal, pengganti, dan yang digantikan"); }
+      else if (bk.pengganti === bk.diganti) { sev = "konflik"; alasan.push("pengganti dan yang digantikan orang yang sama"); }
+      else if (!d) { sev = "konflik"; alasan.push(`tanggal ${bk.tgl} tidak ada di data Kolabo ${dg.Nama}`); }
+      else {
+        const k2 = bk.diganti + "|" + bk.tgl;
+        if (dobel[k2]) { sev = "konflik"; alasan.push(`${dg.Nama} sudah dibackup oleh ${dobel[k2]} di tanggal yang sama`); }
+        dobel[k2] = o.namaPengganti;
+        o.statusDiganti = STATUS_LABEL[d.Status];
+        if (d.Status === "Present") { sev = "konflik"; alasan.push(`${dg.Nama} tercatat HADIR: gaji dibayar dua kali. Koreksi absensinya atau hapus backup ini`); }
+        else if (d.Status === "Sakit" || d.Status === "Cuti") { if (sev === "ok") sev = "perhatian"; alasan.push(`${dg.Nama} tetap dibayar (${d.Status.toLowerCase()}), backup juga dibayar`); }
+        else if (d.Status === "Off") { if (sev === "ok") sev = "perhatian"; alasan.push(`hari ini jadwal off ${dg.Nama}`); }
+        else alasan.push(`${dg.Nama} ${d.Status === "Izin" ? "izin" : "tanpa keterangan"}, gajinya dipotong untuk hari ini`);
+        const dp = !pg.luar ? dMap.get(bk.pengganti + "|" + bk.tgl) : null;
+        if (dp && dp.Status === "Present") { if (sev === "ok") sev = "perhatian"; alasan.push(`${pg.nama} juga bekerja di jadwalnya sendiri (double shift)`); }
+        d.dibackup = (d.dibackup || []).concat([o.namaPengganti]);
+        d.Catatan.push("dibackup oleh " + o.namaPengganti);
+      }
+      o.sev = sev; o.alasan = alasan.join("; ");
+      if (sev !== "konflik") { const u = bkUpah[bk.pengganti] = bkUpah[bk.pengganti] || { n: 0, upah: 0, daftar: [] }; u.n++; u.upah += o.upahPakai; u.daftar.push(o); }
+      backup.push(o);
+    });
     const rekap = [];
-    grup.forEach((gr, key) => {
-      const f = gr[0];
+    const buatRekap = (key, f, gr, isLuar) => {
       const st = (s) => gr.filter((d) => d.Status === s);
       const hadir = st("Present");
       const telat = hadir.filter((d) => d["Telat (mnt)"] > 0), pc = hadir.filter((d) => d["Pulang Cepat (mnt)"] > 0);
       const sum = (arr, k) => arr.reduce((s, d) => s + (+d[k] || 0), 0);
       const r = {
-        key, Nama: f.Nama, NIP: f.NIP, Cabang: f.Cabang, Posisi: f.Posisi, detail: gr,
+        key, Nama: f.Nama, NIP: f.NIP, Cabang: f.Cabang, Posisi: f.Posisi, detail: gr, Luar: isLuar,
         Hadir: hadir.length, Absen: st("Absent").length, Izin: st("Izin").length, Sakit: st("Sakit").length, Cuti: st("Cuti").length, Off: st("Off").length,
         TidakCI: gr.filter((d) => d.rawStatus === "Absent").length, TidakCO: hadir.filter((d) => d.tidakCO).length,
         TelatKali: telat.length, TelatMnt: sum(telat, "Telat (mnt)"), TelatKenaKali: hadir.filter((d) => d["Potongan Telat (Rp)"] > 0).length, TelatPot: sum(hadir, "Potongan Telat (Rp)"),
@@ -697,21 +759,27 @@ details > summary { cursor: pointer; font-weight: 600; }
         ShiftBerubah: hadir.filter((d) => d["Status Shift"].startsWith("shift berubah")).length,
         TelatHris: sum(hadir, "Telat Kolabo (mnt)"), Dikoreksi: gr.filter((d) => d.adj).length
       };
+      const bu = bkUpah[key];
+      r.BackupN = bu ? bu.n : 0; r.BackupUpah = bu ? bu.upah : 0; r.BackupList = bu ? bu.daftar : [];
+      r.DibackupList = gr.filter((d) => d.dibackup).map((d) => ({ tgl: d.Tanggal, oleh: d.dibackup.join(", ") }));
       r.Terjadwal = r.Hadir + r.Absen + r.Izin + r.Sakit + r.Cuti;
       const s = hitungGaji(r, periode);
       r.slip = s;
       r.adaTarif = s.ada; r.gaji = s.g.gaji; r.Pendapatan = s.bruto; r.Potongan = s.potongan;
       r.PotAbsen = s.ada ? s.harian * (r.Absen + r.Izin) : 0;
       r.GajiBersih = s.ada ? Math.max(0, s.thp) : null; r.Minus = s.ada && s.thp < 0;
-      r.Mengganti = r.Double + (+s.M.mengganti || 0);
-      r.Jabatan = s.P.jabatan || r.Posisi; r.StatusKerja = s.P.status || "";
+      r.Mengganti = r.Double + (+s.M.mengganti || 0) + r.BackupN;
+      r.Jabatan = s.P.jabatan || r.Posisi; r.StatusKerja = s.P.status || (isLuar ? "Di luar Kolabo" : "");
       r.Biaya = s.bruto + s.benefit; r.Benefit = s.benefit; r.TanpaJadwal = s.tanpaJadwal; r.Order = s.orders.length; r.OrderJam = s.hc.jam;
       rekap.push(r);
-    });
+    };
+    grup.forEach((gr, key) => { const f = gr[0]; buatRekap(key, { Nama: f.Nama, NIP: f.NIP, Cabang: f.Cabang, Posisi: f.Posisi }, gr, false); });
+    luar.forEach((p) => buatRekap("LUAR:" + p.id, { Nama: p.nama, NIP: p.nip || "", Cabang: p.cabang || "Di luar Kolabo", Posisi: p.posisi || "Backup" }, [], true));
 
     [...rekap].sort((a, b) => a.Cabang.localeCompare(b.Cabang) || a.Nama.localeCompare(b.Nama)).forEach((r, i) => { r.NoSlip = `SG/${periode.slice(0, 4)}/${periode.slice(5, 7)}/${String(i + 1).padStart(3, "0")}`; });
     const review = [];
     det.forEach((d) => { if (d._review.length) review.push({ key: d.key, Tanggal: d.Tanggal, Nama: d.Nama, NIP: d.NIP, Cabang: d.Cabang, "Jadwal Kolabo": d["Jadwal Kolabo"], "Check In": d["Check In"], "Check Out": d["Check Out"], Alasan: d._review.join("; ") }); });
+    backup.forEach((o) => { if (o.sev !== "ok") review.push({ key: o.diganti, Tanggal: o.tgl || "", Nama: o.namaDiganti, NIP: "", Cabang: o.cabang, "Jadwal Kolabo": "", "Check In": "", "Check Out": "", Alasan: `Backup ${o.sev === "konflik" ? "BERMASALAH" : "perlu dicek"} (${o.namaPengganti} menggantikan ${o.namaDiganti}): ${o.alasan}` }); });
     rekap.forEach((r) => { if (r.Hadir === 0 && r.Absen > 0) review.push({ key: r.key, Tanggal: "", Nama: r.Nama, NIP: r.NIP, Cabang: r.Cabang, "Jadwal Kolabo": "", "Check In": "", "Check Out": "", Alasan: "Tidak pernah hadir sebulan penuh (" + r.Absen + " hari tanpa keterangan): resign, belum pakai aplikasi, atau cuti?" }); });
     const nipNama = new Map();
     rows.forEach((r) => { if (!nipNama.has(r.nip)) nipNama.set(r.nip, new Set()); nipNama.get(r.nip).add(r.nama); });
@@ -719,7 +787,7 @@ details > summary { cursor: pointer; font-weight: 600; }
       if (nip && nip !== "0" && v.size > 1) review.push({ Tanggal: "", Nama: [...v].join(", "), NIP: nip, Cabang: "", "Jadwal Kolabo": "", "Check In": "", "Check Out": "", Alasan: "NIP dipakai lebih dari satu orang, rapikan di Kolabo" });
       if (!nip || nip === "0") v.forEach((n) => review.push({ Tanggal: "", Nama: n, NIP: nip, Cabang: "", "Jadwal Kolabo": "", "Check In": "", "Check Out": "", Alasan: "NIP kosong/0, lengkapi di Kolabo" }));
     });
-    return { det, rekap, review, periode, tanggal: tglList, dari: tglList[0], sampai: tglList[tglList.length - 1] };
+    return { det, rekap, review, backup, periode, tanggal: tglList, dari: tglList[0], sampai: tglList[tglList.length - 1] };
   }
 
   function terbilang(n) {
@@ -731,6 +799,147 @@ details > summary { cursor: pointer; font-weight: 600; }
     const t = f(Math.floor(Math.abs(n))).replace(/\s+/g, " ").trim();
     return t ? t[0].toUpperCase() + t.slice(1) + " rupiah" : "Nol rupiah";
   }
+
+// ---------- sistem peran (role-based workflow) ----------
+  const ROLES = {
+    kepatuhan: {
+      label: "Admin Kepatuhan & Legal",
+      short: "Kepatuhan",
+      icon: "🔍",
+      desc: "Upload data Kolabo, validasi kehadiran, koreksi absensi. Setelah selesai, ekspor data validasi untuk Admin Operasional.",
+      tabs: ["dash", "rekap"],
+      canUpload: true,
+      canExport: true
+    },
+    operasional: {
+      label: "Admin Operasional",
+      short: "Operasional",
+      icon: "💰",
+      desc: "Terima data validasi dari Kepatuhan. Atur komponen gaji: gaji pokok, lembur, backup, tambahan. Setelah selesai, kirim paket persetujuan ke Direktur.",
+      tabs: ["dash", "rekap", "input", "bk", "gaji", "aturan"],
+      canImportValidasi: true,
+      canExportApproval: true
+    },
+    direktur: {
+      label: "Direktur Operasional",
+      short: "Direktur",
+      icon: "✅",
+      desc: "Tinjau dan setujui penggajian. Tanda tangan digital ditambahkan ke slip setelah disetujui.",
+      tabs: ["dash", "rekap", "slip"],
+      canApprove: true
+    }
+  };
+
+  const ROLE_KEY = "rekap-peran-aktif";
+  let activeRole = null;
+
+  function getRole() {
+    try { return localStorage.getItem(ROLE_KEY) || null; } catch (e) { return null; }
+  }
+  function setRole(r) {
+    activeRole = r;
+    try { localStorage.setItem(ROLE_KEY, r); } catch (e) { /* ok */ }
+  }
+
+  function roleTabs() {
+    return activeRole && ROLES[activeRole] ? ROLES[activeRole].tabs : null;
+  }
+
+  function applyRoleTabs() {
+    const allowed = roleTabs();
+    if (!allowed) return; // no role = show all
+    document.querySelectorAll("#tabs button[data-tab]").forEach((b) => {
+      const t = b.dataset.tab;
+      b.hidden = !allowed.includes(t);
+      if (b.getAttribute("aria-selected") === "true" && !allowed.includes(t)) {
+        showTab(allowed[0]);
+      }
+    });
+  }
+
+  function roleBadgeHTML() {
+    if (!activeRole || !ROLES[activeRole]) return "";
+    const r = ROLES[activeRole];
+    return `<div class="role-badge" data-free><span class="role-icon">${r.icon}</span><span>${esc(r.label)}</span><button class="btn ghost small" id="role-switch" style="margin-left:8px;font-size:12px">Ganti peran</button></div>`;
+  }
+
+  function rolePickerModal() {
+    const el = $("#modal");
+    el.innerHTML = `<div class="m-overlay"><div class="m-box" style="max-width:560px">
+      <h2 style="margin-bottom:4px">Pilih peran Anda</h2>
+      <p class="sub" style="margin-bottom:16px">Satu file HTML, tiga alur kerja. Pilih sesuai tugas Anda. Data mengalir antar peran lewat file ekspor.</p>
+      <div class="role-cards">
+        ${Object.entries(ROLES).map(([k, r], i) => `<button class="role-card" data-role="${k}">
+          <div class="role-num">${i + 1}</div>
+          <div class="role-card-icon">${r.icon}</div>
+          <div><b>${esc(r.label)}</b><p class="sub">${esc(r.desc)}</p></div>
+        </button>`).join("")}
+      </div>
+      <p class="hint" style="margin-top:12px;text-align:center">Anda bisa ganti peran kapan saja lewat tombol di header.</p>
+    </div></div>`;
+    el.querySelectorAll("[data-role]").forEach((b) => b.onclick = () => {
+      setRole(b.dataset.role);
+      el.innerHTML = "";
+      applyRoleTabs();
+      renderAll();
+    });
+  }
+
+  // --- Ekspor data validasi (Kepatuhan → Operasional) ---
+  async function eksporValidasi() {
+    if (!hasil) return;
+    const paket = {
+      tipe: "validasi-absensi",
+      versi: 1,
+      periode: hasil.periode,
+      perusahaan: namaPT(),
+      dari: hasil.dari,
+      sampai: hasil.sampai,
+      dibuat: new Date().toISOString(),
+      fileName: fileName,
+      // raw attendance rows
+      rows: rawRows,
+      // corrections
+      adj: cfg.adj,
+      // any review notes
+      review: hasil.review,
+      // sidik (fingerprint)
+      sidik: await sidikData()
+    };
+    const blob = new Blob([JSON.stringify(paket, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `Validasi_${hasil.periode}_${namaPT().replace(/[^a-zA-Z0-9]/g, "_")}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    setSaved("Data validasi diekspor untuk Admin Operasional.");
+  }
+
+  // --- Impor data validasi (Operasional menerima dari Kepatuhan) ---
+  async function imporValidasi(file) {
+    try {
+      const data = JSON.parse(await file.text());
+      if (data.tipe !== "validasi-absensi") throw new Error("File bukan data validasi absensi.");
+      rawRows = data.rows;
+      fileName = data.fileName || file.name;
+      perusahaanFile = data.perusahaan || "";
+      // apply corrections from kepatuhan
+      if (data.adj) { Object.assign(cfg.adj, data.adj); }
+      // ensure tarif entries exist
+      let baru = 0;
+      rawRows.forEach((r) => { if (!tarifRow(r.cabang, r.posisi)) { cfg.tarif.push(Object.assign({ cabang: r.cabang, posisi: r.posisi }, TARIF_KOSONG)); baru++; } });
+      if (baru) scheduleSave();
+      hasil = hitung(rawRows); simpanRiwayat(); cekBukti();
+      rekapCabang = ""; inputKey = ""; filterCari = slipCari = ""; slipCabang = ""; terbuka.clear();
+      renderBar(); updateTabCounts(); showTab("dash");
+      setSaved(`Data validasi ${bulanLabel(data.periode)} dari Kepatuhan berhasil dimuat.`);
+    } catch (e) {
+      setSaved("Gagal memuat data validasi: " + (e.message || e));
+    }
+  }
+
+  // Export workflow data (Operasional → Direktur): reuses existing paket persetujuan
+  // The existing approval export in p_appr.js already handles this flow.
 
 
   // ---------- util tampilan ----------
@@ -752,8 +961,10 @@ details > summary { cursor: pointer; font-weight: 600; }
   const cabangOpts = (sel, semua) => (semua ? `<option value="">Semua lokasi</option>` : "") + [...new Set(hasil.rekap.map((r) => r.Cabang))].sort().map((c) => `<option${c === sel ? " selected" : ""} value="${esc(c)}">${esc(c)}</option>`).join("");
 
   // ---------- tab ----------
-  const DATA_TABS = { dash: () => renderDash(), rekap: () => renderRekap(), input: () => renderInput(), slip: () => renderSlip() };
+  const DATA_TABS = { dash: () => renderDash(), rekap: () => renderRekap(), input: () => renderInput(), bk: () => renderBackup(), slip: () => renderSlip() };
   function showTab(name) {
+    const allowed = roleTabs();
+    if (allowed && !allowed.includes(name)) name = allowed[0];
     currentTab = name;
     document.querySelectorAll("#tabs button").forEach((x) => x.setAttribute("aria-selected", x.dataset.tab === name ? "true" : "false"));
     Object.keys(DATA_TABS).concat(["gaji", "aturan"]).forEach((t) => { $("#tab-" + t).hidden = t !== name; });
@@ -761,7 +972,7 @@ details > summary { cursor: pointer; font-weight: 600; }
     if (name === "gaji") renderGaji();
     if (name === "aturan") renderAturan();
   }
-  function renderAll() { applyBrand(); renderBar(); updateTabCounts(); showTab(currentTab); }
+  function renderAll() { applyBrand(); applyRoleTabs(); renderBar(); updateTabCounts(); showTab(currentTab); }
   const terkunci = () => !!(hasil && cfg.approval[hasil.periode]);
   function lockBanner() {
     const a = hasil && cfg.approval[hasil.periode];
@@ -791,7 +1002,25 @@ details > summary { cursor: pointer; font-weight: 600; }
     set("rekap", hasil ? hasil.review.length : 0);
     set("gaji", hasil ? new Set(hasil.rekap.filter((r) => !r.adaTarif && r.Hadir > 0).map((r) => r.Cabang + r.Posisi)).size : 0);
   }
+  function renderRoleBar() {
+    const el = $("#role-bar");
+    if (!el) return;
+    if (!activeRole) { el.innerHTML = ""; return; }
+    const r = ROLES[activeRole];
+    const flowSteps = [
+      { key: "kepatuhan", label: "1. Validasi Absensi" },
+      { key: "operasional", label: "2. Penggajian" },
+      { key: "direktur", label: "3. Persetujuan" }
+    ];
+    el.innerHTML = `<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px">
+      ${roleBadgeHTML()}
+      <div class="role-flow">${flowSteps.map((s, i) => `${i ? '<span class="arrow">→</span>' : ""}<span class="step-chip${s.key === activeRole ? " active" : ""}">${s.label}</span>`).join("")}</div>
+    </div>`;
+    const sw = el.querySelector("#role-switch");
+    if (sw) sw.onclick = () => rolePickerModal();
+  }
   function renderBar() {
+    renderRoleBar();
     const el = $("#databar");
     if (!hasil) { el.innerHTML = ""; return; }
     const kor = Object.keys(cfg.adj).filter((k) => k.slice(-10).startsWith(hasil.periode)).length;
@@ -806,19 +1035,44 @@ details > summary { cursor: pointer; font-weight: 600; }
   // ---------- upload ----------
   function uploadPanel() {
     const nTarif = cfg.tarif.length, isi = cfg.tarif.filter((t) => +t.gaji > 0).length;
+    const role = activeRole;
+    // Role-specific upload guidance
+    if (role === "operasional") {
+      return `<div class="stack"><div class="panel"><div class="steps">
+        <div class="step"><div class="no">1</div><div><b>Impor data validasi</b><span class="sub">Muat file validasi (.json) dari Admin Kepatuhan yang sudah memvalidasi absensi.</span></div></div>
+        <div class="step ${isi ? "done" : ""}"><div class="no">2</div><div><b>Atur komponen gaji</b><span class="sub">${isi} dari ${nTarif} tarif sudah diisi. Atur gaji, lembur, backup, potongan.</span></div></div>
+        <div class="step"><div class="no">3</div><div><b>Kirim ke Direktur</b><span class="sub">Ekspor paket persetujuan untuk ditinjau dan ditandatangani Direktur.</span></div></div>
+      </div></div>
+      <div class="drop" id="drop"><h2>Impor data validasi dari Kepatuhan</h2><p class="sub">File .json dari Admin Kepatuhan & Legal. Atau upload langsung file .xlsx dari Kolabo.</p>
+        <div class="row" style="gap:8px"><button class="btn" id="pick-val">Pilih file validasi (.json)</button><button class="btn ghost" id="pick">atau upload .xlsx langsung</button></div><div id="err"></div></div>
+      <input type="file" id="val-file" accept=".json,application/json" hidden></div>`;
+    }
+    if (role === "direktur") {
+      return `<div class="stack"><div class="panel"><div class="steps">
+        <div class="step"><div class="no">1</div><div><b>Buka paket persetujuan</b><span class="sub">File .json dari Admin Operasional berisi data gaji yang siap disetujui.</span></div></div>
+        <div class="step"><div class="no">2</div><div><b>Tinjau data</b><span class="sub">Periksa rekap gaji, lalu setujui atau tolak.</span></div></div>
+        <div class="step"><div class="no">3</div><div><b>Tanda tangan</b><span class="sub">Tanda tangan digital Anda otomatis masuk ke semua slip gaji.</span></div></div>
+      </div></div>
+      <div class="drop" id="drop"><h2>Buka paket persetujuan</h2><p class="sub">File .json dari Admin Operasional. Tinjau data gaji dan berikan persetujuan.</p>
+        <button class="btn" id="pkg-buka">Pilih file persetujuan (.json)</button><div id="err"></div></div>
+      <input type="file" id="pkg-file" accept=".json,application/json" hidden></div>`;
+    }
+    // Default / kepatuhan
     return `<div class="stack"><div class="panel"><div class="steps">
       <div class="step ${isi ? "done" : ""}"><div class="no">1</div><div><b>Isi tarif gaji</b><span class="sub">${isi} dari ${nTarif} kombinasi lokasi + posisi sudah diisi. <a href="#" data-go="gaji">Buka Tarif Gaji</a></span></div></div>
       <div class="step"><div class="no">2</div><div><b>Upload export bulan ini</b><span class="sub">Absensi dihitung otomatis, termasuk shift yang berubah.</span></div></div>
-      <div class="step"><div class="no">3</div><div><b>Cek, koreksi, unduh slip</b><span class="sub">Koreksi absensi per lokasi, isi komponen variabel, lalu unduh slip PDF.</span></div></div>
+      <div class="step"><div class="no">3</div><div><b>Validasi absensi</b><span class="sub">Cek kehadiran, koreksi yang salah, lalu ekspor data validasi untuk Admin Operasional.</span></div></div>
     </div></div>
     <div class="drop" id="drop"><h2>Upload export absensi dari Kolabo</h2><p class="sub">File .xlsx persis seperti hasil download. Data dihitung di browser Anda dan tidak dikirim ke mana pun.</p>
       <button class="btn" id="pick">Pilih file .xlsx</button><p class="hint">atau tarik file ke kotak ini</p><div id="err"></div></div>
-    <div class="panel row between"><div><h3>Anda approver?</h3><p class="sub">Buka paket persetujuan (.json) yang dikirim penyiap gaji untuk meninjau dan menyetujui.</p></div><button class="btn ghost" id="pkg-buka">Buka paket persetujuan</button><input type="file" id="pkg-file" accept=".json,application/json" hidden></div></div>`;
+    ${!role || role === "kepatuhan" ? "" : '<div class="panel row between"><div><h3>Anda approver?</h3><p class="sub">Buka paket persetujuan (.json) yang dikirim penyiap gaji untuk meninjau dan menyetujui.</p></div><button class="btn ghost" id="pkg-buka">Buka paket persetujuan</button><input type="file" id="pkg-file" accept=".json,application/json" hidden></div>'}</div>`;
   }
   function bindUpload(root) {
     root.querySelectorAll("[data-go]").forEach((a) => a.onclick = (e) => { e.preventDefault(); showTab(a.dataset.go); });
     const pb = root.querySelector("#pkg-buka");
     if (pb) { pb.onclick = () => root.querySelector("#pkg-file").click(); root.querySelector("#pkg-file").onchange = (e) => { if (e.target.files[0]) bukaPaket(e.target.files[0]); }; }
+    const pv = root.querySelector("#pick-val");
+    if (pv) { pv.onclick = () => root.querySelector("#val-file").click(); root.querySelector("#val-file").onchange = (e) => { if (e.target.files[0]) imporValidasi(e.target.files[0]); }; }
     const drop = root.querySelector("#drop");
     if (!drop) return;
     root.querySelector("#pick").onclick = () => $("#file").click();
@@ -854,7 +1108,7 @@ details > summary { cursor: pointer; font-weight: 600; }
   const KODE_KET = [["H", "Hadir"], ["T", `Telat > ${"{a}"} mnt`], ["A", "Tanpa keterangan"], ["I", "Izin"], ["S", "Sakit"], ["C", "Cuti"], ["O", "Off / tidak ada order"]];
   function legendaKode() {
     return `<div class="keys">${KODE_KET.map(([k, l]) => `<span><span class="cell ${k}">${k === "O" ? "·" : k}</span>${l.replace("{a}", cfg.telatAmbang)}</span>`).join("")}
-      <span><span class="cell H adj">H</span>sudah dikoreksi</span><span><span class="cell H rev">H</span>perlu dicek</span></div>`;
+      <span><span class="cell H adj">H</span>sudah dikoreksi</span><span><span class="cell H rev">H</span>perlu dicek</span><span><span class="cell A bk">A</span>dibackup orang lain</span></div>`;
   }
   function tipHari(d) {
     const p = [`${d.Hari} ${tglPendek(d.Tanggal)}`, STATUS_LABEL[d.Status]];
@@ -863,10 +1117,11 @@ details > summary { cursor: pointer; font-weight: 600; }
     if (d["Lembur Dibayar (jam)"]) p.push(`lembur ${d["Lembur Dibayar (jam)"]} jam`);
     if (d._review.length) p.push("perlu dicek: " + d._review.join("; "));
     if (d.adj) p.push("dikoreksi" + (d.adj.ket ? ": " + d.adj.ket : ""));
+    if (d.dibackup) p.push("dibackup oleh " + d.dibackup.join(", "));
     return p.join(" · ");
   }
   function cellHTML(d) {
-    return `<button class="cell ${d.Kode}${d.adj ? " adj" : ""}${d._review.length ? " rev" : ""}" data-k="${esc(d.key)}" data-t="${d.Tanggal}" data-tip="${esc(tipHari(d))}" aria-label="${esc(d.Nama + ", " + tipHari(d))}">${d.Kode === "O" ? "·" : d.Kode}</button>`;
+    return `<button class="cell ${d.Kode}${d.adj ? " adj" : ""}${d.dibackup ? " bk" : ""}${d._review.length ? " rev" : ""}" data-k="${esc(d.key)}" data-t="${d.Tanggal}" data-tip="${esc(tipHari(d))}" aria-label="${esc(d.Nama + ", " + tipHari(d))}">${d.Kode === "O" ? "·" : d.Kode}</button>`;
   }
   function renderRekap() {
     const el = $("#tab-rekap");
@@ -891,6 +1146,15 @@ details > summary { cursor: pointer; font-weight: 600; }
       tr.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } };
     });
     el.querySelectorAll("[data-goemp]").forEach((b) => b.onclick = () => { rekapMode = "pegawai"; filterCari = ""; filterCabang = ""; terbuka = new Set([b.dataset.goemp]); renderRekap(); const tr = document.querySelector(`tr.emp[data-row="${CSS.escape(b.dataset.goemp)}"]`); if (tr) tr.scrollIntoView({ block: "start" }); });
+    // Ekspor validasi button for kepatuhan role
+    if (activeRole === "kepatuhan" && hasil) {
+      const expBtn = document.createElement("div");
+      expBtn.className = "panel";
+      expBtn.style.marginTop = "16px";
+      expBtn.innerHTML = `<div class="row between"><div><h3>Selesai validasi?</h3><p class="sub">Ekspor data absensi yang sudah divalidasi untuk dikirim ke Admin Operasional.</p></div><button class="btn" id="ekspor-val">Ekspor data validasi</button></div>`;
+      el.querySelector(".stack").appendChild(expBtn);
+      $("#ekspor-val").onclick = () => eksporValidasi();
+    }
   }
 
   // ---------- rekap jam masuk & pulang (kalender sebulan) ----------
@@ -902,12 +1166,12 @@ details > summary { cursor: pointer; font-weight: 600; }
   function legendaJam() {
     return `<div class="keys"><span><span class="tm late">09:41</span> masuk terlambat</span><span><span class="tm early">14:10</span> pulang lebih cepat dari shift</span>
       <span><span class="tm ot">20:05</span> lewat jam pulang ≥ ${cfg.lemburMin} mnt</span><span><span class="tm miss">?</span> tidak check-out</span>
-      <span><span class="tm abs">A</span> tanpa keterangan</span><span><span class="tm lv">S</span> izin / sakit / cuti</span><span><span class="tm off">off</span> libur / tidak ada order</span><span><span class="tm adj">08:00</span> sudah dikoreksi</span></div>`;
+      <span><span class="tm abs">A</span> tanpa keterangan</span><span><span class="tm lv">S</span> izin / sakit / cuti</span><span><span class="tm off">off</span> libur / tidak ada order</span><span><span class="tm adj">08:00</span> sudah dikoreksi</span><span><span class="tm abs bk">A</span> dibackup orang lain</span></div>`;
   }
   function jamCell(d, jenis) {
     if (!d) return "";
     const base = `data-k="${esc(d.key)}" data-t="${d.Tanggal}" data-tip="${esc(tipHari(d))}"`;
-    const adj = d.adj ? " adj" : "";
+    const adj = (d.adj ? " adj" : "") + (d.dibackup ? " bk" : "");
     if (d.Status === "Off") return `<button class="tm off${adj}" ${base} aria-label="${esc(d.Nama)} ${d.Tanggal} libur">off</button>`;
     if (d.Status === "Absent") return `<button class="tm abs${adj}" ${base}>A</button>`;
     if (d.Status !== "Present") return `<button class="tm lv${adj}" ${base}>${d.Kode}</button>`;
@@ -920,9 +1184,9 @@ details > summary { cursor: pointer; font-weight: 600; }
     return `<button class="tm${cls}${adj}" ${base} aria-label="${esc(d.Nama)} pulang ${t}${d["Pulang Cepat (mnt)"] ? ", pulang cepat " + d["Pulang Cepat (mnt)"] + " menit" : ""}">${t}</button>`;
   }
   function rekapJamHTML() {
-    const cabs = [...new Set(hasil.rekap.map((r) => r.Cabang))].sort();
+    const cabs = [...new Set(hasil.rekap.filter((r) => !r.Luar).map((r) => r.Cabang))].sort();
     if (jamCabang && !cabs.includes(jamCabang)) jamCabang = "";
-    const rk = hasil.rekap.filter((r) => !jamCabang || r.Cabang === jamCabang).sort((a, b) => a.Cabang.localeCompare(b.Cabang) || a.Nama.localeCompare(b.Nama));
+    const rk = hasil.rekap.filter((r) => !r.Luar && (!jamCabang || r.Cabang === jamCabang)).sort((a, b) => a.Cabang.localeCompare(b.Cabang) || a.Nama.localeCompare(b.Nama));
     const days = hariBulan();
     const headDays = days.map((t) => { const hr = hariDari(t); return `<th class="${hr === "Min" ? "we" : ""}">${+t.slice(8)}<br>${hr.slice(0, 2)}</th>`; }).join("");
     const tabel = (jenis) => {
@@ -941,9 +1205,9 @@ details > summary { cursor: pointer; font-weight: 600; }
       <div><h3>Check-in (jam masuk)</h3>${tabel("in")}</div><div><h3>Check-out (jam pulang)</h3>${tabel("out")}</div></div>`;
   }
   function rekapLokasiHTML() {
-    const cabs = [...new Set(hasil.rekap.map((r) => r.Cabang))].sort();
+    const cabs = [...new Set(hasil.rekap.filter((r) => !r.Luar).map((r) => r.Cabang))].sort();
     if (!cabs.includes(rekapCabang)) rekapCabang = cabs[0];
-    const rk = hasil.rekap.filter((r) => r.Cabang === rekapCabang).sort((a, b) => a.Nama.localeCompare(b.Nama));
+    const rk = hasil.rekap.filter((r) => !r.Luar && r.Cabang === rekapCabang).sort((a, b) => a.Nama.localeCompare(b.Nama));
     const hadir = sumBy(rk, (r) => r.Hadir), terj = sumBy(rk, (r) => r.Terjadwal);
     const days = hasil.tanggal;
     let h = `<div class="panel stack"><div class="row between"><div class="row"><label class="sub" for="rcab">Lokasi</label><select id="rcab" style="width:auto">${cabangOpts(rekapCabang)}</select></div>
@@ -1149,6 +1413,7 @@ details > summary { cursor: pointer; font-weight: 600; }
           <div><dt>Status</dt><dd>${esc(r.StatusKerja || "-")}</dd></div><div><dt>Performance</dt><dd>${esc(s.M.performance || "-")}</dd></div>
         </dl>
         <div class="att">${attItems(r).map((a) => `<div class="${a[2] ? "bad" : ""}"><b>${a[1]}</b><span>${a[0]}</span></div>`).join("")}</div>
+        ${barisBackup(r).map((t) => `<div class="muted">${esc(t)}</div>`).join("")}
         <div class="cols">
           <div><h4>Pendapatan</h4>${d.pend.map((x) => `<div class="sec">${esc(x.sec)}${x.info ? ` <small>(${esc(x.info)})</small>` : ""}</div>${x.items.map((it) => ln(it)).join("")}${x.items.length > 1 ? ln(["Subtotal", x.total], "sub") : ""}`).join("")}
             ${ln(["Total pendapatan bruto", s.bruto], "tot")}</div>
@@ -1228,6 +1493,7 @@ details > summary { cursor: pointer; font-weight: 600; }
       doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...MUTED); doc.text(a[0], cx + 3, cy + 10);
     });
     y += 33;
+    barisBackup(r).forEach((t) => { doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...MUTED); const ln = doc.splitTextToSize(t, W); doc.text(ln, X0, y - 3); y += ln.length * 4; });
     // dua kolom
     const CW = 86, XL = X0, XR = X0 + W - CW;
     const head = (t, x, yy) => { doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...G); doc.text(t.toUpperCase(), x, yy); doc.setDrawColor(...G); doc.setLineWidth(0.4); doc.line(x, yy + 1.5, x + CW, yy + 1.5); return yy + 7; };
@@ -1321,6 +1587,13 @@ details > summary { cursor: pointer; font-weight: 600; }
     doc.setFontSize(7); doc.setTextColor(93, 104, 116);
     if (tt) { doc.text("Ditandatangani digital · kunci " + ap.kode, cx, y + 37.5, { align: "center" }); if (r) doc.text("Kode verifikasi slip " + kodeSlip(r), cx, y + 41, { align: "center" }); }
     else if (!ap) doc.text("Belum disetujui", cx, y + 37.5, { align: "center" });
+  }
+
+  function barisBackup(r) {
+    const out = [];
+    if (r.BackupList && r.BackupList.length) out.push("Backup: " + r.BackupList.map((o) => `${tglPendek(o.tgl)} menggantikan ${o.namaDiganti}${o.cabang ? " (" + o.cabang + ")" : ""}`).join(", "));
+    if (r.DibackupList && r.DibackupList.length) out.push("Dibackup: " + r.DibackupList.map((o) => `${tglPendek(o.tgl)} oleh ${o.oleh}`).join(", "));
+    return out;
   }
 
 
@@ -1769,14 +2042,7 @@ details > summary { cursor: pointer; font-weight: 600; }
       rd.readAsDataURL(file);
     });
   }
-  let pinMsg = "", pinOk = "";
-  const pinHash = (pin) => sha256("rekap-gaji|" + String(pin).trim());
-  async function cekPIN(pin) {
-    if (!cfg.apPinHash) throw new Error("Buat PIN direktur dulu.");
-    if (!String(pin || "").trim()) throw new Error("Isi PIN direktur dulu.");
-    if ((await pinHash(pin)) !== cfg.apPinHash) throw new Error("PIN direktur salah. Pastikan tidak ada isian otomatis dari browser; centang \"Tampilkan PIN\" untuk melihat yang diketik.");
-    return true;
-  }
+
 
   async function buatKunciApprover(nama, jabatan) {
     const kp = await crypto.subtle.generateKey(ALG, true, ["sign", "verify"]);
@@ -1883,16 +2149,8 @@ details > summary { cursor: pointer; font-weight: 600; }
           <div><button class="btn ghost" id="ak-buat">Buat kunci approver di laptop ini</button></div><p class="hint">Hanya dilakukan sekali oleh approver, di laptopnya sendiri.</p>`}</div>
       <div class="stack" style="gap:10px"><h3>Approver terdaftar (di laptop penyiap)</h3>
         ${daftar.length ? `<div class="scroll"><table><thead><tr><th>Nama</th><th>Jabatan</th><th>Kode kunci</th><th></th></tr></thead><tbody>${daftar.map((a, i) => `<tr><td>${esc(a.nama)}</td><td>${esc(a.jabatan || "")}</td><td style="font-family:var(--font-num)">${esc(a.kode)}</td><td><button class="btn ghost small" data-apdel="${i}">Hapus</button></td></tr>`).join("")}</tbody></table></div>` : '<p class="sub">Belum ada. Selama kosong, gaji disetujui langsung di laptop ini.</p>'}
-        ${cfg.apPinHash ? `<p class="sub"><span class="pill ok">PIN direktur aktif</span> Menambah atau menghapus approver memerlukan PIN ini.</p>
-          <div class="row" style="align-items:flex-end"><div class="field"><label for="ak-pin">PIN direktur</label><input type="password" id="ak-pin" name="ak-pin-rekapgaji" inputmode="numeric" autocomplete="new-password" data-lpignore="true" data-1p-ignore maxlength="8" style="width:150px" placeholder="masukkan PIN"></div>
-          <button class="btn ghost" id="ak-tambah">Tambah dari kartu approver (.json)</button><input type="file" id="ak-file" accept=".json,application/json" hidden></div>
-          <label class="row hint" style="gap:6px"><input type="checkbox" id="pin-lihat"> Tampilkan PIN</label>
-          <p class="hint">Lupa PIN? <button class="btn ghost small" id="pin-reset">Reset PIN</button> Reset menghapus PIN <b>dan semua approver terdaftar</b>; daftarkan ulang bersama direktur.</p>`
-        : `<p class="sub"><b>Langkah pertama:</b> direktur membuat PIN di laptop ini. PIN ini dibutuhkan setiap kali daftar approver diubah.</p>
-          <div class="row" style="align-items:flex-end"><div class="field"><label for="pin-baru">PIN baru (4–8 angka)</label><input type="password" id="pin-baru" name="pin-baru-rekapgaji" inputmode="numeric" autocomplete="new-password" data-lpignore="true" data-1p-ignore maxlength="8" style="width:150px" placeholder="contoh: 2580"></div><div class="field"><label for="pin-ulang">Ulangi PIN</label><input type="password" id="pin-ulang" name="pin-ulang-rekapgaji" inputmode="numeric" autocomplete="new-password" data-lpignore="true" data-1p-ignore maxlength="8" style="width:150px" placeholder="ketik ulang"></div>
-          <button class="btn" id="pin-simpan">Simpan PIN</button></div>
-          <label class="row hint" style="gap:6px"><input type="checkbox" id="pin-lihat"> Tampilkan PIN</label>`}
-        ${pinOk ? `<p class="hint" style="color:var(--accent)">${esc(pinOk)}</p>` : ""}<p class="hint neg" id="ak-msg">${esc(pinMsg)}</p>
+        <div class="row"><button class="btn ghost" id="ak-tambah">Tambah dari kartu approver (.json)</button><input type="file" id="ak-file" accept=".json,application/json" hidden></div>
+        <p class="hint neg" id="ak-msg"></p>
         <p class="hint">Cocokkan kode kunci dengan approver lewat telepon/WA saat mendaftarkan.</p></div></div></div>`;
   }
   function bindAturanPersetujuan() {
@@ -1900,30 +2158,16 @@ details > summary { cursor: pointer; font-weight: 600; }
       const nama = $("#ak-nama").value.trim(); if (!nama) { $("#ak-nama").focus(); return; }
       try { await buatKunciApprover(nama, $("#ak-jab").value.trim()); renderAturan(); } catch (e) { setSaved("Kunci tidak bisa dibuat di browser ini: " + (e.message || e)); }
     };
-    pinMsg = ""; pinOk = "";
     const err = (t) => { $("#ak-msg").textContent = t; };
-    if ($("#pin-lihat")) $("#pin-lihat").onchange = (e) => { ["#ak-pin", "#pin-baru", "#pin-ulang"].forEach((q) => { if ($(q)) $(q).type = e.target.checked ? "text" : "password"; }); };
-    if ($("#pin-simpan")) $("#pin-simpan").onclick = async () => {
-      const a = $("#pin-baru").value.trim(), b = $("#pin-ulang").value.trim();
-      if (!/^\d{4,8}$/.test(a)) { err("PIN harus 4 sampai 8 angka."); $("#pin-baru").focus(); return; }
-      if (a !== b) { err("PIN dan ulangan PIN tidak sama. Ketik ulang."); $("#pin-ulang").value = ""; $("#pin-ulang").focus(); return; }
-      cfg.apPinHash = await pinHash(a); scheduleSave(); pinOk = "PIN direktur tersimpan. Simpan baik-baik; PIN tidak bisa dilihat kembali."; renderAturan();
-    };
-    if ($("#pin-reset")) $("#pin-reset").onclick = (e) => {
-      const btn = e.target;
-      if (!btn.dataset.armed) { btn.dataset.armed = "1"; btn.textContent = "Klik lagi untuk reset"; return; }
-      cfg.apPinHash = ""; cfg.approvers = []; scheduleSave(); pinOk = "PIN dan daftar approver sudah dihapus. Buat PIN baru bersama direktur."; renderAturan();
-    };
     if ($("#ak-ttd")) { $("#ak-ttd").onclick = () => $("#ak-ttdfile").click(); $("#ak-ttdfile").onchange = async (e) => {
       const f = e.target.files[0]; if (!f) return;
       try { const k = kunciLokal(); k.ttdImg = await olahTTD(f); localStorage.setItem(APPR_KEY, JSON.stringify(k)); renderAturan(); } catch (er) { setSaved(er.message || String(er)); }
     }; }
     if ($("#ak-kartu")) $("#ak-kartu").onclick = () => { const k = kunciLokal(); saveFile(`Kartu_Approver_${k.nama.replace(/[^\w]+/g, "_")}.json`, JSON.stringify({ jenis: "kartu-approver", nama: k.nama, jabatan: k.jabatan, kode: k.kode, pub: k.pub }, null, 1), "application/json"); };
     if ($("#ak-hapus")) $("#ak-hapus").onclick = (e) => { const b = e.target; if (b.dataset.armed) { try { localStorage.removeItem(APPR_KEY); } catch (er) { /* abaikan */ } renderAturan(); } else { b.dataset.armed = "1"; b.textContent = "Klik lagi: kunci hilang permanen"; } };
-    if ($("#ak-tambah")) { $("#ak-tambah").onclick = async () => { try { await cekPIN($("#ak-pin").value); $("#ak-file").click(); } catch (er) { err(er.message); $("#ak-pin").select(); } }; $("#ak-file").onchange = async (e) => {
+    if ($("#ak-tambah")) { $("#ak-tambah").onclick = () => $("#ak-file").click(); $("#ak-file").onchange = async (e) => {
       const f = e.target.files[0]; if (!f) return; e.target.value = "";
       try {
-        await cekPIN($("#ak-pin").value);
         const o = JSON.parse(await f.text());
         if (o.jenis !== "kartu-approver" || !o.pub) throw new Error("Bukan kartu approver.");
         o.kode = await kodeKunci(o.pub);
@@ -1932,9 +2176,78 @@ details > summary { cursor: pointer; font-weight: 600; }
       } catch (er) { err(er.message || String(er)); }
     }; }
     document.querySelectorAll("[data-apdel]").forEach((b) => b.onclick = async () => {
-      if (!$("#ak-pin")) { err("Buat PIN direktur dulu."); return; }
-      try { await cekPIN($("#ak-pin").value); cfg.approvers.splice(+b.dataset.apdel, 1); scheduleSave(); renderAturan(); } catch (er) { err(er.message || String(er)); }
+      cfg.approvers.splice(+b.dataset.apdel, 1); scheduleSave(); renderAturan();
     });
+  }
+
+
+  // ---------- tab Backup & Tambahan ----------
+  function opsiPegawai(sel, termasukLuar) {
+    const kol = hasil.rekap.filter((r) => !r.Luar).sort((a, b) => a.Cabang.localeCompare(b.Cabang) || a.Nama.localeCompare(b.Nama));
+    const grupCab = [...new Set(kol.map((r) => r.Cabang))];
+    let h = `<option value="">— pilih —</option>`;
+    if (termasukLuar) {
+      const luar = (cfg.pegawaiLuar || []).filter((p) => p.aktif !== false && p.nama);
+      if (luar.length) h += `<optgroup label="Di luar Kolabo">${luar.map((p) => `<option value="LUAR:${esc(p.id)}"${sel === "LUAR:" + p.id ? " selected" : ""}>${esc(p.nama)}${p.cabang ? " · " + esc(p.cabang) : ""}</option>`).join("")}</optgroup>`;
+    }
+    grupCab.forEach((c) => { h += `<optgroup label="${esc(c)}">${kol.filter((r) => r.Cabang === c).map((r) => `<option value="${esc(r.key)}"${sel === r.key ? " selected" : ""}>${esc(r.Nama)}</option>`).join("")}</optgroup>`; });
+    return h;
+  }
+  function renderBackup() {
+    const el = $("#tab-bk");
+    if (!hasil) { el.innerHTML = kosong("Jadwal backup dihubungkan dengan data absensi. Upload export Kolabo dulu."); bindUpload(el); return; }
+    const p = hasil.periode, list = cfg.backup[p] || [], bk = hasil.backup || [];
+    const dari = hasil.dari, sampai = hasil.sampai;
+    const nOk = bk.filter((o) => o.sev === "ok").length, nPer = bk.filter((o) => o.sev === "perhatian").length, nKon = bk.filter((o) => o.sev === "konflik").length;
+    const pill = { ok: '<span class="pill ok">aman</span>', perhatian: '<span class="pill warn">perlu dicek</span>', konflik: '<span class="pill bad">bermasalah</span>' };
+    let h = lockBanner() + `<div class="stack"><div class="panel stack"><div><h2>Jadwal backup ${bulanLabel(p)}</h2>
+      <p class="sub">Catat siapa menggantikan siapa dan tanggal berapa. Upah backup otomatis masuk ke gaji pengganti (Insentif backup), dan hari itu dicek di absensi orang yang digantikan supaya tidak dibayar dua kali. Upah kosong = upah harian orang yang digantikan.</p></div>
+      <div class="row sub"><span><b>${list.length}</b> backup</span><span><b>${rp(sumBy(bk.filter((o) => o.sev !== "konflik"), (o) => o.upahPakai))}</b> total upah backup</span>${nPer ? `<span class="pill warn">${nPer} perlu dicek</span>` : ""}${nKon ? `<span class="pill bad">${nKon} bermasalah (tidak dibayar)</span>` : ""}</div>
+      <div class="scroll"><table><thead><tr><th>Tanggal</th><th>Pengganti (yang dibayar)</th><th>Menggantikan</th><th>Status yang digantikan</th><th class="n">Upah (Rp)</th><th>Keterangan</th><th>Cek</th><th></th></tr></thead><tbody>
+      ${list.length ? "" : '<tr><td colspan="8" class="empty">Belum ada backup bulan ini.</td></tr>'}
+      ${list.map((x, i) => { const o = bk[i] || {}; return `<tr>
+        <td><input type="date" data-bk="${i}" data-f="tgl" value="${esc(x.tgl || "")}" min="${dari}" max="${sampai}" aria-label="Tanggal backup"></td>
+        <td><select data-bk="${i}" data-f="pengganti" aria-label="Pengganti" style="min-width:200px">${opsiPegawai(x.pengganti, true)}</select></td>
+        <td><select data-bk="${i}" data-f="diganti" aria-label="Yang digantikan" style="min-width:200px">${opsiPegawai(x.diganti, false)}</select></td>
+        <td>${esc(o.statusDiganti || "—")}</td>
+        <td class="n"><input type="number" data-bk="${i}" data-f="upah" value="${isNum(x.upah) ? x.upah : ""}" min="0" step="1000" placeholder="${Math.round(o.harian || 0)}" style="width:120px;text-align:right" aria-label="Upah backup"></td>
+        <td><input type="text" data-bk="${i}" data-f="ket" value="${esc(x.ket || "")}" placeholder="misal: shift pagi" aria-label="Keterangan"></td>
+        <td class="wrap">${pill[o.sev] || ""}<div class="hint">${esc(o.alasan || "")}</div></td>
+        <td><button class="btn ghost small" data-bkdel="${i}">Hapus</button></td></tr>`; }).join("")}
+      </tbody></table></div><div><button class="btn ghost" id="bk-add">Tambah backup</button></div></div>`;
+    // ringkasan per pengganti
+    const per = hasil.rekap.filter((r) => r.BackupN);
+    if (per.length) h += `<div class="panel"><h3>Ringkasan per pengganti</h3><div class="scroll" style="margin-top:8px"><table><thead><tr><th>Pengganti</th><th>Lokasi asal</th><th class="n">Hari backup</th><th class="n">Upah backup</th><th>Menggantikan</th></tr></thead><tbody>${per.map((r) => `<tr><td>${esc(r.Nama)}${r.Luar ? ' <span class="pill">luar Kolabo</span>' : ""}</td><td>${esc(r.Cabang)}</td><td class="n">${r.BackupN}</td><td class="n">${rp(r.BackupUpah)}</td><td class="wrap">${esc(r.BackupList.map((o) => `${tglPendek(o.tgl)} ${o.namaDiganti}`).join(", "))}</td></tr>`).join("")}</tbody></table></div></div>`;
+    // pegawai di luar Kolabo
+    const luar = cfg.pegawaiLuar || [];
+    h += `<div class="panel stack"><div><h2>Pegawai di luar Kolabo</h2><p class="sub">Untuk yang tidak tercatat di absensi: tenaga backup, tim home cleaning per order, atau freelance. Mereka ikut di Input Gaji, slip, daftar transfer, dan dashboard. Order home cleaning, bonus, dan komponen lain diisi di Input Gaji. Gaji tetap (jika ada) diisi lewat kolom gaji pokok khusus di Input Gaji.</p></div>
+      ${dl("dl-cab", branchList())}${dl("dl-peran", ["Backup", "Home Cleaning", "Freelance", "Project"])}
+      <div class="scroll"><table><thead><tr><th>Nama</th><th>NIP / ID</th><th>Lokasi</th><th>Peran</th><th>Aktif</th><th></th></tr></thead><tbody>
+      ${luar.length ? "" : '<tr><td colspan="6" class="empty">Belum ada.</td></tr>'}
+      ${luar.map((x, i) => `<tr><td><input type="text" class="wide" data-lr="${i}" data-f="nama" value="${esc(x.nama || "")}" aria-label="Nama"></td><td><input type="text" data-lr="${i}" data-f="nip" value="${esc(x.nip || "")}" aria-label="NIP"></td>
+        <td><input type="text" class="wide xl" list="dl-cab" data-lr="${i}" data-f="cabang" value="${esc(x.cabang || "")}" aria-label="Lokasi"></td><td><input type="text" list="dl-peran" data-lr="${i}" data-f="posisi" value="${esc(x.posisi || "")}" aria-label="Peran"></td>
+        <td><input type="checkbox" data-lr="${i}" data-f="aktif"${x.aktif !== false ? " checked" : ""} aria-label="Aktif"></td><td><button class="btn ghost small" data-lrdel="${i}">Hapus</button></td></tr>`).join("")}
+      </tbody></table></div><div><button class="btn ghost" id="lr-add">Tambah pegawai</button></div></div></div>`;
+    el.innerHTML = h;
+    const ubah = () => { scheduleSave(); recompute(); };
+    el.querySelectorAll("[data-bk]").forEach((inp) => inp.addEventListener("change", () => {
+      const x = cfg.backup[p][+inp.dataset.bk], f = inp.dataset.f;
+      if (f === "upah") { if (inp.value === "") delete x.upah; else x.upah = +inp.value; } else x[f] = inp.value;
+      ubah();
+    }));
+    el.querySelectorAll("[data-bkdel]").forEach((b) => b.onclick = () => { cfg.backup[p].splice(+b.dataset.bkdel, 1); ubah(); });
+    $("#bk-add").onclick = () => { (cfg.backup[p] = cfg.backup[p] || []).push({ tgl: "", pengganti: "", diganti: "", ket: "" }); ubah(); };
+    el.querySelectorAll("[data-lr]").forEach((inp) => inp.addEventListener("change", () => {
+      const x = cfg.pegawaiLuar[+inp.dataset.lr];
+      x[inp.dataset.f] = inp.type === "checkbox" ? inp.checked : inp.value.trim();
+      ubah();
+    }));
+    el.querySelectorAll("[data-lrdel]").forEach((b) => b.onclick = () => {
+      if (!b.dataset.armed) { b.dataset.armed = "1"; b.textContent = "Klik lagi"; return; }
+      cfg.pegawaiLuar.splice(+b.dataset.lrdel, 1); ubah();
+    });
+    $("#lr-add").onclick = () => { cfg.pegawaiLuar.push({ id: Date.now().toString(36), nama: "", nip: "", cabang: "", posisi: "Backup", aktif: true }); scheduleSave(); renderBackup(); };
+    kunciForm(el);
   }
 
 
@@ -2175,7 +2488,10 @@ details > summary { cursor: pointer; font-weight: 600; }
     const x = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
     tip.style.left = x + "px"; tip.style.top = Math.min(e.clientY + 16, window.innerHeight - tip.offsetHeight - 8) + "px";
   });
+  // init role
+  activeRole = getRole();
   renderAll();
   loadCfg();
+  if (!activeRole) rolePickerModal();
 })();
 </script>

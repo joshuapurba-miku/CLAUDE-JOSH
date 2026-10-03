@@ -16,10 +16,12 @@
       delete x.tunj; delete x.makan;
       return x;
     });
-    ["adj", "pegawai", "bulanan", "invoice", "riwayat", "approval", "penolakan"].forEach((k) => { if (!c[k] || typeof c[k] !== "object") c[k] = {}; });
+    ["adj", "pegawai", "bulanan", "invoice", "riwayat", "approval", "penolakan", "backup"].forEach((k) => { if (!c[k] || typeof c[k] !== "object") c[k] = {}; });
     const dsh = Object.fromEntries(d.shifts.map((x) => [x.nama, x]));
     c.shifts = (c.shifts || []).map((x) => (x.nama === "Lapangan 09-16" || x.nama === "Lapangan 09-18") && !x.cabang && dsh[x.nama] && x.masuk === dsh[x.nama].masuk && x.pulang === dsh[x.nama].pulang ? Object.assign({}, x, { cabang: dsh[x.nama].cabang }) : x);
     if (!Array.isArray(c.approvers)) c.approvers = [];
+    if (!Array.isArray(c.pegawaiLuar)) c.pegawaiLuar = [];
+    delete c.apPinHash;
     c.dasarHarian = Object.assign({}, d.dasarHarian, saved.dasarHarian || {});
     return c;
   }

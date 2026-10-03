@@ -236,7 +236,10 @@
     const x = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
     tip.style.left = x + "px"; tip.style.top = Math.min(e.clientY + 16, window.innerHeight - tip.offsetHeight - 8) + "px";
   });
+  // init role
+  activeRole = getRole();
   renderAll();
   loadCfg();
+  if (!activeRole) rolePickerModal();
 })();
 </script>

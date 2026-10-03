@@ -28,6 +28,7 @@
           <div><dt>Status</dt><dd>${esc(r.StatusKerja || "-")}</dd></div><div><dt>Performance</dt><dd>${esc(s.M.performance || "-")}</dd></div>
         </dl>
         <div class="att">${attItems(r).map((a) => `<div class="${a[2] ? "bad" : ""}"><b>${a[1]}</b><span>${a[0]}</span></div>`).join("")}</div>
+        ${barisBackup(r).map((t) => `<div class="muted">${esc(t)}</div>`).join("")}
         <div class="cols">
           <div><h4>Pendapatan</h4>${d.pend.map((x) => `<div class="sec">${esc(x.sec)}${x.info ? ` <small>(${esc(x.info)})</small>` : ""}</div>${x.items.map((it) => ln(it)).join("")}${x.items.length > 1 ? ln(["Subtotal", x.total], "sub") : ""}`).join("")}
             ${ln(["Total pendapatan bruto", s.bruto], "tot")}</div>
@@ -107,6 +108,7 @@
       doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...MUTED); doc.text(a[0], cx + 3, cy + 10);
     });
     y += 33;
+    barisBackup(r).forEach((t) => { doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...MUTED); const ln = doc.splitTextToSize(t, W); doc.text(ln, X0, y - 3); y += ln.length * 4; });
     // dua kolom
     const CW = 86, XL = X0, XR = X0 + W - CW;
     const head = (t, x, yy) => { doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...G); doc.text(t.toUpperCase(), x, yy); doc.setDrawColor(...G); doc.setLineWidth(0.4); doc.line(x, yy + 1.5, x + CW, yy + 1.5); return yy + 7; };
@@ -200,4 +202,11 @@
     doc.setFontSize(7); doc.setTextColor(93, 104, 116);
     if (tt) { doc.text("Ditandatangani digital · kunci " + ap.kode, cx, y + 37.5, { align: "center" }); if (r) doc.text("Kode verifikasi slip " + kodeSlip(r), cx, y + 41, { align: "center" }); }
     else if (!ap) doc.text("Belum disetujui", cx, y + 37.5, { align: "center" });
+  }
+
+  function barisBackup(r) {
+    const out = [];
+    if (r.BackupList && r.BackupList.length) out.push("Backup: " + r.BackupList.map((o) => `${tglPendek(o.tgl)} menggantikan ${o.namaDiganti}${o.cabang ? " (" + o.cabang + ")" : ""}`).join(", "));
+    if (r.DibackupList && r.DibackupList.length) out.push("Dibackup: " + r.DibackupList.map((o) => `${tglPendek(o.tgl)} oleh ${o.oleh}`).join(", "));
+    return out;
   }

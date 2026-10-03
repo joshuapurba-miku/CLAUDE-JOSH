@@ -55,6 +55,11 @@
   function bulanIni(key) { const b = cfg.bulanan[hasil ? hasil.periode : ""] || {}; return b[key] || {}; }
 
   function hcRate(j) { return cfg.hcTarif.find((t) => j >= +t.min && j <= +t.max) || cfg.hcTarif[cfg.hcTarif.length - 1] || { bagi: 0, makan: 0, trans: 0 }; }
+  function harianPegawai(key, cabang, posisi) {
+    const t = tarifRow(cabang, posisi) || TARIF_KOSONG, P = cfg.pegawai[key] || {}, d = cfg.dasarHarian || {};
+    const ov = (o, b) => isNum(o) ? +o : (+b || 0);
+    return ((d.gaji ? ov(P.oGaji, t.gaji) : 0) + (d.tunjMT ? ov(P.oTunjMT, t.tunjMT) : 0) + (d.tunjKin ? ov(P.oTunjKin, t.tunjKin) : 0) + (d.tunjAbs ? ov(P.oTunjAbs, t.tunjAbs) : 0)) / (cfg.pembagi || 26);
+  }
   function hitungGaji(r, periode) {
     const t = tarifRow(r.Cabang, r.Posisi) || TARIF_KOSONG;
     const P = cfg.pegawai[r.key] || {}, M = (cfg.bulanan[periode] || {})[r.key] || {};
@@ -75,7 +80,7 @@
     let faktor = 1, ketProrata = "";
     if (jadwal.length && prorata) { faktor = Math.min(1, dibayar / jadwal.length); ketProrata = `prorata ${dibayar}/${jadwal.length} hari`; }
     else if (jadwal.length && (M.tglMasuk || M.tglKeluar)) { faktor = jadwalMasa.length / jadwal.length; ketProrata = `prorata masa kerja ${jadwalMasa.length}/${jadwal.length} hari`; }
-    const ada = g.gaji > 0 || tanpaJadwal;
+    const ada = g.gaji > 0 || tanpaJadwal || !!r.Luar;
     const d = cfg.dasarHarian || {};
     const harian = ((d.gaji ? g.gaji : 0) + (d.tunjMT ? g.tunjMT : 0) + (d.tunjKin ? g.tunjKin : 0) + (d.tunjAbs ? g.tunjAbs : 0)) / (cfg.pembagi || 26);
     const fx = (x) => Math.round(x * faktor);
@@ -84,7 +89,7 @@
       { sec: "B. Home Cleaning", info: orders.length ? `${orders.length} order · ${hc.jam} jam` : "", items: [["Imbal bagi hasil", hc.bagi + v(M.hcBagi)], ["Tunjangan makan", hc.makan + v(M.hcMakan)], ["Tunjangan transport", hc.trans + v(M.hcTrans)]] },
       { sec: "C. Project", items: [["Imbal bagi hasil", v(M.pjBagi)], ["Tunjangan makan", v(M.pjMakan)], ["Tunjangan transport", v(M.pjTrans)], ["Tunjangan kinerja", v(M.pjKin)]] },
       { sec: "D. Additional performance", items: [["Insentif Jaspro", v(M.jaspro)], ["Bonus performance", v(M.bonusPerf)], ["Bonus zero complain", v(M.bonusZero)], [M.bonusKet ? `Bonus lain (${M.bonusKet})` : "Bonus lain", v(M.bonusLain)]] },
-      { sec: "E. Lain-lain", items: [["Insentif backup", v(M.backup)], [`Lembur (${jam(r.LemburJam)})`, r.LemburUpah], ["Lembur tambahan (PKS)", v(M.lemburTambah)],
+      { sec: "E. Lain-lain", items: [[r.BackupN ? `Insentif backup (${r.BackupN} hari)` : "Insentif backup", v(M.backup) + (r.BackupUpah || 0)], [`Lembur (${jam(r.LemburJam)})`, r.LemburUpah], ["Lembur tambahan (PKS)", v(M.lemburTambah)],
         [`Insentif mengganti (${r.Double}× double shift)`, r.Double * cfg.bonusDouble], ["Add-on benefit", v(P.addOn)], ["Pengganti cuti", v(M.penggantiCuti)],
         ["TIP dari customer", v(M.tip)], [M.lainKet ? `Lain-lain (${M.lainKet})` : "Lain-lain", v(M.lain)], ["Payroll adjustment (kurang bayar)", v(M.adjPlus)]] }
     ];
@@ -112,15 +117,49 @@
 
     const grup = new Map();
     det.forEach((d) => { if (!grup.has(d.key)) grup.set(d.key, []); grup.get(d.key).push(d); });
+    // pegawai di luar Kolabo (backup / home cleaning / freelance)
+    const luar = (cfg.pegawaiLuar || []).filter((p) => p.aktif !== false && p.nama);
+    const infoKey = (k) => { if (grup.has(k)) { const f = grup.get(k)[0]; return { nama: f.Nama, cabang: f.Cabang, luar: false }; } const p = luar.find((x) => "LUAR:" + x.id === k); return p ? { nama: p.nama, cabang: p.cabang, luar: true } : null; };
+    // jadwal backup: hubungkan pengganti dan yang digantikan
+    const dMap = new Map(det.map((d) => [d.key + "|" + d.Tanggal, d]));
+    const bkUpah = {}, backup = [], dobel = {};
+    (cfg.backup[periode] || []).forEach((bk, i) => {
+      const o = Object.assign({ idx: i }, bk), alasan = [];
+      const pg = infoKey(bk.pengganti), dg = grup.has(bk.diganti) ? grup.get(bk.diganti)[0] : null;
+      const d = dMap.get(bk.diganti + "|" + bk.tgl);
+      o.namaPengganti = pg ? pg.nama : "(belum dipilih)"; o.namaDiganti = dg ? dg.Nama : "(belum dipilih)"; o.cabang = dg ? dg.Cabang : "";
+      o.harian = dg ? harianPegawai(bk.diganti, dg.Cabang, dg.Posisi) : 0;
+      o.upahPakai = isNum(bk.upah) ? +bk.upah : Math.round(o.harian);
+      let sev = "ok";
+      if (!bk.tgl || !pg || !dg) { sev = "konflik"; alasan.push("lengkapi tanggal, pengganti, dan yang digantikan"); }
+      else if (bk.pengganti === bk.diganti) { sev = "konflik"; alasan.push("pengganti dan yang digantikan orang yang sama"); }
+      else if (!d) { sev = "konflik"; alasan.push(`tanggal ${bk.tgl} tidak ada di data Kolabo ${dg.Nama}`); }
+      else {
+        const k2 = bk.diganti + "|" + bk.tgl;
+        if (dobel[k2]) { sev = "konflik"; alasan.push(`${dg.Nama} sudah dibackup oleh ${dobel[k2]} di tanggal yang sama`); }
+        dobel[k2] = o.namaPengganti;
+        o.statusDiganti = STATUS_LABEL[d.Status];
+        if (d.Status === "Present") { sev = "konflik"; alasan.push(`${dg.Nama} tercatat HADIR: gaji dibayar dua kali. Koreksi absensinya atau hapus backup ini`); }
+        else if (d.Status === "Sakit" || d.Status === "Cuti") { if (sev === "ok") sev = "perhatian"; alasan.push(`${dg.Nama} tetap dibayar (${d.Status.toLowerCase()}), backup juga dibayar`); }
+        else if (d.Status === "Off") { if (sev === "ok") sev = "perhatian"; alasan.push(`hari ini jadwal off ${dg.Nama}`); }
+        else alasan.push(`${dg.Nama} ${d.Status === "Izin" ? "izin" : "tanpa keterangan"}, gajinya dipotong untuk hari ini`);
+        const dp = !pg.luar ? dMap.get(bk.pengganti + "|" + bk.tgl) : null;
+        if (dp && dp.Status === "Present") { if (sev === "ok") sev = "perhatian"; alasan.push(`${pg.nama} juga bekerja di jadwalnya sendiri (double shift)`); }
+        d.dibackup = (d.dibackup || []).concat([o.namaPengganti]);
+        d.Catatan.push("dibackup oleh " + o.namaPengganti);
+      }
+      o.sev = sev; o.alasan = alasan.join("; ");
+      if (sev !== "konflik") { const u = bkUpah[bk.pengganti] = bkUpah[bk.pengganti] || { n: 0, upah: 0, daftar: [] }; u.n++; u.upah += o.upahPakai; u.daftar.push(o); }
+      backup.push(o);
+    });
     const rekap = [];
-    grup.forEach((gr, key) => {
-      const f = gr[0];
+    const buatRekap = (key, f, gr, isLuar) => {
       const st = (s) => gr.filter((d) => d.Status === s);
       const hadir = st("Present");
       const telat = hadir.filter((d) => d["Telat (mnt)"] > 0), pc = hadir.filter((d) => d["Pulang Cepat (mnt)"] > 0);
       const sum = (arr, k) => arr.reduce((s, d) => s + (+d[k] || 0), 0);
       const r = {
-        key, Nama: f.Nama, NIP: f.NIP, Cabang: f.Cabang, Posisi: f.Posisi, detail: gr,
+        key, Nama: f.Nama, NIP: f.NIP, Cabang: f.Cabang, Posisi: f.Posisi, detail: gr, Luar: isLuar,
         Hadir: hadir.length, Absen: st("Absent").length, Izin: st("Izin").length, Sakit: st("Sakit").length, Cuti: st("Cuti").length, Off: st("Off").length,
         TidakCI: gr.filter((d) => d.rawStatus === "Absent").length, TidakCO: hadir.filter((d) => d.tidakCO).length,
         TelatKali: telat.length, TelatMnt: sum(telat, "Telat (mnt)"), TelatKenaKali: hadir.filter((d) => d["Potongan Telat (Rp)"] > 0).length, TelatPot: sum(hadir, "Potongan Telat (Rp)"),
@@ -131,21 +170,27 @@
         ShiftBerubah: hadir.filter((d) => d["Status Shift"].startsWith("shift berubah")).length,
         TelatHris: sum(hadir, "Telat HRIS (mnt)"), Dikoreksi: gr.filter((d) => d.adj).length
       };
+      const bu = bkUpah[key];
+      r.BackupN = bu ? bu.n : 0; r.BackupUpah = bu ? bu.upah : 0; r.BackupList = bu ? bu.daftar : [];
+      r.DibackupList = gr.filter((d) => d.dibackup).map((d) => ({ tgl: d.Tanggal, oleh: d.dibackup.join(", ") }));
       r.Terjadwal = r.Hadir + r.Absen + r.Izin + r.Sakit + r.Cuti;
       const s = hitungGaji(r, periode);
       r.slip = s;
       r.adaTarif = s.ada; r.gaji = s.g.gaji; r.Pendapatan = s.bruto; r.Potongan = s.potongan;
       r.PotAbsen = s.ada ? s.harian * (r.Absen + r.Izin) : 0;
       r.GajiBersih = s.ada ? Math.max(0, s.thp) : null; r.Minus = s.ada && s.thp < 0;
-      r.Mengganti = r.Double + (+s.M.mengganti || 0);
-      r.Jabatan = s.P.jabatan || r.Posisi; r.StatusKerja = s.P.status || "";
+      r.Mengganti = r.Double + (+s.M.mengganti || 0) + r.BackupN;
+      r.Jabatan = s.P.jabatan || r.Posisi; r.StatusKerja = s.P.status || (isLuar ? "Di luar Kolabo" : "");
       r.Biaya = s.bruto + s.benefit; r.Benefit = s.benefit; r.TanpaJadwal = s.tanpaJadwal; r.Order = s.orders.length; r.OrderJam = s.hc.jam;
       rekap.push(r);
-    });
+    };
+    grup.forEach((gr, key) => { const f = gr[0]; buatRekap(key, { Nama: f.Nama, NIP: f.NIP, Cabang: f.Cabang, Posisi: f.Posisi }, gr, false); });
+    luar.forEach((p) => buatRekap("LUAR:" + p.id, { Nama: p.nama, NIP: p.nip || "", Cabang: p.cabang || "Di luar Kolabo", Posisi: p.posisi || "Backup" }, [], true));
 
     [...rekap].sort((a, b) => a.Cabang.localeCompare(b.Cabang) || a.Nama.localeCompare(b.Nama)).forEach((r, i) => { r.NoSlip = `SG/${periode.slice(0, 4)}/${periode.slice(5, 7)}/${String(i + 1).padStart(3, "0")}`; });
     const review = [];
     det.forEach((d) => { if (d._review.length) review.push({ key: d.key, Tanggal: d.Tanggal, Nama: d.Nama, NIP: d.NIP, Cabang: d.Cabang, "Jadwal HRIS": d["Jadwal HRIS"], "Check In": d["Check In"], "Check Out": d["Check Out"], Alasan: d._review.join("; ") }); });
+    backup.forEach((o) => { if (o.sev !== "ok") review.push({ key: o.diganti, Tanggal: o.tgl || "", Nama: o.namaDiganti, NIP: "", Cabang: o.cabang, "Jadwal HRIS": "", "Check In": "", "Check Out": "", Alasan: `Backup ${o.sev === "konflik" ? "BERMASALAH" : "perlu dicek"} (${o.namaPengganti} menggantikan ${o.namaDiganti}): ${o.alasan}` }); });
     rekap.forEach((r) => { if (r.Hadir === 0 && r.Absen > 0) review.push({ key: r.key, Tanggal: "", Nama: r.Nama, NIP: r.NIP, Cabang: r.Cabang, "Jadwal HRIS": "", "Check In": "", "Check Out": "", Alasan: "Tidak pernah hadir sebulan penuh (" + r.Absen + " hari tanpa keterangan): resign, belum pakai aplikasi, atau cuti?" }); });
     const nipNama = new Map();
     rows.forEach((r) => { if (!nipNama.has(r.nip)) nipNama.set(r.nip, new Set()); nipNama.get(r.nip).add(r.nama); });
@@ -153,7 +198,7 @@
       if (nip && nip !== "0" && v.size > 1) review.push({ Tanggal: "", Nama: [...v].join(", "), NIP: nip, Cabang: "", "Jadwal HRIS": "", "Check In": "", "Check Out": "", Alasan: "NIP dipakai lebih dari satu orang, rapikan di HRIS" });
       if (!nip || nip === "0") v.forEach((n) => review.push({ Tanggal: "", Nama: n, NIP: nip, Cabang: "", "Jadwal HRIS": "", "Check In": "", "Check Out": "", Alasan: "NIP kosong/0, lengkapi di HRIS" }));
     });
-    return { det, rekap, review, periode, tanggal: tglList, dari: tglList[0], sampai: tglList[tglList.length - 1] };
+    return { det, rekap, review, backup, periode, tanggal: tglList, dari: tglList[0], sampai: tglList[tglList.length - 1] };
   }
 
   function terbilang(n) {

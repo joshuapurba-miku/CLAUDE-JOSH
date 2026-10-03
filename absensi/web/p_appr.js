@@ -75,14 +75,7 @@
       rd.readAsDataURL(file);
     });
   }
-  let pinMsg = "", pinOk = "";
-  const pinHash = (pin) => sha256("rekap-gaji|" + String(pin).trim());
-  async function cekPIN(pin) {
-    if (!cfg.apPinHash) throw new Error("Buat PIN direktur dulu.");
-    if (!String(pin || "").trim()) throw new Error("Isi PIN direktur dulu.");
-    if ((await pinHash(pin)) !== cfg.apPinHash) throw new Error("PIN direktur salah. Pastikan tidak ada isian otomatis dari browser; centang \"Tampilkan PIN\" untuk melihat yang diketik.");
-    return true;
-  }
+
 
   async function buatKunciApprover(nama, jabatan) {
     const kp = await crypto.subtle.generateKey(ALG, true, ["sign", "verify"]);
@@ -189,16 +182,8 @@
           <div><button class="btn ghost" id="ak-buat">Buat kunci approver di laptop ini</button></div><p class="hint">Hanya dilakukan sekali oleh approver, di laptopnya sendiri.</p>`}</div>
       <div class="stack" style="gap:10px"><h3>Approver terdaftar (di laptop penyiap)</h3>
         ${daftar.length ? `<div class="scroll"><table><thead><tr><th>Nama</th><th>Jabatan</th><th>Kode kunci</th><th></th></tr></thead><tbody>${daftar.map((a, i) => `<tr><td>${esc(a.nama)}</td><td>${esc(a.jabatan || "")}</td><td style="font-family:var(--font-num)">${esc(a.kode)}</td><td><button class="btn ghost small" data-apdel="${i}">Hapus</button></td></tr>`).join("")}</tbody></table></div>` : '<p class="sub">Belum ada. Selama kosong, gaji disetujui langsung di laptop ini.</p>'}
-        ${cfg.apPinHash ? `<p class="sub"><span class="pill ok">PIN direktur aktif</span> Menambah atau menghapus approver memerlukan PIN ini.</p>
-          <div class="row" style="align-items:flex-end"><div class="field"><label for="ak-pin">PIN direktur</label><input type="password" id="ak-pin" name="ak-pin-rekapgaji" inputmode="numeric" autocomplete="new-password" data-lpignore="true" data-1p-ignore maxlength="8" style="width:150px" placeholder="masukkan PIN"></div>
-          <button class="btn ghost" id="ak-tambah">Tambah dari kartu approver (.json)</button><input type="file" id="ak-file" accept=".json,application/json" hidden></div>
-          <label class="row hint" style="gap:6px"><input type="checkbox" id="pin-lihat"> Tampilkan PIN</label>
-          <p class="hint">Lupa PIN? <button class="btn ghost small" id="pin-reset">Reset PIN</button> Reset menghapus PIN <b>dan semua approver terdaftar</b>; daftarkan ulang bersama direktur.</p>`
-        : `<p class="sub"><b>Langkah pertama:</b> direktur membuat PIN di laptop ini. PIN ini dibutuhkan setiap kali daftar approver diubah.</p>
-          <div class="row" style="align-items:flex-end"><div class="field"><label for="pin-baru">PIN baru (4–8 angka)</label><input type="password" id="pin-baru" name="pin-baru-rekapgaji" inputmode="numeric" autocomplete="new-password" data-lpignore="true" data-1p-ignore maxlength="8" style="width:150px" placeholder="contoh: 2580"></div><div class="field"><label for="pin-ulang">Ulangi PIN</label><input type="password" id="pin-ulang" name="pin-ulang-rekapgaji" inputmode="numeric" autocomplete="new-password" data-lpignore="true" data-1p-ignore maxlength="8" style="width:150px" placeholder="ketik ulang"></div>
-          <button class="btn" id="pin-simpan">Simpan PIN</button></div>
-          <label class="row hint" style="gap:6px"><input type="checkbox" id="pin-lihat"> Tampilkan PIN</label>`}
-        ${pinOk ? `<p class="hint" style="color:var(--accent)">${esc(pinOk)}</p>` : ""}<p class="hint neg" id="ak-msg">${esc(pinMsg)}</p>
+        <div class="row"><button class="btn ghost" id="ak-tambah">Tambah dari kartu approver (.json)</button><input type="file" id="ak-file" accept=".json,application/json" hidden></div>
+        <p class="hint neg" id="ak-msg"></p>
         <p class="hint">Cocokkan kode kunci dengan approver lewat telepon/WA saat mendaftarkan.</p></div></div></div>`;
   }
   function bindAturanPersetujuan() {
@@ -206,30 +191,16 @@
       const nama = $("#ak-nama").value.trim(); if (!nama) { $("#ak-nama").focus(); return; }
       try { await buatKunciApprover(nama, $("#ak-jab").value.trim()); renderAturan(); } catch (e) { setSaved("Kunci tidak bisa dibuat di browser ini: " + (e.message || e)); }
     };
-    pinMsg = ""; pinOk = "";
     const err = (t) => { $("#ak-msg").textContent = t; };
-    if ($("#pin-lihat")) $("#pin-lihat").onchange = (e) => { ["#ak-pin", "#pin-baru", "#pin-ulang"].forEach((q) => { if ($(q)) $(q).type = e.target.checked ? "text" : "password"; }); };
-    if ($("#pin-simpan")) $("#pin-simpan").onclick = async () => {
-      const a = $("#pin-baru").value.trim(), b = $("#pin-ulang").value.trim();
-      if (!/^\d{4,8}$/.test(a)) { err("PIN harus 4 sampai 8 angka."); $("#pin-baru").focus(); return; }
-      if (a !== b) { err("PIN dan ulangan PIN tidak sama. Ketik ulang."); $("#pin-ulang").value = ""; $("#pin-ulang").focus(); return; }
-      cfg.apPinHash = await pinHash(a); scheduleSave(); pinOk = "PIN direktur tersimpan. Simpan baik-baik; PIN tidak bisa dilihat kembali."; renderAturan();
-    };
-    if ($("#pin-reset")) $("#pin-reset").onclick = (e) => {
-      const btn = e.target;
-      if (!btn.dataset.armed) { btn.dataset.armed = "1"; btn.textContent = "Klik lagi untuk reset"; return; }
-      cfg.apPinHash = ""; cfg.approvers = []; scheduleSave(); pinOk = "PIN dan daftar approver sudah dihapus. Buat PIN baru bersama direktur."; renderAturan();
-    };
     if ($("#ak-ttd")) { $("#ak-ttd").onclick = () => $("#ak-ttdfile").click(); $("#ak-ttdfile").onchange = async (e) => {
       const f = e.target.files[0]; if (!f) return;
       try { const k = kunciLokal(); k.ttdImg = await olahTTD(f); localStorage.setItem(APPR_KEY, JSON.stringify(k)); renderAturan(); } catch (er) { setSaved(er.message || String(er)); }
     }; }
     if ($("#ak-kartu")) $("#ak-kartu").onclick = () => { const k = kunciLokal(); saveFile(`Kartu_Approver_${k.nama.replace(/[^\w]+/g, "_")}.json`, JSON.stringify({ jenis: "kartu-approver", nama: k.nama, jabatan: k.jabatan, kode: k.kode, pub: k.pub }, null, 1), "application/json"); };
     if ($("#ak-hapus")) $("#ak-hapus").onclick = (e) => { const b = e.target; if (b.dataset.armed) { try { localStorage.removeItem(APPR_KEY); } catch (er) { /* abaikan */ } renderAturan(); } else { b.dataset.armed = "1"; b.textContent = "Klik lagi: kunci hilang permanen"; } };
-    if ($("#ak-tambah")) { $("#ak-tambah").onclick = async () => { try { await cekPIN($("#ak-pin").value); $("#ak-file").click(); } catch (er) { err(er.message); $("#ak-pin").select(); } }; $("#ak-file").onchange = async (e) => {
+    if ($("#ak-tambah")) { $("#ak-tambah").onclick = () => $("#ak-file").click(); $("#ak-file").onchange = async (e) => {
       const f = e.target.files[0]; if (!f) return; e.target.value = "";
       try {
-        await cekPIN($("#ak-pin").value);
         const o = JSON.parse(await f.text());
         if (o.jenis !== "kartu-approver" || !o.pub) throw new Error("Bukan kartu approver.");
         o.kode = await kodeKunci(o.pub);
@@ -238,7 +209,6 @@
       } catch (er) { err(er.message || String(er)); }
     }; }
     document.querySelectorAll("[data-apdel]").forEach((b) => b.onclick = async () => {
-      if (!$("#ak-pin")) { err("Buat PIN direktur dulu."); return; }
-      try { await cekPIN($("#ak-pin").value); cfg.approvers.splice(+b.dataset.apdel, 1); scheduleSave(); renderAturan(); } catch (er) { err(er.message || String(er)); }
+      cfg.approvers.splice(+b.dataset.apdel, 1); scheduleSave(); renderAturan();
     });
   }

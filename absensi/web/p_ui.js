@@ -18,8 +18,10 @@
   const cabangOpts = (sel, semua) => (semua ? `<option value="">Semua lokasi</option>` : "") + [...new Set(hasil.rekap.map((r) => r.Cabang))].sort().map((c) => `<option${c === sel ? " selected" : ""} value="${esc(c)}">${esc(c)}</option>`).join("");
 
   // ---------- tab ----------
-  const DATA_TABS = { dash: () => renderDash(), rekap: () => renderRekap(), input: () => renderInput(), slip: () => renderSlip() };
+  const DATA_TABS = { dash: () => renderDash(), rekap: () => renderRekap(), input: () => renderInput(), bk: () => renderBackup(), slip: () => renderSlip() };
   function showTab(name) {
+    const allowed = roleTabs();
+    if (allowed && !allowed.includes(name)) name = allowed[0];
     currentTab = name;
     document.querySelectorAll("#tabs button").forEach((x) => x.setAttribute("aria-selected", x.dataset.tab === name ? "true" : "false"));
     Object.keys(DATA_TABS).concat(["gaji", "aturan"]).forEach((t) => { $("#tab-" + t).hidden = t !== name; });
@@ -27,7 +29,7 @@
     if (name === "gaji") renderGaji();
     if (name === "aturan") renderAturan();
   }
-  function renderAll() { applyBrand(); renderBar(); updateTabCounts(); showTab(currentTab); }
+  function renderAll() { applyBrand(); applyRoleTabs(); renderBar(); updateTabCounts(); showTab(currentTab); }
   const terkunci = () => !!(hasil && cfg.approval[hasil.periode]);
   function lockBanner() {
     const a = hasil && cfg.approval[hasil.periode];
@@ -57,7 +59,25 @@
     set("rekap", hasil ? hasil.review.length : 0);
     set("gaji", hasil ? new Set(hasil.rekap.filter((r) => !r.adaTarif && r.Hadir > 0).map((r) => r.Cabang + r.Posisi)).size : 0);
   }
+  function renderRoleBar() {
+    const el = $("#role-bar");
+    if (!el) return;
+    if (!activeRole) { el.innerHTML = ""; return; }
+    const r = ROLES[activeRole];
+    const flowSteps = [
+      { key: "kepatuhan", label: "1. Validasi Absensi" },
+      { key: "operasional", label: "2. Penggajian" },
+      { key: "direktur", label: "3. Persetujuan" }
+    ];
+    el.innerHTML = `<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px">
+      ${roleBadgeHTML()}
+      <div class="role-flow">${flowSteps.map((s, i) => `${i ? '<span class="arrow">→</span>' : ""}<span class="step-chip${s.key === activeRole ? " active" : ""}">${s.label}</span>`).join("")}</div>
+    </div>`;
+    const sw = el.querySelector("#role-switch");
+    if (sw) sw.onclick = () => rolePickerModal();
+  }
   function renderBar() {
+    renderRoleBar();
     const el = $("#databar");
     if (!hasil) { el.innerHTML = ""; return; }
     const kor = Object.keys(cfg.adj).filter((k) => k.slice(-10).startsWith(hasil.periode)).length;
@@ -72,19 +92,44 @@
   // ---------- upload ----------
   function uploadPanel() {
     const nTarif = cfg.tarif.length, isi = cfg.tarif.filter((t) => +t.gaji > 0).length;
+    const role = activeRole;
+    // Role-specific upload guidance
+    if (role === "operasional") {
+      return `<div class="stack"><div class="panel"><div class="steps">
+        <div class="step"><div class="no">1</div><div><b>Impor data validasi</b><span class="sub">Muat file validasi (.json) dari Admin Kepatuhan yang sudah memvalidasi absensi.</span></div></div>
+        <div class="step ${isi ? "done" : ""}"><div class="no">2</div><div><b>Atur komponen gaji</b><span class="sub">${isi} dari ${nTarif} tarif sudah diisi. Atur gaji, lembur, backup, potongan.</span></div></div>
+        <div class="step"><div class="no">3</div><div><b>Kirim ke Direktur</b><span class="sub">Ekspor paket persetujuan untuk ditinjau dan ditandatangani Direktur.</span></div></div>
+      </div></div>
+      <div class="drop" id="drop"><h2>Impor data validasi dari Kepatuhan</h2><p class="sub">File .json dari Admin Kepatuhan & Legal. Atau upload langsung file .xlsx dari HRIS.</p>
+        <div class="row" style="gap:8px"><button class="btn" id="pick-val">Pilih file validasi (.json)</button><button class="btn ghost" id="pick">atau upload .xlsx langsung</button></div><div id="err"></div></div>
+      <input type="file" id="val-file" accept=".json,application/json" hidden></div>`;
+    }
+    if (role === "direktur") {
+      return `<div class="stack"><div class="panel"><div class="steps">
+        <div class="step"><div class="no">1</div><div><b>Buka paket persetujuan</b><span class="sub">File .json dari Admin Operasional berisi data gaji yang siap disetujui.</span></div></div>
+        <div class="step"><div class="no">2</div><div><b>Tinjau data</b><span class="sub">Periksa rekap gaji, lalu setujui atau tolak.</span></div></div>
+        <div class="step"><div class="no">3</div><div><b>Tanda tangan</b><span class="sub">Tanda tangan digital Anda otomatis masuk ke semua slip gaji.</span></div></div>
+      </div></div>
+      <div class="drop" id="drop"><h2>Buka paket persetujuan</h2><p class="sub">File .json dari Admin Operasional. Tinjau data gaji dan berikan persetujuan.</p>
+        <button class="btn" id="pkg-buka">Pilih file persetujuan (.json)</button><div id="err"></div></div>
+      <input type="file" id="pkg-file" accept=".json,application/json" hidden></div>`;
+    }
+    // Default / kepatuhan
     return `<div class="stack"><div class="panel"><div class="steps">
       <div class="step ${isi ? "done" : ""}"><div class="no">1</div><div><b>Isi tarif gaji</b><span class="sub">${isi} dari ${nTarif} kombinasi lokasi + posisi sudah diisi. <a href="#" data-go="gaji">Buka Tarif Gaji</a></span></div></div>
       <div class="step"><div class="no">2</div><div><b>Upload export bulan ini</b><span class="sub">Absensi dihitung otomatis, termasuk shift yang berubah.</span></div></div>
-      <div class="step"><div class="no">3</div><div><b>Cek, koreksi, unduh slip</b><span class="sub">Koreksi absensi per lokasi, isi komponen variabel, lalu unduh slip PDF.</span></div></div>
+      <div class="step"><div class="no">3</div><div><b>Validasi absensi</b><span class="sub">Cek kehadiran, koreksi yang salah, lalu ekspor data validasi untuk Admin Operasional.</span></div></div>
     </div></div>
     <div class="drop" id="drop"><h2>Upload export absensi dari HRIS</h2><p class="sub">File .xlsx persis seperti hasil download. Data dihitung di browser Anda dan tidak dikirim ke mana pun.</p>
       <button class="btn" id="pick">Pilih file .xlsx</button><p class="hint">atau tarik file ke kotak ini</p><div id="err"></div></div>
-    <div class="panel row between"><div><h3>Anda approver?</h3><p class="sub">Buka paket persetujuan (.json) yang dikirim penyiap gaji untuk meninjau dan menyetujui.</p></div><button class="btn ghost" id="pkg-buka">Buka paket persetujuan</button><input type="file" id="pkg-file" accept=".json,application/json" hidden></div></div>`;
+    ${!role || role === "kepatuhan" ? "" : '<div class="panel row between"><div><h3>Anda approver?</h3><p class="sub">Buka paket persetujuan (.json) yang dikirim penyiap gaji untuk meninjau dan menyetujui.</p></div><button class="btn ghost" id="pkg-buka">Buka paket persetujuan</button><input type="file" id="pkg-file" accept=".json,application/json" hidden></div>'}</div>`;
   }
   function bindUpload(root) {
     root.querySelectorAll("[data-go]").forEach((a) => a.onclick = (e) => { e.preventDefault(); showTab(a.dataset.go); });
     const pb = root.querySelector("#pkg-buka");
     if (pb) { pb.onclick = () => root.querySelector("#pkg-file").click(); root.querySelector("#pkg-file").onchange = (e) => { if (e.target.files[0]) bukaPaket(e.target.files[0]); }; }
+    const pv = root.querySelector("#pick-val");
+    if (pv) { pv.onclick = () => root.querySelector("#val-file").click(); root.querySelector("#val-file").onchange = (e) => { if (e.target.files[0]) imporValidasi(e.target.files[0]); }; }
     const drop = root.querySelector("#drop");
     if (!drop) return;
     root.querySelector("#pick").onclick = () => $("#file").click();
@@ -120,7 +165,7 @@
   const KODE_KET = [["H", "Hadir"], ["T", `Telat > ${"{a}"} mnt`], ["A", "Tanpa keterangan"], ["I", "Izin"], ["S", "Sakit"], ["C", "Cuti"], ["O", "Off / tidak ada order"]];
   function legendaKode() {
     return `<div class="keys">${KODE_KET.map(([k, l]) => `<span><span class="cell ${k}">${k === "O" ? "·" : k}</span>${l.replace("{a}", cfg.telatAmbang)}</span>`).join("")}
-      <span><span class="cell H adj">H</span>sudah dikoreksi</span><span><span class="cell H rev">H</span>perlu dicek</span></div>`;
+      <span><span class="cell H adj">H</span>sudah dikoreksi</span><span><span class="cell H rev">H</span>perlu dicek</span><span><span class="cell A bk">A</span>dibackup orang lain</span></div>`;
   }
   function tipHari(d) {
     const p = [`${d.Hari} ${tglPendek(d.Tanggal)}`, STATUS_LABEL[d.Status]];
@@ -129,10 +174,11 @@
     if (d["Lembur Dibayar (jam)"]) p.push(`lembur ${d["Lembur Dibayar (jam)"]} jam`);
     if (d._review.length) p.push("perlu dicek: " + d._review.join("; "));
     if (d.adj) p.push("dikoreksi" + (d.adj.ket ? ": " + d.adj.ket : ""));
+    if (d.dibackup) p.push("dibackup oleh " + d.dibackup.join(", "));
     return p.join(" · ");
   }
   function cellHTML(d) {
-    return `<button class="cell ${d.Kode}${d.adj ? " adj" : ""}${d._review.length ? " rev" : ""}" data-k="${esc(d.key)}" data-t="${d.Tanggal}" data-tip="${esc(tipHari(d))}" aria-label="${esc(d.Nama + ", " + tipHari(d))}">${d.Kode === "O" ? "·" : d.Kode}</button>`;
+    return `<button class="cell ${d.Kode}${d.adj ? " adj" : ""}${d.dibackup ? " bk" : ""}${d._review.length ? " rev" : ""}" data-k="${esc(d.key)}" data-t="${d.Tanggal}" data-tip="${esc(tipHari(d))}" aria-label="${esc(d.Nama + ", " + tipHari(d))}">${d.Kode === "O" ? "·" : d.Kode}</button>`;
   }
   function renderRekap() {
     const el = $("#tab-rekap");
@@ -157,6 +203,15 @@
       tr.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } };
     });
     el.querySelectorAll("[data-goemp]").forEach((b) => b.onclick = () => { rekapMode = "pegawai"; filterCari = ""; filterCabang = ""; terbuka = new Set([b.dataset.goemp]); renderRekap(); const tr = document.querySelector(`tr.emp[data-row="${CSS.escape(b.dataset.goemp)}"]`); if (tr) tr.scrollIntoView({ block: "start" }); });
+    // Ekspor validasi button for kepatuhan role
+    if (activeRole === "kepatuhan" && hasil) {
+      const expBtn = document.createElement("div");
+      expBtn.className = "panel";
+      expBtn.style.marginTop = "16px";
+      expBtn.innerHTML = `<div class="row between"><div><h3>Selesai validasi?</h3><p class="sub">Ekspor data absensi yang sudah divalidasi untuk dikirim ke Admin Operasional.</p></div><button class="btn" id="ekspor-val">Ekspor data validasi</button></div>`;
+      el.querySelector(".stack").appendChild(expBtn);
+      $("#ekspor-val").onclick = () => eksporValidasi();
+    }
   }
 
   // ---------- rekap jam masuk & pulang (kalender sebulan) ----------
@@ -168,12 +223,12 @@
   function legendaJam() {
     return `<div class="keys"><span><span class="tm late">09:41</span> masuk terlambat</span><span><span class="tm early">14:10</span> pulang lebih cepat dari shift</span>
       <span><span class="tm ot">20:05</span> lewat jam pulang ≥ ${cfg.lemburMin} mnt</span><span><span class="tm miss">?</span> tidak check-out</span>
-      <span><span class="tm abs">A</span> tanpa keterangan</span><span><span class="tm lv">S</span> izin / sakit / cuti</span><span><span class="tm off">off</span> libur / tidak ada order</span><span><span class="tm adj">08:00</span> sudah dikoreksi</span></div>`;
+      <span><span class="tm abs">A</span> tanpa keterangan</span><span><span class="tm lv">S</span> izin / sakit / cuti</span><span><span class="tm off">off</span> libur / tidak ada order</span><span><span class="tm adj">08:00</span> sudah dikoreksi</span><span><span class="tm abs bk">A</span> dibackup orang lain</span></div>`;
   }
   function jamCell(d, jenis) {
     if (!d) return "";
     const base = `data-k="${esc(d.key)}" data-t="${d.Tanggal}" data-tip="${esc(tipHari(d))}"`;
-    const adj = d.adj ? " adj" : "";
+    const adj = (d.adj ? " adj" : "") + (d.dibackup ? " bk" : "");
     if (d.Status === "Off") return `<button class="tm off${adj}" ${base} aria-label="${esc(d.Nama)} ${d.Tanggal} libur">off</button>`;
     if (d.Status === "Absent") return `<button class="tm abs${adj}" ${base}>A</button>`;
     if (d.Status !== "Present") return `<button class="tm lv${adj}" ${base}>${d.Kode}</button>`;
@@ -186,9 +241,9 @@
     return `<button class="tm${cls}${adj}" ${base} aria-label="${esc(d.Nama)} pulang ${t}${d["Pulang Cepat (mnt)"] ? ", pulang cepat " + d["Pulang Cepat (mnt)"] + " menit" : ""}">${t}</button>`;
   }
   function rekapJamHTML() {
-    const cabs = [...new Set(hasil.rekap.map((r) => r.Cabang))].sort();
+    const cabs = [...new Set(hasil.rekap.filter((r) => !r.Luar).map((r) => r.Cabang))].sort();
     if (jamCabang && !cabs.includes(jamCabang)) jamCabang = "";
-    const rk = hasil.rekap.filter((r) => !jamCabang || r.Cabang === jamCabang).sort((a, b) => a.Cabang.localeCompare(b.Cabang) || a.Nama.localeCompare(b.Nama));
+    const rk = hasil.rekap.filter((r) => !r.Luar && (!jamCabang || r.Cabang === jamCabang)).sort((a, b) => a.Cabang.localeCompare(b.Cabang) || a.Nama.localeCompare(b.Nama));
     const days = hariBulan();
     const headDays = days.map((t) => { const hr = hariDari(t); return `<th class="${hr === "Min" ? "we" : ""}">${+t.slice(8)}<br>${hr.slice(0, 2)}</th>`; }).join("");
     const tabel = (jenis) => {
@@ -207,9 +262,9 @@
       <div><h3>Check-in (jam masuk)</h3>${tabel("in")}</div><div><h3>Check-out (jam pulang)</h3>${tabel("out")}</div></div>`;
   }
   function rekapLokasiHTML() {
-    const cabs = [...new Set(hasil.rekap.map((r) => r.Cabang))].sort();
+    const cabs = [...new Set(hasil.rekap.filter((r) => !r.Luar).map((r) => r.Cabang))].sort();
     if (!cabs.includes(rekapCabang)) rekapCabang = cabs[0];
-    const rk = hasil.rekap.filter((r) => r.Cabang === rekapCabang).sort((a, b) => a.Nama.localeCompare(b.Nama));
+    const rk = hasil.rekap.filter((r) => !r.Luar && r.Cabang === rekapCabang).sort((a, b) => a.Nama.localeCompare(b.Nama));
     const hadir = sumBy(rk, (r) => r.Hadir), terj = sumBy(rk, (r) => r.Terjadwal);
     const days = hasil.tanggal;
     let h = `<div class="panel stack"><div class="row between"><div class="row"><label class="sub" for="rcab">Lokasi</label><select id="rcab" style="width:auto">${cabangOpts(rekapCabang)}</select></div>
