@@ -71,15 +71,17 @@
     const d = cfg.dasarHarian || {};
     return ((d.gaji ? +g.gaji || 0 : 0) + (d.tunjMT ? +g.tunjMT || 0 : 0) + (d.tunjKin ? +g.tunjKin || 0 : 0) + (d.tunjAbs ? +g.tunjAbs || 0 : 0)) / (cfg.pembagi || 26);
   }
-  // upah harian sesuai tarif lokasi (dipakai untuk backup di lokasi itu)
-  function harianLokasi(cabang, posisi) {
-    const t = tarifRow(cabang, posisi) || cfg.tarif.find((x) => x.cabang === cabang && +x.gaji > 0) || TARIF_KOSONG;
-    return harianDari(t);
+  // upah mengganti 1 hari = komponen bulanan tarif lokasi & posisi yang digantikan ÷ pembagi
+  function upahGantiDari(t) {
+    const d = cfg.dasarGanti || {};
+    return ((d.gaji ? +t.gaji || 0 : 0) + (d.tunjMT ? +t.tunjMT || 0 : 0) + (d.tunjKin ? +t.tunjKin || 0 : 0) + (d.tunjAbs ? +t.tunjAbs || 0 : 0)) / (cfg.pembagi || 26);
   }
-  // upah harian pegawai sendiri (tarif lokasi & posisinya + gaji khusus jika diisi)
-  function harianPegawai(key, cabang, posisi) {
-    const t = tarifRow(cabang, posisi) || TARIF_KOSONG, P = cfg.pegawai[key] || {}, ov = (o, b) => isNum(o) ? +o : (+b || 0);
-    return harianDari({ gaji: ov(P.oGaji, t.gaji), tunjMT: ov(P.oTunjMT, t.tunjMT), tunjKin: ov(P.oTunjKin, t.tunjKin), tunjAbs: ov(P.oTunjAbs, t.tunjAbs) });
+  // posisi kosong = posisi lapangan (tarif terendah) di lokasi itu
+  function tarifGanti(cabang, posisi) {
+    const t = posisi && tarifRow(cabang, posisi);
+    if (t && +t.gaji > 0) return t;
+    const ada = cfg.tarif.filter((x) => x.cabang === cabang && +x.gaji > 0).sort((a, b) => upahGantiDari(a) - upahGantiDari(b));
+    return ada[0] || t || TARIF_KOSONG;
   }
   function hitungBPJS(P) {
     const B = cfg.bpjs || {}, base = isNum(P.bpjsDasar) ? +P.bpjsDasar : (+B.umk || 0);
@@ -114,7 +116,7 @@
     let faktor = 1, ketProrata = "";
     if (prorata) { const dasar = sebagian ? pembagi : jadwal.length; faktor = dasar ? Math.min(1, dibayar / dasar) : 0; ketProrata = `prorata ${dibayar}/${dasar} hari`; }
     else if (sebagian) { faktor = faktorAktif; ketProrata = `aktif ${jadwal.length} dari ${pembagi} hari`; }
-    const ada = g.gaji > 0 || tanpaJadwal || !!r.Luar;
+    const ada = g.gaji > 0 || tanpaJadwal || !!r.Luar || !!r.Manual;
     const harian = harianDari(g);
     const fx = (x) => Math.round(x * faktor);
     // tunjangan kehadiran: penuh jika hadir tepat waktu >= syarat (syarat & nilai prorata untuk yang belum aktif sebulan)
@@ -125,10 +127,11 @@
     const tunjHadir = pakaiAturanHadir ? (lolosHadir ? Math.round(g.tunjAbs * faktorAktif) : 0) : fx(g.tunjAbs);
     const ketHadir = pakaiAturanHadir && g.tunjAbs ? `tepat waktu ${tepat}/${syarat} hari${lolosHadir ? "" : ", tidak memenuhi"}` : "";
     // insentif mengganti: extend shift + masuk di hari off, prorata upah harian
-    const nExtend = tanpaJadwal ? 0 : r.detail.filter((d) => d.Status === "Present" && d["Double Shift"] === "ya").length;
+    const nExtend = tanpaJadwal ? 0 : r.detail.filter((d) => d.Status === "Present" && d["Double Shift"] === "ya" && !d.dipakaiBackup).length;
     const nOffMasuk = tanpaJadwal ? 0 : r.detail.filter((d) => d.Status === "OffMasuk" && !d.dipakaiBackup).length;
-    const mengganti = Math.round((nExtend + nOffMasuk) * harian);
-    const ketGanti = [nExtend ? nExtend + "× extend" : "", nOffMasuk ? nOffMasuk + "× masuk hari off" : ""].filter(Boolean).join(", ");
+    const tGanti = tarifGanti(r.Cabang, ""), upahGanti = upahGantiDari(tGanti);
+    const mengganti = Math.round((nExtend + nOffMasuk) * upahGanti);
+    const ketGanti = [nExtend ? nExtend + "× extend" : "", nOffMasuk ? nOffMasuk + "× masuk hari off" : ""].filter(Boolean).join(", ") + (nExtend + nOffMasuk && tGanti.posisi ? ` · tarif ${tGanti.posisi}` : "");
     // BPJS
     const bp = hitungBPJS(P);
     const bpjsTunai = (bp.kes === "tunai" ? bp.kesPerusahaan : 0) + (bp.tk === "tunai" ? bp.tkPerusahaan : 0);
@@ -223,8 +226,8 @@
       const d = dg ? dMap.get(bk.diganti + "|" + bk.tgl) : null;
       o.namaPengganti = pg ? pg.nama : "(belum dipilih)"; o.namaDiganti = dg ? dg.Nama : ""; o.cabang = bk.lokasi || (dg ? dg.Cabang : "");
       o.asal = pg ? pg.cabang : "";
-      o.lokasiSendiri = !!(pg && o.cabang && o.cabang === pg.cabang);
-      o.harian = !o.cabang ? 0 : o.lokasiSendiri ? harianPegawai(bk.pengganti, pg.cabang, pg.posisi) : harianLokasi(o.cabang, dg ? dg.Posisi : (pg && pg.posisi) || "");
+      const tg = o.cabang ? tarifGanti(o.cabang, dg ? dg.Posisi : "") : null;
+      o.posisiGanti = tg && tg.posisi || ""; o.harian = tg ? upahGantiDari(tg) : 0;
       o.upahPakai = isNum(bk.upah) ? +bk.upah : Math.round(o.harian);
       let sev = "ok";
       if (!bk.tgl || !pg || !o.cabang) { sev = "konflik"; alasan.push("lengkapi tanggal, pengganti, dan lokasi atau yang digantikan"); }
@@ -243,11 +246,13 @@
           else alasan.push(`${dg.Nama} ${d.Status === "Izin" ? "izin" : "tanpa keterangan"}, gajinya dipotong untuk hari ini`);
         } else alasan.push(`backup di ${o.cabang} tanpa menggantikan orang tertentu`);
         const dp = !pg.luar ? dMap.get(bk.pengganti + "|" + bk.tgl) : null;
-        if (dp && dp.Status === "Present") { if (sev === "ok") sev = "perhatian"; alasan.push(`${pg.nama} juga bekerja di jadwalnya sendiri (double shift)`); }
+        const dpExtend = dp && dp.Status === "Present" && dp["Double Shift"] === "ya";
+        if (dp && dp.Status === "Present" && !dpExtend) { if (sev === "ok") sev = "perhatian"; alasan.push(`${pg.nama} juga bekerja di jadwalnya sendiri tanpa extend (double shift?)`); }
+        if (dpExtend) alasan.push(`extend ${pg.nama} hari ini dihitung sebagai backup ini (tidak dibayar dua kali)`);
         if (dp && (dp.Status === "Absent" || dp.Status === "Izin")) { if (sev === "ok") sev = "perhatian"; alasan.push(`${pg.nama} tercatat ${dp.Status === "Absent" ? "tanpa keterangan" : "izin"} di jadwalnya sendiri dan ikut dipotong. Ubah jadi Off di Rekap Absensi jika dia dipindah ke lokasi backup`); }
         if (sev !== "konflik") {
-          if (dp && dp.Status === "OffMasuk") { dp.dipakaiBackup = true; dp._review = []; }
-          if (dp) dp.backupKeluar = (dp.backupKeluar || []).concat([{ cabang: o.cabang, diganti: o.namaDiganti }]);
+          if (dp && (dp.Status === "OffMasuk" || dpExtend)) { dp.dipakaiBackup = true; dp._review = []; }
+          if (dp) { const k = o.cabang === pg.cabang ? "backupDisini" : "backupKeluar"; dp[k] = (dp[k] || []).concat([{ cabang: o.cabang, diganti: o.namaDiganti }]); }
           if (d) { d.dibackup = (d.dibackup || []).concat([o.namaPengganti]); d.Catatan.push("dibackup oleh " + o.namaPengganti); }
         }
       }

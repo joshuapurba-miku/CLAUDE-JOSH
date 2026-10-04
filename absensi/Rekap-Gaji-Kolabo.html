@@ -798,6 +798,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       kehadiranMin: 25, extendTol: 60, biayaAdmin: 30000, biayaTransfer: 2500, bankPerusahaan: "",
       bpjs: { umk: 0, kesPekerja: 1, kesPerusahaan: 4, jhtPekerja: 2, jhtPerusahaan: 3.7, jpPekerja: 1, jpPerusahaan: 2, jkk: 0.24, jkm: 0.3 },
       dasarHarian: { gaji: true, tunjMT: true, tunjKin: false, tunjAbs: false },
+      dasarGanti: { gaji: true, tunjMT: true, tunjKin: true, tunjAbs: false }, slipPinLuar: "",
       tarif: SEED_TARIF.map(([c, p]) => Object.assign({ cabang: c, posisi: p }, TARIF_KOSONG)),
       lembur: [], adj: {}, pegawai: {}, bulanan: {},
       perusahaan: "", alamat: "", kota: "Makassar", ttdNama: "Joshua L.H Purba", ttdJabatan: "Direktur Operasional",
@@ -848,6 +849,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const awal = defaultCfg();
     c.dasarHarian = Object.assign({}, awal.dasarHarian, saved.dasarHarian || {});
     c.bpjs = Object.assign({}, awal.bpjs, saved.bpjs || {});
+    c.dasarGanti = Object.assign({}, awal.dasarGanti, saved.dasarGanti || {});
     if (saved.biayaAdmin == null) { const a = c.tarif.map((t) => t.admin).find((x) => isNum(x)); if (a != null) c.biayaAdmin = +a; }
     c.tarif.forEach((t) => { delete t.admin; });
     return c;
@@ -1142,15 +1144,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const d = cfg.dasarHarian || {};
     return ((d.gaji ? +g.gaji || 0 : 0) + (d.tunjMT ? +g.tunjMT || 0 : 0) + (d.tunjKin ? +g.tunjKin || 0 : 0) + (d.tunjAbs ? +g.tunjAbs || 0 : 0)) / (cfg.pembagi || 26);
   }
-  // upah harian sesuai tarif lokasi (dipakai untuk backup di lokasi itu)
-  function harianLokasi(cabang, posisi) {
-    const t = tarifRow(cabang, posisi) || cfg.tarif.find((x) => x.cabang === cabang && +x.gaji > 0) || TARIF_KOSONG;
-    return harianDari(t);
+  // upah mengganti 1 hari = komponen bulanan tarif lokasi & posisi yang digantikan ÷ pembagi
+  function upahGantiDari(t) {
+    const d = cfg.dasarGanti || {};
+    return ((d.gaji ? +t.gaji || 0 : 0) + (d.tunjMT ? +t.tunjMT || 0 : 0) + (d.tunjKin ? +t.tunjKin || 0 : 0) + (d.tunjAbs ? +t.tunjAbs || 0 : 0)) / (cfg.pembagi || 26);
   }
-  // upah harian pegawai sendiri (tarif lokasi & posisinya + gaji khusus jika diisi)
-  function harianPegawai(key, cabang, posisi) {
-    const t = tarifRow(cabang, posisi) || TARIF_KOSONG, P = cfg.pegawai[key] || {}, ov = (o, b) => isNum(o) ? +o : (+b || 0);
-    return harianDari({ gaji: ov(P.oGaji, t.gaji), tunjMT: ov(P.oTunjMT, t.tunjMT), tunjKin: ov(P.oTunjKin, t.tunjKin), tunjAbs: ov(P.oTunjAbs, t.tunjAbs) });
+  // posisi kosong = posisi lapangan (tarif terendah) di lokasi itu
+  function tarifGanti(cabang, posisi) {
+    const t = posisi && tarifRow(cabang, posisi);
+    if (t && +t.gaji > 0) return t;
+    const ada = cfg.tarif.filter((x) => x.cabang === cabang && +x.gaji > 0).sort((a, b) => upahGantiDari(a) - upahGantiDari(b));
+    return ada[0] || t || TARIF_KOSONG;
   }
   function hitungBPJS(P) {
     const B = cfg.bpjs || {}, base = isNum(P.bpjsDasar) ? +P.bpjsDasar : (+B.umk || 0);
@@ -1185,7 +1189,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     let faktor = 1, ketProrata = "";
     if (prorata) { const dasar = sebagian ? pembagi : jadwal.length; faktor = dasar ? Math.min(1, dibayar / dasar) : 0; ketProrata = `prorata ${dibayar}/${dasar} hari`; }
     else if (sebagian) { faktor = faktorAktif; ketProrata = `aktif ${jadwal.length} dari ${pembagi} hari`; }
-    const ada = g.gaji > 0 || tanpaJadwal || !!r.Luar;
+    const ada = g.gaji > 0 || tanpaJadwal || !!r.Luar || !!r.Manual;
     const harian = harianDari(g);
     const fx = (x) => Math.round(x * faktor);
     // tunjangan kehadiran: penuh jika hadir tepat waktu >= syarat (syarat & nilai prorata untuk yang belum aktif sebulan)
@@ -1196,10 +1200,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const tunjHadir = pakaiAturanHadir ? (lolosHadir ? Math.round(g.tunjAbs * faktorAktif) : 0) : fx(g.tunjAbs);
     const ketHadir = pakaiAturanHadir && g.tunjAbs ? `tepat waktu ${tepat}/${syarat} hari${lolosHadir ? "" : ", tidak memenuhi"}` : "";
     // insentif mengganti: extend shift + masuk di hari off, prorata upah harian
-    const nExtend = tanpaJadwal ? 0 : r.detail.filter((d) => d.Status === "Present" && d["Double Shift"] === "ya").length;
+    const nExtend = tanpaJadwal ? 0 : r.detail.filter((d) => d.Status === "Present" && d["Double Shift"] === "ya" && !d.dipakaiBackup).length;
     const nOffMasuk = tanpaJadwal ? 0 : r.detail.filter((d) => d.Status === "OffMasuk" && !d.dipakaiBackup).length;
-    const mengganti = Math.round((nExtend + nOffMasuk) * harian);
-    const ketGanti = [nExtend ? nExtend + "× extend" : "", nOffMasuk ? nOffMasuk + "× masuk hari off" : ""].filter(Boolean).join(", ");
+    const tGanti = tarifGanti(r.Cabang, ""), upahGanti = upahGantiDari(tGanti);
+    const mengganti = Math.round((nExtend + nOffMasuk) * upahGanti);
+    const ketGanti = [nExtend ? nExtend + "× extend" : "", nOffMasuk ? nOffMasuk + "× masuk hari off" : ""].filter(Boolean).join(", ") + (nExtend + nOffMasuk && tGanti.posisi ? ` · tarif ${tGanti.posisi}` : "");
     // BPJS
     const bp = hitungBPJS(P);
     const bpjsTunai = (bp.kes === "tunai" ? bp.kesPerusahaan : 0) + (bp.tk === "tunai" ? bp.tkPerusahaan : 0);
@@ -1294,8 +1299,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const d = dg ? dMap.get(bk.diganti + "|" + bk.tgl) : null;
       o.namaPengganti = pg ? pg.nama : "(belum dipilih)"; o.namaDiganti = dg ? dg.Nama : ""; o.cabang = bk.lokasi || (dg ? dg.Cabang : "");
       o.asal = pg ? pg.cabang : "";
-      o.lokasiSendiri = !!(pg && o.cabang && o.cabang === pg.cabang);
-      o.harian = !o.cabang ? 0 : o.lokasiSendiri ? harianPegawai(bk.pengganti, pg.cabang, pg.posisi) : harianLokasi(o.cabang, dg ? dg.Posisi : (pg && pg.posisi) || "");
+      const tg = o.cabang ? tarifGanti(o.cabang, dg ? dg.Posisi : "") : null;
+      o.posisiGanti = tg && tg.posisi || ""; o.harian = tg ? upahGantiDari(tg) : 0;
       o.upahPakai = isNum(bk.upah) ? +bk.upah : Math.round(o.harian);
       let sev = "ok";
       if (!bk.tgl || !pg || !o.cabang) { sev = "konflik"; alasan.push("lengkapi tanggal, pengganti, dan lokasi atau yang digantikan"); }
@@ -1314,11 +1319,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           else alasan.push(`${dg.Nama} ${d.Status === "Izin" ? "izin" : "tanpa keterangan"}, gajinya dipotong untuk hari ini`);
         } else alasan.push(`backup di ${o.cabang} tanpa menggantikan orang tertentu`);
         const dp = !pg.luar ? dMap.get(bk.pengganti + "|" + bk.tgl) : null;
-        if (dp && dp.Status === "Present") { if (sev === "ok") sev = "perhatian"; alasan.push(`${pg.nama} juga bekerja di jadwalnya sendiri (double shift)`); }
+        const dpExtend = dp && dp.Status === "Present" && dp["Double Shift"] === "ya";
+        if (dp && dp.Status === "Present" && !dpExtend) { if (sev === "ok") sev = "perhatian"; alasan.push(`${pg.nama} juga bekerja di jadwalnya sendiri tanpa extend (double shift?)`); }
+        if (dpExtend) alasan.push(`extend ${pg.nama} hari ini dihitung sebagai backup ini (tidak dibayar dua kali)`);
         if (dp && (dp.Status === "Absent" || dp.Status === "Izin")) { if (sev === "ok") sev = "perhatian"; alasan.push(`${pg.nama} tercatat ${dp.Status === "Absent" ? "tanpa keterangan" : "izin"} di jadwalnya sendiri dan ikut dipotong. Ubah jadi Off di Rekap Absensi jika dia dipindah ke lokasi backup`); }
         if (sev !== "konflik") {
-          if (dp && dp.Status === "OffMasuk") { dp.dipakaiBackup = true; dp._review = []; }
-          if (dp) dp.backupKeluar = (dp.backupKeluar || []).concat([{ cabang: o.cabang, diganti: o.namaDiganti }]);
+          if (dp && (dp.Status === "OffMasuk" || dpExtend)) { dp.dipakaiBackup = true; dp._review = []; }
+          if (dp) { const k = o.cabang === pg.cabang ? "backupDisini" : "backupKeluar"; dp[k] = (dp[k] || []).concat([{ cabang: o.cabang, diganti: o.namaDiganti }]); }
           if (d) { d.dibackup = (d.dibackup || []).concat([o.namaPengganti]); d.Catatan.push("dibackup oleh " + o.namaPengganti); }
         }
       }
@@ -1617,10 +1624,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (d.adj) p.push("dikoreksi" + (d.adj.ket ? ": " + d.adj.ket : ""));
     if (d.dibackup) p.push("dibackup oleh " + d.dibackup.join(", "));
     if (d.backupKeluar) p.push("backup di " + d.backupKeluar.map((x) => x.cabang + (x.diganti ? " menggantikan " + x.diganti : "")).join(", "));
+    if (d.backupDisini) p.push("backup di lokasi sendiri" + d.backupDisini.map((x) => x.diganti ? " menggantikan " + x.diganti : "").join(", ") + (d.Extend || d["Double Shift"] === "ya" ? " (extend ini dibayar sebagai backup)" : ""));
     return p.join(" · ");
   }
   function cellHTML(d) {
-    const k = isExtend(d) ? "E" : d.Kode;
+    const k = d.backupDisini ? "B" : isExtend(d) ? "E" : d.Kode;
     return `<button class="cell ${k}${d.adj ? " adj" : ""}${d.dibackup ? " bk" : ""}${d.backupKeluar ? " out" : ""}${d._review.length ? " rev" : ""}" data-k="${esc(d.key)}" data-t="${d.Tanggal}" data-tip="${esc(tipHari(d))}" aria-label="${esc(d.Nama + ", " + tipHari(d))}">${k}</button>`;
   }
   function renderRekap() {
@@ -1711,7 +1719,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const urut = Object.keys(grup).sort((a, b) => (/^\d/.test(a) ? a : "~" + a).localeCompare(/^\d/.test(b) ? b : "~" + b));
     const bk = hasil.backup.filter((o) => o.sev !== "konflik" && o.cabang === cab && o.tgl);
     const per = {};
-    bk.forEach((o) => { const p = per[o.pengganti] = per[o.pengganti] || { nama: o.namaPengganti, asal: o.asal, hari: {} }; (p.hari[o.tgl] = p.hari[o.tgl] || []).push(o); });
+    bk.filter((o) => !rk.some((r) => r.key === o.pengganti)).forEach((o) => { const p = per[o.pengganti] = per[o.pengganti] || { nama: o.namaPengganti, asal: o.asal, hari: {} }; (p.hari[o.tgl] = p.hari[o.tgl] || []).push(o); });
     const masuk = Object.fromEntries(days.map((t) => [t, 0]));
     const ncol = days.length + 10;
     let h = "";
@@ -1728,10 +1736,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
     const pk = Object.keys(per);
     if (pk.length) {
-      h += `<tr class="grp"><td colspan="${ncol}">Backup dari lokasi lain <span>· ${pk.length} orang</span></td></tr>`;
+      h += `<tr class="grp"><td colspan="${ncol}">Backup dari lokasi lain / di luar Kolabo <span>· ${pk.length} orang</span></td></tr>`;
       pk.forEach((k) => {
         const p = per[k];
-        h += `<tr><td class="nm"><b>${esc(p.nama)}<span class="tag">backup</span></b><span class="sub">asal ${esc(p.asal || "di luar Kolabo")}</span></td>${days.map((t) => {
+        h += `<tr><td class="nm"><b>${esc(p.nama)}<span class="tag">backup</span></b><span class="sub">${p.asal && p.asal !== "Di luar Kolabo" ? "asal " + esc(p.asal) : "di luar Kolabo"}</span></td>${days.map((t) => {
           const os = p.hari[t]; if (!os) return "<td></td>";
           masuk[t]++;
           const tip = `${tglPendek(t)} · backup${os.map((o) => (o.namaDiganti ? " menggantikan " + o.namaDiganti : "") + " · upah " + rp(o.upahPakai)).join(";")}`;
@@ -1924,6 +1932,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   // ---------- tab Slip Gaji ----------
   let slipCabang = "", slipCari = "";
+  const penempatan = (r) => r.Luar || r.Manual ? "" : r.Cabang;
   function attItems(r) {
     return [["Hari kerja", r.Terjadwal], ["Hadir", r.Hadir], ["Off day", r.Off], ["Tanpa keterangan", r.Absen, r.Absen > 0], ["Izin", r.Izin],
       ["Sakit", r.Sakit], ["Tidak check-in", r.TidakCI], ["Tidak check-out", r.TidakCO, r.TidakCO > 0], ["Terlambat", r.TelatKenaKali + "×", r.TelatKenaKali > 0], ["Mengganti", r.Mengganti + "×"]];
@@ -1947,7 +1956,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         <div class="row between"><div class="muted">${esc(cfg.judulSlip)} · ${esc(POSISI_LABEL[r.Posisi] || r.Posisi)}</div><span class="conf">Rahasia · hanya untuk penerima</span></div>
         <dl class="id">
           <div><dt>Nama</dt><dd>${esc(r.Nama)}</dd></div><div><dt>NIP</dt><dd>${esc(r.NIP || "-")}</dd></div>
-          <div><dt>Jabatan</dt><dd>${esc(r.Jabatan)}</dd></div><div><dt>Penempatan</dt><dd>${esc(r.Cabang)}</dd></div>
+          <div><dt>Jabatan</dt><dd>${esc(r.Jabatan)}</dd></div><div><dt>Penempatan</dt><dd>${esc(penempatan(r)) || "&nbsp;"}</dd></div>
           <div><dt>Status</dt><dd>${esc(r.StatusKerja || "-")}</dd></div><div><dt>Performance</dt><dd>${esc(s.M.performance || "-")}</dd></div>
         </dl>
         <div class="att">${attItems(r).map((a) => `<div class="${a[2] ? "bad" : ""}"><b>${a[1]}</b><span>${a[0]}</span></div>`).join("")}</div>
@@ -2013,7 +2022,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     doc.setFontSize(7.5); doc.text(terkunci() ? "RAHASIA" : "DRAFT · RAHASIA", X1, 27.5, { align: "right" });
     let y = 40;
     // identitas
-    const idf = [["Nama", r.Nama, "NIP", r.NIP || "-"], ["Jabatan", r.Jabatan, "Penempatan", r.Cabang], ["Status", r.StatusKerja || "-", "Performance", s.M.performance || "-"]];
+    const idf = [["Nama", r.Nama, "NIP", r.NIP || "-"], ["Jabatan", r.Jabatan, "Penempatan", penempatan(r) || " "], ["Status", r.StatusKerja || "-", "Performance", s.M.performance || "-"]];
     doc.setFontSize(9.5);
     idf.forEach((p) => {
       doc.setTextColor(...MUTED); doc.text(p[0], X0, y); doc.text(p[2], 107, y);
@@ -2165,8 +2174,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     ];
     return cols.filter((c) => c.tetap || rows.some((r) => c.f(r)));
   }
+  const LUAR_GRUP = "Di luar Kolabo";
+  const grupRG = (r) => r.Luar || r.Manual ? LUAR_GRUP : r.Cabang;
   function barisRekapGaji(cabang) {
-    return hasil.rekap.filter((r) => !cabang || r.Cabang === cabang).sort((a, b) => a.Cabang.localeCompare(b.Cabang) || a.Nama.localeCompare(b.Nama));
+    const urut = (r) => (grupRG(r) === LUAR_GRUP ? "~" : "") + grupRG(r);
+    return hasil.rekap.filter((r) => !cabang || grupRG(r) === cabang).sort((a, b) => urut(a).localeCompare(urut(b)) || a.Nama.localeCompare(b.Nama));
   }
   function renderRekapGaji() {
     const el = $("#tab-rgaji");
@@ -2176,12 +2188,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const sel2 = (c, v) => c.tot ? ' class="n tot"' : c.pot && v ? ' class="n neg"' : ' class="n"';
     const sel3 = (c) => c.tot ? " tot" : "";
     const sum = (arr, c) => sumBy(arr, (r) => c.f(r));
-    const cabs = [...new Set(rows.map((r) => r.Cabang))];
+    const cabs = [...new Set(rows.map(grupRG))];
     let body = "";
     cabs.forEach((c) => {
-      const rk = rows.filter((r) => r.Cabang === c);
+      const rk = rows.filter((r) => grupRG(r) === c);
       rk.forEach((r) => {
-        body += `<tr><td><b>${esc(r.Nama)}</b><br><span class="sub">${esc(r.Jabatan)}${r.slip.faktor < 1 ? " · " + esc(r.slip.ketProrata) : ""}</span></td><td>${esc(pendekLokasi(r.Cabang))}</td>${cols.map((k) => { const v = k.f(r); return `<td${sel2(k, v)}>${!r.adaTarif && k.tot ? '<span class="pill warn">tarif kosong</span>' : v ? rp(v) : ""}</td>`; }).join("")}</tr>`;
+        body += `<tr><td><b>${esc(r.Nama)}</b><br><span class="sub">${esc(r.Jabatan)}${r.slip.faktor < 1 ? " · " + esc(r.slip.ketProrata) : ""}</span></td><td>${esc(pendekLokasi(penempatan(r)))}</td>${cols.map((k) => { const v = k.f(r); return `<td${sel2(k, v)}>${!r.adaTarif && k.tot ? '<span class="pill warn">tarif kosong</span>' : v ? rp(v) : ""}</td>`; }).join("")}</tr>`;
       });
       if (!rgCabang && cabs.length > 1) body += `<tr class="sub"><td>Subtotal ${esc(pendekLokasi(c))}</td><td>${rk.length} org</td>${cols.map((k) => `<td${sel(k)}>${rp(sum(rk, k))}</td>`).join("")}</tr>`;
     });
@@ -2189,7 +2201,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const nBk = hasil.backup.filter((o) => o.sev !== "konflik").length;
     el.innerHTML = lockBanner() + `<div class="stack"><div class="panel stack"><div class="row between"><div><h2>Rekap gaji ${bulanLabel(hasil.periode)}</h2>
       <p class="sub">Semua pegawai dengan rincian berjajar ke samping. Backup dihitung prorata dari gaji harian lokasi tempat backup (${nBk} backup tercatat), insentif mengganti dari extend shift dan masuk di hari off. Kolom yang semuanya kosong disembunyikan.</p></div>
-      <div class="row"><select id="rg-cab" aria-label="Filter lokasi" style="width:auto"><option value="">Semua lokasi</option>${[...new Set(hasil.rekap.map((r) => r.Cabang))].sort().map((c) => `<option value="${esc(c)}"${c === rgCabang ? " selected" : ""}>${esc(c)}</option>`).join("")}</select>
+      <div class="row"><select id="rg-cab" aria-label="Filter lokasi" style="width:auto"><option value="">Semua lokasi</option>${[...new Set(hasil.rekap.map(grupRG))].sort().map((c) => `<option value="${esc(c)}"${c === rgCabang ? " selected" : ""}>${esc(c)}</option>`).join("")}</select>
       <button class="btn small" id="rg-xls">Unduh Excel</button></div></div></div>
       <div class="scroll"><table class="rg"><thead><tr><th>Nama</th><th>Penempatan</th>${cols.map((k) => `<th class="n${sel3(k)}"${k.tip ? ` title="${esc(k.tip)}"` : ""}>${esc(k.l)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>
       <p class="hint">Merah = potongan. TOTAL = pendapatan − potongan sebelum biaya transfer; Ditransfer = yang dikirim ke rekening. Klik nama di Input Gaji untuk mengubah komponen.</p></div>`;
@@ -2205,9 +2217,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function sheetRekapGaji(rows) {
     const cols = kolomRekapGaji(rows);
     const aoa = [["Nama", "Penempatan", "Jabatan", ...cols.map((k) => k.l)]];
-    [...new Set(rows.map((r) => r.Cabang))].forEach((c) => {
-      const rk = rows.filter((r) => r.Cabang === c);
-      rk.forEach((r) => aoa.push([r.Nama, r.Cabang, r.Jabatan, ...cols.map((k) => Math.round(k.f(r)))]));
+    [...new Set(rows.map(grupRG))].forEach((c) => {
+      const rk = rows.filter((r) => grupRG(r) === c);
+      rk.forEach((r) => aoa.push([r.Nama, penempatan(r), r.Jabatan, ...cols.map((k) => Math.round(k.f(r)))]));
       aoa.push(["Subtotal " + c, "", rk.length + " org", ...cols.map((k) => Math.round(sumBy(rk, k.f)))]);
     });
     aoa.push(["TOTAL", "", rows.length + " org", ...cols.map((k) => Math.round(sumBy(rows, k.f)))]);
@@ -2827,7 +2839,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const nOk = bk.filter((o) => o.sev === "ok").length, nPer = bk.filter((o) => o.sev === "perhatian").length, nKon = bk.filter((o) => o.sev === "konflik").length;
     const pill = { ok: '<span class="pill ok">aman</span>', perhatian: '<span class="pill warn">perlu dicek</span>', konflik: '<span class="pill bad">bermasalah</span>' };
     let h = lockBanner() + `<div class="stack"><div class="panel stack"><div><h2>Jadwal backup ${bulanLabel(p)}</h2>
-      <p class="sub">Catat siapa backup, di lokasi mana, tanggal berapa. Upah otomatis: backup <b>ke lokasi lain</b> = gaji harian lokasi tujuan (tarif lokasi ÷ ${cfg.pembagi}); backup <b>di lokasi sendiri</b> = gaji harian pegawai itu sendiri, sama dengan insentif mengganti (extend). Masuk ke gaji pengganti sebagai "Backup [lokasi]". Kolom "Menggantikan" boleh kosong jika hanya mengisi kekurangan orang di lokasi itu. Pengganti muncul di Rekap Absensi lokasi tempat dia backup (kotak B).</p></div>
+      <p class="sub">Catat siapa backup, di lokasi mana, tanggal berapa. Upah otomatis = gaji sebulan <b>lokasi dan posisi yang digantikan</b> (komponen yang dicentang di Pengaturan) ÷ ${cfg.pembagi} × jumlah hari. Jika "Menggantikan" kosong, dipakai tarif posisi lapangan (terendah) di lokasi itu. Jika pengganti extend di hari yang sama, extend itu dihitung sebagai backup ini, tidak dibayar dua kali. Kolom "Menggantikan" boleh kosong jika hanya mengisi kekurangan orang di lokasi itu. Pengganti muncul di Rekap Absensi lokasi tempat dia backup (kotak B).</p></div>
       <div class="row sub"><span><b>${list.length}</b> backup</span><span><b>${rp(sumBy(bk.filter((o) => o.sev !== "konflik"), (o) => o.upahPakai))}</b> total upah backup</span>${nPer ? `<span class="pill warn">${nPer} perlu dicek</span>` : ""}${nKon ? `<span class="pill bad">${nKon} bermasalah (tidak dibayar)</span>` : ""}</div>
       <div class="scroll"><table><thead><tr><th>Tanggal</th><th>Pengganti (yang dibayar)</th><th>Lokasi backup</th><th>Menggantikan (opsional)</th><th>Status yang digantikan</th><th class="n">Upah (Rp)</th><th>Keterangan</th><th>Cek</th><th></th></tr></thead><tbody>
       ${list.length ? "" : '<tr><td colspan="9" class="empty">Belum ada backup bulan ini.</td></tr>'}
@@ -2837,7 +2849,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         <td><select data-bk="${i}" data-f="lokasi" aria-label="Lokasi backup" style="min-width:170px"><option value="">${x.diganti && o.cabang ? "otomatis: " + esc(o.cabang) : "— pilih —"}</option>${branchList().map((c) => `<option value="${esc(c)}"${x.lokasi === c ? " selected" : ""}>${esc(c)}</option>`).join("")}</select></td>
         <td><select data-bk="${i}" data-f="diganti" aria-label="Yang digantikan" style="min-width:200px">${opsiPegawai(x.diganti, false)}</select></td>
         <td>${esc(o.statusDiganti || "—")}</td>
-        <td class="n"><input type="number" data-bk="${i}" data-f="upah" value="${isNum(x.upah) ? x.upah : ""}" min="0" step="1000" placeholder="${Math.round(o.harian || 0)}" style="width:120px;text-align:right" aria-label="Upah backup"></td>
+        <td class="n"><input type="number" data-bk="${i}" data-f="upah" value="${isNum(x.upah) ? x.upah : ""}" min="0" step="1000" placeholder="${Math.round(o.harian || 0)}" style="width:120px;text-align:right" aria-label="Upah backup">${o.posisiGanti ? `<div class="hint">tarif ${esc(o.posisiGanti)}</div>` : ""}</td>
         <td><input type="text" data-bk="${i}" data-f="ket" value="${esc(x.ket || "")}" placeholder="misal: shift pagi" aria-label="Keterangan"></td>
         <td class="wrap">${pill[o.sev] || ""}<div class="hint">${esc(o.alasan || "")}</div></td>
         <td><button class="btn ghost small" data-bkdel="${i}">Hapus</button></td></tr>`; }).join("")}
@@ -2894,7 +2906,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       h += `<tr>${inpRow("tarif", i, "cabang", t.cabang, "text", 'list="dl-cab"')}${inpRow("tarif", i, "posisi", t.posisi, "text", 'list="dl-pos"')}${inpRow("tarif", i, "gaji", t.gaji || "")}${inpRow("tarif", i, "tunjMT", t.tunjMT || "")}${inpRow("tarif", i, "tunjKin", t.tunjKin || "")}${inpRow("tarif", i, "tunjAbs", t.tunjAbs || "")}<td><button class="btn ghost small" data-del="tarif" data-i="${i}">Hapus</button></td></tr>`;
     });
     h += `</tbody></table></div><div><button class="btn ghost" data-add="tarif">Tambah baris</button></div>
-      <p class="hint">Gaji harian (untuk prorata, backup di lokasi ini, dan insentif mengganti) = komponen yang dicentang di Pengaturan ÷ ${cfg.pembagi}. Tunjangan kehadiran dibayar penuh jika hadir tepat waktu minimal ${cfg.kehadiranMin} hari. Biaya admin & payroll diatur sekali di Pengaturan.</p>
+      <p class="hint">Upah mengganti 1 hari di lokasi & posisi ini (backup, extend) = gaji pokok + tunj. makan & transport + tunj. kinerja ÷ ${cfg.pembagi} (bisa diubah di Pengaturan). Tunjangan kehadiran dibayar penuh jika hadir tepat waktu minimal ${cfg.kehadiranMin} hari. Biaya admin & payroll diatur sekali di Pengaturan.</p>
       <p class="hint">Lokasi tanpa jadwal tetap (${esc(list(cfg.tanpaJadwal).join(", ") || "tidak ada")}) boleh bergaji pokok 0; pendapatannya dari order home cleaning.</p></div>`;
     el.innerHTML = lockBanner() + h;
     bindEdits(el); kunciForm(el);
@@ -2906,6 +2918,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const f = (label, key, extra) => `<div class="field"><label for="c-${key}">${label}</label><input type="number" id="c-${key}" data-cfg="${key}" value="${cfg[key]}" min="0" ${extra || ""}></div>`;
     const t = (label, key, ph) => `<div class="field"><label for="c-${key}">${label}</label><input type="text" id="c-${key}" data-cfg="${key}" value="${esc(cfg[key])}" placeholder="${esc(ph || "")}"></div>`;
     const chk = (k, l) => `<label class="row" style="gap:6px"><input type="checkbox" data-dasar="${k}"${cfg.dasarHarian[k] ? " checked" : ""}> ${l}</label>`;
+    const chkG = (k, l) => `<label class="row" style="gap:6px"><input type="checkbox" data-ganti="${k}"${cfg.dasarGanti[k] ? " checked" : ""}> ${l}</label>`;
     let h = '<div class="stack">';
     h += `<div class="panel stack"><div><h2>Identitas di slip gaji</h2><p class="sub">Nama perusahaan kosong = diambil dari file Kolabo.</p></div><div class="grid">
       ${t("Nama perusahaan", "perusahaan", perusahaanFile || "Nama perusahaan")}${t("Alamat / keterangan", "alamat", "")}${t("Judul slip", "judulSlip", "Financial Detail Report")}
@@ -2915,13 +2928,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         <span class="hint">PNG dengan latar transparan paling rapi. Logo muncul di aplikasi, slip, dan laporan.</span></div>
       <div class="field" style="max-width:520px"><label for="c-pw">Password PDF slip per pegawai</label><select id="c-pw" data-cfgsel="slipPassword">
         <option value="none"${cfg.slipPassword !== "nip" ? " selected" : ""}>Tanpa password</option><option value="nip"${cfg.slipPassword === "nip" ? " selected" : ""}>Password = NIP tanpa spasi (misal SQUAD021)</option></select>
-        <span class="hint">Berlaku untuk PDF per pegawai dan isi ZIP. PDF gabungan untuk HR/keuangan tetap tanpa password.</span></div></div>`;
+        <span class="hint">Berlaku untuk PDF per pegawai dan isi ZIP. PDF gabungan untuk HR/keuangan tetap tanpa password.</span></div>
+      <div class="field" style="max-width:520px"><label for="c-slipPinLuar">PIN slip pegawai di luar Kolabo</label><input type="text" id="c-slipPinLuar" data-cfg="slipPinLuar" value="${esc(cfg.slipPinLuar || "")}" placeholder="kosong = tanpa password" autocomplete="off">
+        <span class="hint">Pegawai yang tidak terdaftar di Kolabo tidak punya NIP. Kosongkan agar slipnya tidak dikunci, atau isi satu PIN yang sama untuk mereka.</span></div></div>`;
     h += `<div class="panel stack"><div><h2>Cara menghitung gaji</h2></div>
       <div class="field"><label for="c-metode">Metode untuk hari tidak masuk</label><select id="c-metode" data-cfgsel="metodeGaji">
         <option value="potong"${cfg.metodeGaji === "potong" ? " selected" : ""}>Gaji penuh, dipotong per hari tanpa keterangan / izin (seperti slip sekarang)</option>
         <option value="prorata"${cfg.metodeGaji === "prorata" ? " selected" : ""}>Prorata: komponen tetap × hari dibayar ÷ hari terjadwal</option></select>
         <span class="hint">Hari dibayar = hadir + sakit + cuti. Pegawai yang belum aktif sebulan penuh atau berhenti di tengah bulan selalu prorata: hari aktif ÷ ${cfg.pembagi} (isi tanggalnya di Input Gaji). Tunjangan kehadiran untuk mereka juga prorata, begitu juga syarat harinya.</span></div>
-      <div class="field"><label>Gaji harian = jumlah komponen ini ÷ ${cfg.pembagi} (dipakai untuk potongan per hari, prorata, upah backup, dan insentif mengganti)</label><div class="row">${chk("gaji", "Gaji pokok")}${chk("tunjMT", "Tunj. makan & transport")}${chk("tunjKin", "Tunj. kinerja")}${chk("tunjAbs", "Tunj. kehadiran")}</div></div>
+      <div class="field"><label>Potongan per hari tidak masuk = jumlah komponen ini ÷ ${cfg.pembagi}</label><div class="row">${chk("gaji", "Gaji pokok")}${chk("tunjMT", "Tunj. makan & transport")}${chk("tunjKin", "Tunj. kinerja")}${chk("tunjAbs", "Tunj. kehadiran")}</div></div>
+      <div class="field"><label>Upah mengganti 1 hari (backup, extend, masuk hari off) = jumlah komponen ini ÷ ${cfg.pembagi}, dari tarif lokasi & posisi yang digantikan</label><div class="row">${chkG("gaji", "Gaji pokok")}${chkG("tunjMT", "Tunj. makan & transport")}${chkG("tunjKin", "Tunj. kinerja")}${chkG("tunjAbs", "Tunj. kehadiran")}</div>
+        <span class="hint">Extend dan masuk hari off tanpa catatan backup memakai tarif posisi lapangan (terendah) di lokasi itu. Catat di tab Backup jika yang digantikan posisi lain (misal PIC).</span></div>
       <div class="grid">${f("Ambang telat (menit)", "telatAmbang")}${f("Potongan per kejadian telat (Rp)", "telatNominal", 'step="1000"')}${f("Pembagi hari kerja", "pembagi")}
       ${f("Tarif lembur bawaan (Rp / jam)", "tarifLembur", 'step="1000"')}${f("Potongan pulang cepat (Rp / menit)", "pulangPerMenit")}${f("Tunjangan kehadiran: minimal hari tepat waktu", "kehadiranMin")}${f("Deteksi extend shift: toleransi (menit)", "extendTol")}
       ${f("Toleransi telat (menit)", "tolTelat")}${f("Toleransi pulang cepat (menit)", "tolPulang")}${f("Lembur minimal (menit)", "lemburMin")}${f("Pembulatan lembur (menit)", "lemburBulat")}</div></div>`;
@@ -3007,6 +3024,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     root.querySelectorAll("[data-cfg]").forEach((inp) => inp.addEventListener("change", () => { cfg[inp.dataset.cfg] = inp.type === "number" ? (+inp.value || 0) : inp.value; afterEdit(false); }));
     root.querySelectorAll("[data-cfgsel]").forEach((inp) => inp.addEventListener("change", () => { cfg[inp.dataset.cfgsel] = inp.value; afterEdit(false); }));
     root.querySelectorAll("[data-bpjs]").forEach((inp) => inp.addEventListener("change", () => { cfg.bpjs[inp.dataset.bpjs] = +inp.value || 0; afterEdit(true); }));
+    root.querySelectorAll("[data-ganti]").forEach((inp) => inp.addEventListener("change", () => { cfg.dasarGanti[inp.dataset.ganti] = inp.checked; afterEdit(false); }));
     root.querySelectorAll("[data-dasar]").forEach((inp) => inp.addEventListener("change", () => { cfg.dasarHarian[inp.dataset.dasar] = inp.checked; afterEdit(false); }));
     root.querySelectorAll("[data-add]").forEach((b) => b.addEventListener("click", () => { cfg[b.dataset.add].push(NEW_ROW[b.dataset.add]()); afterEdit(true); }));
     root.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => { cfg[b.dataset.del].splice(+b.dataset.i, 1); afterEdit(true); }));
@@ -3030,7 +3048,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       setSaved("Unduhan gagal: " + (e.message || e.code || e));
     }
   }
-  const pwSlip = (r) => cfg.slipPassword === "nip" && r.NIP && r.NIP !== "0" ? r.NIP.replace(/\s+/g, "") : "";
+  const pwSlip = (r) => r.Luar || r.Manual ? String(cfg.slipPinLuar || "").trim() : cfg.slipPassword === "nip" && r.NIP && r.NIP !== "0" ? r.NIP.replace(/\s+/g, "") : "";
   function buatPDF(list, pw) {
     if (!window.jspdf) throw new Error("Pembuat PDF belum termuat. Periksa koneksi lalu muat ulang halaman.");
     const o = { unit: "mm", format: "a4" };

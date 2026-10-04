@@ -29,8 +29,11 @@
     ];
     return cols.filter((c) => c.tetap || rows.some((r) => c.f(r)));
   }
+  const LUAR_GRUP = "Di luar Kolabo";
+  const grupRG = (r) => r.Luar || r.Manual ? LUAR_GRUP : r.Cabang;
   function barisRekapGaji(cabang) {
-    return hasil.rekap.filter((r) => !cabang || r.Cabang === cabang).sort((a, b) => a.Cabang.localeCompare(b.Cabang) || a.Nama.localeCompare(b.Nama));
+    const urut = (r) => (grupRG(r) === LUAR_GRUP ? "~" : "") + grupRG(r);
+    return hasil.rekap.filter((r) => !cabang || grupRG(r) === cabang).sort((a, b) => urut(a).localeCompare(urut(b)) || a.Nama.localeCompare(b.Nama));
   }
   function renderRekapGaji() {
     const el = $("#tab-rgaji");
@@ -40,12 +43,12 @@
     const sel2 = (c, v) => c.tot ? ' class="n tot"' : c.pot && v ? ' class="n neg"' : ' class="n"';
     const sel3 = (c) => c.tot ? " tot" : "";
     const sum = (arr, c) => sumBy(arr, (r) => c.f(r));
-    const cabs = [...new Set(rows.map((r) => r.Cabang))];
+    const cabs = [...new Set(rows.map(grupRG))];
     let body = "";
     cabs.forEach((c) => {
-      const rk = rows.filter((r) => r.Cabang === c);
+      const rk = rows.filter((r) => grupRG(r) === c);
       rk.forEach((r) => {
-        body += `<tr><td><b>${esc(r.Nama)}</b><br><span class="sub">${esc(r.Jabatan)}${r.slip.faktor < 1 ? " · " + esc(r.slip.ketProrata) : ""}</span></td><td>${esc(pendekLokasi(r.Cabang))}</td>${cols.map((k) => { const v = k.f(r); return `<td${sel2(k, v)}>${!r.adaTarif && k.tot ? '<span class="pill warn">tarif kosong</span>' : v ? rp(v) : ""}</td>`; }).join("")}</tr>`;
+        body += `<tr><td><b>${esc(r.Nama)}</b><br><span class="sub">${esc(r.Jabatan)}${r.slip.faktor < 1 ? " · " + esc(r.slip.ketProrata) : ""}</span></td><td>${esc(pendekLokasi(penempatan(r)))}</td>${cols.map((k) => { const v = k.f(r); return `<td${sel2(k, v)}>${!r.adaTarif && k.tot ? '<span class="pill warn">tarif kosong</span>' : v ? rp(v) : ""}</td>`; }).join("")}</tr>`;
       });
       if (!rgCabang && cabs.length > 1) body += `<tr class="sub"><td>Subtotal ${esc(pendekLokasi(c))}</td><td>${rk.length} org</td>${cols.map((k) => `<td${sel(k)}>${rp(sum(rk, k))}</td>`).join("")}</tr>`;
     });
@@ -53,7 +56,7 @@
     const nBk = hasil.backup.filter((o) => o.sev !== "konflik").length;
     el.innerHTML = lockBanner() + `<div class="stack"><div class="panel stack"><div class="row between"><div><h2>Rekap gaji ${bulanLabel(hasil.periode)}</h2>
       <p class="sub">Semua pegawai dengan rincian berjajar ke samping. Backup dihitung prorata dari gaji harian lokasi tempat backup (${nBk} backup tercatat), insentif mengganti dari extend shift dan masuk di hari off. Kolom yang semuanya kosong disembunyikan.</p></div>
-      <div class="row"><select id="rg-cab" aria-label="Filter lokasi" style="width:auto"><option value="">Semua lokasi</option>${[...new Set(hasil.rekap.map((r) => r.Cabang))].sort().map((c) => `<option value="${esc(c)}"${c === rgCabang ? " selected" : ""}>${esc(c)}</option>`).join("")}</select>
+      <div class="row"><select id="rg-cab" aria-label="Filter lokasi" style="width:auto"><option value="">Semua lokasi</option>${[...new Set(hasil.rekap.map(grupRG))].sort().map((c) => `<option value="${esc(c)}"${c === rgCabang ? " selected" : ""}>${esc(c)}</option>`).join("")}</select>
       <button class="btn small" id="rg-xls">Unduh Excel</button></div></div></div>
       <div class="scroll"><table class="rg"><thead><tr><th>Nama</th><th>Penempatan</th>${cols.map((k) => `<th class="n${sel3(k)}"${k.tip ? ` title="${esc(k.tip)}"` : ""}>${esc(k.l)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>
       <p class="hint">Merah = potongan. TOTAL = pendapatan − potongan sebelum biaya transfer; Ditransfer = yang dikirim ke rekening. Klik nama di Input Gaji untuk mengubah komponen.</p></div>`;
@@ -69,9 +72,9 @@
   function sheetRekapGaji(rows) {
     const cols = kolomRekapGaji(rows);
     const aoa = [["Nama", "Penempatan", "Jabatan", ...cols.map((k) => k.l)]];
-    [...new Set(rows.map((r) => r.Cabang))].forEach((c) => {
-      const rk = rows.filter((r) => r.Cabang === c);
-      rk.forEach((r) => aoa.push([r.Nama, r.Cabang, r.Jabatan, ...cols.map((k) => Math.round(k.f(r)))]));
+    [...new Set(rows.map(grupRG))].forEach((c) => {
+      const rk = rows.filter((r) => grupRG(r) === c);
+      rk.forEach((r) => aoa.push([r.Nama, penempatan(r), r.Jabatan, ...cols.map((k) => Math.round(k.f(r)))]));
       aoa.push(["Subtotal " + c, "", rk.length + " org", ...cols.map((k) => Math.round(sumBy(rk, k.f)))]);
     });
     aoa.push(["TOTAL", "", rows.length + " org", ...cols.map((k) => Math.round(sumBy(rows, k.f)))]);

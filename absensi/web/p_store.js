@@ -25,6 +25,7 @@
     const awal = defaultCfg();
     c.dasarHarian = Object.assign({}, awal.dasarHarian, saved.dasarHarian || {});
     c.bpjs = Object.assign({}, awal.bpjs, saved.bpjs || {});
+    c.dasarGanti = Object.assign({}, awal.dasarGanti, saved.dasarGanti || {});
     if (saved.biayaAdmin == null) { const a = c.tarif.map((t) => t.admin).find((x) => isNum(x)); if (a != null) c.biayaAdmin = +a; }
     c.tarif.forEach((t) => { delete t.admin; });
     return c;

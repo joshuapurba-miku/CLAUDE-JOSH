@@ -164,10 +164,11 @@
     if (d.adj) p.push("dikoreksi" + (d.adj.ket ? ": " + d.adj.ket : ""));
     if (d.dibackup) p.push("dibackup oleh " + d.dibackup.join(", "));
     if (d.backupKeluar) p.push("backup di " + d.backupKeluar.map((x) => x.cabang + (x.diganti ? " menggantikan " + x.diganti : "")).join(", "));
+    if (d.backupDisini) p.push("backup di lokasi sendiri" + d.backupDisini.map((x) => x.diganti ? " menggantikan " + x.diganti : "").join(", ") + (d.Extend || d["Double Shift"] === "ya" ? " (extend ini dibayar sebagai backup)" : ""));
     return p.join(" · ");
   }
   function cellHTML(d) {
-    const k = isExtend(d) ? "E" : d.Kode;
+    const k = d.backupDisini ? "B" : isExtend(d) ? "E" : d.Kode;
     return `<button class="cell ${k}${d.adj ? " adj" : ""}${d.dibackup ? " bk" : ""}${d.backupKeluar ? " out" : ""}${d._review.length ? " rev" : ""}" data-k="${esc(d.key)}" data-t="${d.Tanggal}" data-tip="${esc(tipHari(d))}" aria-label="${esc(d.Nama + ", " + tipHari(d))}">${k}</button>`;
   }
   function renderRekap() {
@@ -258,7 +259,7 @@
     const urut = Object.keys(grup).sort((a, b) => (/^\d/.test(a) ? a : "~" + a).localeCompare(/^\d/.test(b) ? b : "~" + b));
     const bk = hasil.backup.filter((o) => o.sev !== "konflik" && o.cabang === cab && o.tgl);
     const per = {};
-    bk.forEach((o) => { const p = per[o.pengganti] = per[o.pengganti] || { nama: o.namaPengganti, asal: o.asal, hari: {} }; (p.hari[o.tgl] = p.hari[o.tgl] || []).push(o); });
+    bk.filter((o) => !rk.some((r) => r.key === o.pengganti)).forEach((o) => { const p = per[o.pengganti] = per[o.pengganti] || { nama: o.namaPengganti, asal: o.asal, hari: {} }; (p.hari[o.tgl] = p.hari[o.tgl] || []).push(o); });
     const masuk = Object.fromEntries(days.map((t) => [t, 0]));
     const ncol = days.length + 10;
     let h = "";
@@ -275,10 +276,10 @@
     });
     const pk = Object.keys(per);
     if (pk.length) {
-      h += `<tr class="grp"><td colspan="${ncol}">Backup dari lokasi lain <span>· ${pk.length} orang</span></td></tr>`;
+      h += `<tr class="grp"><td colspan="${ncol}">Backup dari lokasi lain / di luar Kolabo <span>· ${pk.length} orang</span></td></tr>`;
       pk.forEach((k) => {
         const p = per[k];
-        h += `<tr><td class="nm"><b>${esc(p.nama)}<span class="tag">backup</span></b><span class="sub">asal ${esc(p.asal || "di luar Kolabo")}</span></td>${days.map((t) => {
+        h += `<tr><td class="nm"><b>${esc(p.nama)}<span class="tag">backup</span></b><span class="sub">${p.asal && p.asal !== "Di luar Kolabo" ? "asal " + esc(p.asal) : "di luar Kolabo"}</span></td>${days.map((t) => {
           const os = p.hari[t]; if (!os) return "<td></td>";
           masuk[t]++;
           const tip = `${tglPendek(t)} · backup${os.map((o) => (o.namaDiganti ? " menggantikan " + o.namaDiganti : "") + " · upah " + rp(o.upahPakai)).join(";")}`;

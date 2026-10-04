@@ -14,7 +14,7 @@
       h += `<tr>${inpRow("tarif", i, "cabang", t.cabang, "text", 'list="dl-cab"')}${inpRow("tarif", i, "posisi", t.posisi, "text", 'list="dl-pos"')}${inpRow("tarif", i, "gaji", t.gaji || "")}${inpRow("tarif", i, "tunjMT", t.tunjMT || "")}${inpRow("tarif", i, "tunjKin", t.tunjKin || "")}${inpRow("tarif", i, "tunjAbs", t.tunjAbs || "")}<td><button class="btn ghost small" data-del="tarif" data-i="${i}">Hapus</button></td></tr>`;
     });
     h += `</tbody></table></div><div><button class="btn ghost" data-add="tarif">Tambah baris</button></div>
-      <p class="hint">Gaji harian (untuk prorata, backup di lokasi ini, dan insentif mengganti) = komponen yang dicentang di Pengaturan ÷ ${cfg.pembagi}. Tunjangan kehadiran dibayar penuh jika hadir tepat waktu minimal ${cfg.kehadiranMin} hari. Biaya admin & payroll diatur sekali di Pengaturan.</p>
+      <p class="hint">Upah mengganti 1 hari di lokasi & posisi ini (backup, extend) = gaji pokok + tunj. makan & transport + tunj. kinerja ÷ ${cfg.pembagi} (bisa diubah di Pengaturan). Tunjangan kehadiran dibayar penuh jika hadir tepat waktu minimal ${cfg.kehadiranMin} hari. Biaya admin & payroll diatur sekali di Pengaturan.</p>
       <p class="hint">Lokasi tanpa jadwal tetap (${esc(list(cfg.tanpaJadwal).join(", ") || "tidak ada")}) boleh bergaji pokok 0; pendapatannya dari order home cleaning.</p></div>`;
     el.innerHTML = lockBanner() + h;
     bindEdits(el); kunciForm(el);
@@ -26,6 +26,7 @@
     const f = (label, key, extra) => `<div class="field"><label for="c-${key}">${label}</label><input type="number" id="c-${key}" data-cfg="${key}" value="${cfg[key]}" min="0" ${extra || ""}></div>`;
     const t = (label, key, ph) => `<div class="field"><label for="c-${key}">${label}</label><input type="text" id="c-${key}" data-cfg="${key}" value="${esc(cfg[key])}" placeholder="${esc(ph || "")}"></div>`;
     const chk = (k, l) => `<label class="row" style="gap:6px"><input type="checkbox" data-dasar="${k}"${cfg.dasarHarian[k] ? " checked" : ""}> ${l}</label>`;
+    const chkG = (k, l) => `<label class="row" style="gap:6px"><input type="checkbox" data-ganti="${k}"${cfg.dasarGanti[k] ? " checked" : ""}> ${l}</label>`;
     let h = '<div class="stack">';
     h += `<div class="panel stack"><div><h2>Identitas di slip gaji</h2><p class="sub">Nama perusahaan kosong = diambil dari file Kolabo.</p></div><div class="grid">
       ${t("Nama perusahaan", "perusahaan", perusahaanFile || "Nama perusahaan")}${t("Alamat / keterangan", "alamat", "")}${t("Judul slip", "judulSlip", "Financial Detail Report")}
@@ -35,13 +36,17 @@
         <span class="hint">PNG dengan latar transparan paling rapi. Logo muncul di aplikasi, slip, dan laporan.</span></div>
       <div class="field" style="max-width:520px"><label for="c-pw">Password PDF slip per pegawai</label><select id="c-pw" data-cfgsel="slipPassword">
         <option value="none"${cfg.slipPassword !== "nip" ? " selected" : ""}>Tanpa password</option><option value="nip"${cfg.slipPassword === "nip" ? " selected" : ""}>Password = NIP tanpa spasi (misal SQUAD021)</option></select>
-        <span class="hint">Berlaku untuk PDF per pegawai dan isi ZIP. PDF gabungan untuk HR/keuangan tetap tanpa password.</span></div></div>`;
+        <span class="hint">Berlaku untuk PDF per pegawai dan isi ZIP. PDF gabungan untuk HR/keuangan tetap tanpa password.</span></div>
+      <div class="field" style="max-width:520px"><label for="c-slipPinLuar">PIN slip pegawai di luar Kolabo</label><input type="text" id="c-slipPinLuar" data-cfg="slipPinLuar" value="${esc(cfg.slipPinLuar || "")}" placeholder="kosong = tanpa password" autocomplete="off">
+        <span class="hint">Pegawai yang tidak terdaftar di Kolabo tidak punya NIP. Kosongkan agar slipnya tidak dikunci, atau isi satu PIN yang sama untuk mereka.</span></div></div>`;
     h += `<div class="panel stack"><div><h2>Cara menghitung gaji</h2></div>
       <div class="field"><label for="c-metode">Metode untuk hari tidak masuk</label><select id="c-metode" data-cfgsel="metodeGaji">
         <option value="potong"${cfg.metodeGaji === "potong" ? " selected" : ""}>Gaji penuh, dipotong per hari tanpa keterangan / izin (seperti slip sekarang)</option>
         <option value="prorata"${cfg.metodeGaji === "prorata" ? " selected" : ""}>Prorata: komponen tetap × hari dibayar ÷ hari terjadwal</option></select>
         <span class="hint">Hari dibayar = hadir + sakit + cuti. Pegawai yang belum aktif sebulan penuh atau berhenti di tengah bulan selalu prorata: hari aktif ÷ ${cfg.pembagi} (isi tanggalnya di Input Gaji). Tunjangan kehadiran untuk mereka juga prorata, begitu juga syarat harinya.</span></div>
-      <div class="field"><label>Gaji harian = jumlah komponen ini ÷ ${cfg.pembagi} (dipakai untuk potongan per hari, prorata, upah backup, dan insentif mengganti)</label><div class="row">${chk("gaji", "Gaji pokok")}${chk("tunjMT", "Tunj. makan & transport")}${chk("tunjKin", "Tunj. kinerja")}${chk("tunjAbs", "Tunj. kehadiran")}</div></div>
+      <div class="field"><label>Potongan per hari tidak masuk = jumlah komponen ini ÷ ${cfg.pembagi}</label><div class="row">${chk("gaji", "Gaji pokok")}${chk("tunjMT", "Tunj. makan & transport")}${chk("tunjKin", "Tunj. kinerja")}${chk("tunjAbs", "Tunj. kehadiran")}</div></div>
+      <div class="field"><label>Upah mengganti 1 hari (backup, extend, masuk hari off) = jumlah komponen ini ÷ ${cfg.pembagi}, dari tarif lokasi & posisi yang digantikan</label><div class="row">${chkG("gaji", "Gaji pokok")}${chkG("tunjMT", "Tunj. makan & transport")}${chkG("tunjKin", "Tunj. kinerja")}${chkG("tunjAbs", "Tunj. kehadiran")}</div>
+        <span class="hint">Extend dan masuk hari off tanpa catatan backup memakai tarif posisi lapangan (terendah) di lokasi itu. Catat di tab Backup jika yang digantikan posisi lain (misal PIC).</span></div>
       <div class="grid">${f("Ambang telat (menit)", "telatAmbang")}${f("Potongan per kejadian telat (Rp)", "telatNominal", 'step="1000"')}${f("Pembagi hari kerja", "pembagi")}
       ${f("Tarif lembur bawaan (Rp / jam)", "tarifLembur", 'step="1000"')}${f("Potongan pulang cepat (Rp / menit)", "pulangPerMenit")}${f("Tunjangan kehadiran: minimal hari tepat waktu", "kehadiranMin")}${f("Deteksi extend shift: toleransi (menit)", "extendTol")}
       ${f("Toleransi telat (menit)", "tolTelat")}${f("Toleransi pulang cepat (menit)", "tolPulang")}${f("Lembur minimal (menit)", "lemburMin")}${f("Pembulatan lembur (menit)", "lemburBulat")}</div></div>`;
@@ -127,6 +132,7 @@
     root.querySelectorAll("[data-cfg]").forEach((inp) => inp.addEventListener("change", () => { cfg[inp.dataset.cfg] = inp.type === "number" ? (+inp.value || 0) : inp.value; afterEdit(false); }));
     root.querySelectorAll("[data-cfgsel]").forEach((inp) => inp.addEventListener("change", () => { cfg[inp.dataset.cfgsel] = inp.value; afterEdit(false); }));
     root.querySelectorAll("[data-bpjs]").forEach((inp) => inp.addEventListener("change", () => { cfg.bpjs[inp.dataset.bpjs] = +inp.value || 0; afterEdit(true); }));
+    root.querySelectorAll("[data-ganti]").forEach((inp) => inp.addEventListener("change", () => { cfg.dasarGanti[inp.dataset.ganti] = inp.checked; afterEdit(false); }));
     root.querySelectorAll("[data-dasar]").forEach((inp) => inp.addEventListener("change", () => { cfg.dasarHarian[inp.dataset.dasar] = inp.checked; afterEdit(false); }));
     root.querySelectorAll("[data-add]").forEach((b) => b.addEventListener("click", () => { cfg[b.dataset.add].push(NEW_ROW[b.dataset.add]()); afterEdit(true); }));
     root.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => { cfg[b.dataset.del].splice(+b.dataset.i, 1); afterEdit(true); }));
@@ -150,7 +156,7 @@
       setSaved("Unduhan gagal: " + (e.message || e.code || e));
     }
   }
-  const pwSlip = (r) => cfg.slipPassword === "nip" && r.NIP && r.NIP !== "0" ? r.NIP.replace(/\s+/g, "") : "";
+  const pwSlip = (r) => r.Luar || r.Manual ? String(cfg.slipPinLuar || "").trim() : cfg.slipPassword === "nip" && r.NIP && r.NIP !== "0" ? r.NIP.replace(/\s+/g, "") : "";
   function buatPDF(list, pw) {
     if (!window.jspdf) throw new Error("Pembuat PDF belum termuat. Periksa koneksi lalu muat ulang halaman.");
     const o = { unit: "mm", format: "a4" };

@@ -39,6 +39,7 @@
       kehadiranMin: 25, extendTol: 60, biayaAdmin: 30000, biayaTransfer: 2500, bankPerusahaan: "",
       bpjs: { umk: 0, kesPekerja: 1, kesPerusahaan: 4, jhtPekerja: 2, jhtPerusahaan: 3.7, jpPekerja: 1, jpPerusahaan: 2, jkk: 0.24, jkm: 0.3 },
       dasarHarian: { gaji: true, tunjMT: true, tunjKin: false, tunjAbs: false },
+      dasarGanti: { gaji: true, tunjMT: true, tunjKin: true, tunjAbs: false }, slipPinLuar: "",
       tarif: SEED_TARIF.map(([c, p]) => Object.assign({ cabang: c, posisi: p }, TARIF_KOSONG)),
       lembur: [], adj: {}, pegawai: {}, bulanan: {},
       perusahaan: "", alamat: "", kota: "Makassar", ttdNama: "Joshua L.H Purba", ttdJabatan: "Direktur Operasional",

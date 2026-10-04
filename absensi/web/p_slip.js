@@ -1,6 +1,7 @@
 
   // ---------- tab Slip Gaji ----------
   let slipCabang = "", slipCari = "";
+  const penempatan = (r) => r.Luar || r.Manual ? "" : r.Cabang;
   function attItems(r) {
     return [["Hari kerja", r.Terjadwal], ["Hadir", r.Hadir], ["Off day", r.Off], ["Tanpa keterangan", r.Absen, r.Absen > 0], ["Izin", r.Izin],
       ["Sakit", r.Sakit], ["Tidak check-in", r.TidakCI], ["Tidak check-out", r.TidakCO, r.TidakCO > 0], ["Terlambat", r.TelatKenaKali + "×", r.TelatKenaKali > 0], ["Mengganti", r.Mengganti + "×"]];
@@ -24,7 +25,7 @@
         <div class="row between"><div class="muted">${esc(cfg.judulSlip)} · ${esc(POSISI_LABEL[r.Posisi] || r.Posisi)}</div><span class="conf">Rahasia · hanya untuk penerima</span></div>
         <dl class="id">
           <div><dt>Nama</dt><dd>${esc(r.Nama)}</dd></div><div><dt>NIP</dt><dd>${esc(r.NIP || "-")}</dd></div>
-          <div><dt>Jabatan</dt><dd>${esc(r.Jabatan)}</dd></div><div><dt>Penempatan</dt><dd>${esc(r.Cabang)}</dd></div>
+          <div><dt>Jabatan</dt><dd>${esc(r.Jabatan)}</dd></div><div><dt>Penempatan</dt><dd>${esc(penempatan(r)) || "&nbsp;"}</dd></div>
           <div><dt>Status</dt><dd>${esc(r.StatusKerja || "-")}</dd></div><div><dt>Performance</dt><dd>${esc(s.M.performance || "-")}</dd></div>
         </dl>
         <div class="att">${attItems(r).map((a) => `<div class="${a[2] ? "bad" : ""}"><b>${a[1]}</b><span>${a[0]}</span></div>`).join("")}</div>
@@ -90,7 +91,7 @@
     doc.setFontSize(7.5); doc.text(terkunci() ? "RAHASIA" : "DRAFT · RAHASIA", X1, 27.5, { align: "right" });
     let y = 40;
     // identitas
-    const idf = [["Nama", r.Nama, "NIP", r.NIP || "-"], ["Jabatan", r.Jabatan, "Penempatan", r.Cabang], ["Status", r.StatusKerja || "-", "Performance", s.M.performance || "-"]];
+    const idf = [["Nama", r.Nama, "NIP", r.NIP || "-"], ["Jabatan", r.Jabatan, "Penempatan", penempatan(r) || " "], ["Status", r.StatusKerja || "-", "Performance", s.M.performance || "-"]];
     doc.setFontSize(9.5);
     idf.forEach((p) => {
       doc.setTextColor(...MUTED); doc.text(p[0], X0, y); doc.text(p[2], 107, y);
